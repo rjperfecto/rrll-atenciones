@@ -1,38 +1,38 @@
 import type { Atencion } from '@/types'
+import { semanaIso } from './semana'
 
 // CSV en vez de una librería de .xlsx: evita dependencias con vulnerabilidades
 // sin parche (ver historial del proyecto) y Excel abre .csv sin problema.
 // El BOM al inicio asegura que Excel muestre bien las tildes/ñ.
+// Orden y nombres de columnas replican exactamente el Excel objetivo
+// "ATENCIONES NUEVO.xlsx" (hoja ZONA 2).
 
 const COLUMNAS = [
   'FECHA',
-  'FECHA CIERRE',
-  'ZONA',
-  'FUNDO',
-  'MODULO',
+  'SEMANA',
   'GRUPO',
-  'AREA',
   'TIPO',
   'CATEGORIA',
   'SUBCATEGORIA',
-  'FALTA',
   'GRAVEDAD',
-  'DNI',
   'LEGAJO',
-  'INVOLUCRADO',
-  'CANTIDAD INVOLUCRADOS',
+  'DNI',
+  'NOMBRE',
   'AFILIADO',
-  'ESTADO',
-  'ACCION CORRECTIVA',
-  'DIAS SUSPENSION',
+  'ZONA',
+  'FUNDO',
+  'MODULO',
   'SUP. CUADRILLA',
-  'SUP. RRLL',
-  'REPORTE',
+  'FALTA',
+  'ACCION CORRECTIVA',
   'ANTECEDENTE',
-  'NOTAS DE SEGUIMIENTO',
-  'COMENTARIOS',
-  'DETALLE DEL CIERRE',
+  'COMENTARIO',
+  'FECHA CIERRE',
+  'ESTADO',
+  'ÁREA',
+  'REPORTE',
   'RESPONSABLE RRLL',
+  'SUP. RRLL',
 ] as const
 
 function csvEscape(value: string): string {
@@ -52,33 +52,30 @@ export function exportarAtencionesCsv(atenciones: Atencion[]) {
     const involucrado = a.involucrados[0]
     const fila: Record<(typeof COLUMNAS)[number], string> = {
       FECHA: a.fecha,
-      'FECHA CIERRE': a.fecha_cierre ?? '',
-      ZONA: a.zona,
-      FUNDO: a.fundo ?? '',
-      MODULO: a.modulo ?? '',
+      SEMANA: String(semanaIso(a.fecha)),
       GRUPO: a.grupo ?? '',
-      AREA: a.area ?? '',
       TIPO: a.tipo,
       CATEGORIA: a.categoria,
       SUBCATEGORIA: a.subcategoria,
-      FALTA: a.falta ?? '',
       GRAVEDAD: a.gravedad,
-      DNI: involucrado?.dni ?? '',
       LEGAJO: involucrado?.legajo ?? '',
-      INVOLUCRADO: involucrado?.nombre_completo ?? '',
-      'CANTIDAD INVOLUCRADOS': String(a.cantidad_involucrados),
+      DNI: involucrado?.dni ?? '',
+      NOMBRE: involucrado?.nombre_completo ?? '',
       AFILIADO: afiliadoTexto(involucrado?.es_afiliado ?? null),
-      ESTADO: a.estado,
-      'ACCION CORRECTIVA': a.accion_correctiva ?? '',
-      'DIAS SUSPENSION': a.dias_suspension != null ? String(a.dias_suspension) : '',
+      ZONA: a.zona,
+      FUNDO: a.fundo ?? '',
+      MODULO: a.modulo ?? '',
       'SUP. CUADRILLA': a.sup_cuadrilla ?? '',
-      'SUP. RRLL': a.sup_rrll ?? '',
-      REPORTE: a.reporte ?? '',
+      FALTA: a.falta ?? '',
+      'ACCION CORRECTIVA': a.accion_correctiva ?? '',
       ANTECEDENTE: a.antecedente ?? '',
-      'NOTAS DE SEGUIMIENTO': a.notas_seguimiento ?? '',
-      COMENTARIOS: a.comentarios ?? '',
-      'DETALLE DEL CIERRE': a.detalle_cierre ?? '',
+      COMENTARIO: a.comentarios ?? '',
+      'FECHA CIERRE': a.fecha_cierre ?? '',
+      ESTADO: a.estado,
+      ÁREA: a.area ?? '',
+      REPORTE: a.reporte ?? '',
       'RESPONSABLE RRLL': a.responsable_nombre,
+      'SUP. RRLL': a.sup_rrll ?? '',
     }
     return fila
   })

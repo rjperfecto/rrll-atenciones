@@ -4,9 +4,11 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { atencionSchema, type AtencionFormValues } from './atencionSchema'
 import { TIPOS, categoriasPorTipo, subcategoriasPorCategoria, gravedadDe } from '@/data/categorizacion'
-import { ZONAS, FUNDOS } from '@/data/zonasFundos'
+import { ZONAS } from '@/data/zonasFundos'
 import { AREAS } from '@/data/areas'
-import { ACCIONES_CORRECTIVAS, requiereDias } from '@/data/accionCorrectiva'
+import { dniDesdeLegajo } from '@/data/legajo'
+import { supRrllPorZona } from '@/data/supervisoresRrll'
+import { moduloDesdeFundo } from '@/lib/modulo'
 import { db } from '@/lib/db'
 import { pushPending } from '@/lib/sync'
 import { useAuth } from '@/features/auth/AuthContext'
@@ -32,7 +34,6 @@ export function AtencionForm() {
     resolver: zodResolver(atencionSchema),
     defaultValues: {
       fecha: new Date().toISOString().slice(0, 10),
-      cantidadInvolucrados: 1,
       esAfiliado: 'NO_ESPECIFICA',
     },
   })
@@ -40,7 +41,8 @@ export function AtencionForm() {
   const tipo = watch('tipo')
   const categoria = watch('categoria')
   const subcategoria = watch('subcategoria')
-  const accionCorrectiva = watch('accionCorrectiva')
+  const zona = watch('zona')
+  const fundo = watch('fundo')
 
   const categorias = useMemo(() => (tipo ? categoriasPorTipo(tipo) : []), [tipo])
   const subcategorias = useMemo(
@@ -51,6 +53,8 @@ export function AtencionForm() {
     () => (tipo && categoria && subcategoria ? gravedadDe(tipo, categoria, subcategoria) : undefined),
     [tipo, categoria, subcategoria],
   )
+  const modulo = useMemo(() => (fundo ? moduloDesdeFundo(fundo) : null), [fundo])
+  const supRrll = useMemo(() => (zona ? supRrllPorZona(zona) : null), [zona])
 
   async function onSubmit(values: AtencionFormValues) {
     if (!profile) return
@@ -65,7 +69,7 @@ export function AtencionForm() {
       fecha_cierre: null,
       zona: values.zona,
       fundo: values.fundo || null,
-      modulo: values.modulo || null,
+      modulo: values.fundo ? moduloDesdeFundo(values.fundo) : null,
       grupo: values.grupo || null,
       area: values.area || null,
       tipo: values.tipo,
@@ -76,21 +80,20 @@ export function AtencionForm() {
       comentarios: values.comentarios || null,
       involucrados: [
         {
-          dni: values.dni || '',
-          legajo: values.legajo || null,
+          legajo: values.legajo,
+          dni: dniDesdeLegajo(values.legajo),
           nombre_completo: values.nombreInvolucrado,
           es_afiliado: values.esAfiliado === 'NO_ESPECIFICA' ? null : values.esAfiliado === 'SI',
         },
       ],
-      cantidad_involucrados: values.cantidadInvolucrados,
       estado: 'ABIERTO',
-      accion_correctiva: values.accionCorrectiva || null,
-      dias_suspension: values.accionCorrectiva === 'SUSPENSIÓN' ? (values.diasSuspension ?? null) : null,
+      accion_correctiva: null,
+      dias_suspension: null,
       detalle_cierre: null,
       sup_cuadrilla: values.supCuadrilla || null,
       responsable_id: profile.id,
       responsable_nombre: profile.nombre_completo,
-      sup_rrll: values.supRrll || null,
+      sup_rrll: supRrllPorZona(values.zona),
       reporte: values.reporte || null,
       antecedente: values.antecedente || null,
       notas_seguimiento: values.notasSeguimiento || null,
@@ -103,7 +106,6 @@ export function AtencionForm() {
     setSavedMsg(navigator.onLine ? 'Guardado. Sincronizando...' : 'Guardado localmente. Se sincronizará cuando haya conexión.')
     reset({
       fecha: values.fecha,
-      cantidadInvolucrados: 1,
       esAfiliado: 'NO_ESPECIFICA',
       zona: values.zona,
       fundo: values.fundo,
@@ -140,24 +142,15 @@ export function AtencionForm() {
             ))}
           </select>
           {errors.zona && <p className="field-error">{errors.zona.message}</p>}
+          {supRrll && <p className="text-xs text-neutral-500 mt-1">Sup. RRLL: {supRrll}</p>}
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-neutral-700 mb-1">Fundo</label>
-          <select {...register('fundo')} className="input">
-            <option value="">Selecciona...</option>
-            {FUNDOS.map((f) => (
-              <option key={f} value={f}>
-                {f}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-neutral-700 mb-1">Módulo</label>
-          <input type="text" {...register('modulo')} placeholder="ej. B, K" className="input" />
+          <input type="text" {...register('fundo')} placeholder="ej. REM 2-W" className="input" />
+          {modulo && <p className="text-xs text-neutral-500 mt-1">Módulo detectado: {modulo}</p>}
         </div>
         <div>
           <label className="block text-sm font-medium text-neutral-700 mb-1">Grupo / cuadrilla</label>
@@ -249,85 +242,30 @@ export function AtencionForm() {
 
       <fieldset className="border border-neutral-200 rounded-lg p-4 space-y-4">
         <legend className="text-sm font-medium text-neutral-700 px-1">Trabajador involucrado</legend>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1">DNI</label>
-            <input type="text" inputMode="numeric" maxLength={8} {...register('dni')} className="input" />
-            {errors.dni && <p className="field-error">{errors.dni.message}</p>}
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1">Legajo</label>
-            <input type="text" {...register('legajo')} className="input" />
-          </div>
+        <div>
+          <label className="block text-sm font-medium text-neutral-700 mb-1">Legajo</label>
+          <input type="text" inputMode="numeric" maxLength={10} {...register('legajo')} className="input" />
+          {errors.legajo && <p className="field-error">{errors.legajo.message}</p>}
         </div>
         <div>
           <label className="block text-sm font-medium text-neutral-700 mb-1">Nombre completo</label>
           <input type="text" {...register('nombreInvolucrado')} className="input" />
           {errors.nombreInvolucrado && <p className="field-error">{errors.nombreInvolucrado.message}</p>}
         </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1">Cantidad de involucrados</label>
-            <input
-              type="number"
-              min={1}
-              {...register('cantidadInvolucrados', { valueAsNumber: true })}
-              className="input"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1">¿Afiliado sindical?</label>
-            <select {...register('esAfiliado')} className="input">
-              <option value="NO_ESPECIFICA">No especifica</option>
-              <option value="SI">Sí</option>
-              <option value="NO">No</option>
-            </select>
-          </div>
+        <div>
+          <label className="block text-sm font-medium text-neutral-700 mb-1">¿Afiliado sindical?</label>
+          <select {...register('esAfiliado')} className="input">
+            <option value="NO_ESPECIFICA">No especifica</option>
+            <option value="SI">Sí</option>
+            <option value="NO">No</option>
+          </select>
         </div>
       </fieldset>
 
-      <fieldset className="border border-neutral-200 rounded-lg p-4 space-y-4">
-        <legend className="text-sm font-medium text-neutral-700 px-1">Supervisión</legend>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1">Sup. cuadrilla</label>
-            <input type="text" {...register('supCuadrilla')} className="input" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1">Sup. RRLL</label>
-            <input type="text" {...register('supRrll')} className="input" />
-          </div>
-        </div>
-      </fieldset>
-
-      <fieldset className="border border-neutral-200 rounded-lg p-4 space-y-4">
-        <legend className="text-sm font-medium text-neutral-700 px-1">Acción correctiva</legend>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1">Acción</label>
-            <select {...register('accionCorrectiva')} className="input">
-              <option value="">Selecciona...</option>
-              {ACCIONES_CORRECTIVAS.map((a) => (
-                <option key={a} value={a}>
-                  {a}
-                </option>
-              ))}
-            </select>
-          </div>
-          {requiereDias(accionCorrectiva || '') && (
-            <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-1">Días de suspensión</label>
-              <input
-                type="number"
-                min={1}
-                {...register('diasSuspension', { valueAsNumber: true })}
-                className="input"
-              />
-              {errors.diasSuspension && <p className="field-error">{errors.diasSuspension.message}</p>}
-            </div>
-          )}
-        </div>
-      </fieldset>
+      <div>
+        <label className="block text-sm font-medium text-neutral-700 mb-1">Sup. cuadrilla</label>
+        <input type="text" {...register('supCuadrilla')} className="input" />
+      </div>
 
       <fieldset className="border border-neutral-200 rounded-lg p-4 space-y-4">
         <legend className="text-sm font-medium text-neutral-700 px-1">Seguimiento (opcional)</legend>

@@ -39,4 +39,11 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  server: {
+    // Evita que Vite intente vigilar archivos de datos (Excel/CSV) sueltos en la
+    // carpeta del proyecto, que pueden estar abiertos/bloqueados por otro programa.
+    watch: {
+      ignored: ['**/*.xlsx', '**/*.xls', '**/*.csv'],
+    },
+  },
 })

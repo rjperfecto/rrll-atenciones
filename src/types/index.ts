@@ -11,8 +11,8 @@ export interface Profile {
 }
 
 export interface Involucrado {
-  dni: string
-  legajo: string | null
+  legajo: string
+  dni: string // derivado del legajo (ver src/data/legajo.ts), no se ingresa directo
   nombre_completo: string
   es_afiliado: boolean | null
 }
@@ -34,7 +34,6 @@ export interface Atencion {
   falta: string | null
   comentarios: string | null
   involucrados: Involucrado[]
-  cantidad_involucrados: number
   estado: Estado
   accion_correctiva: string | null
   dias_suspension: number | null

@@ -17,6 +17,7 @@ dev-dist
 # Datos reales de trabajadores (nombres, DNI) - nunca a un repo público
 *.xlsx
 *.xls
+*.csv
 
 # Editor directories and files
 .vscode/*

@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '@/lib/db'
-import { pushPending } from '@/lib/sync'
 import { exportarAtencionesCsv } from '@/lib/exportCsv'
 import { useAuth } from '@/features/auth/AuthContext'
+import { CerrarCasoModal } from './CerrarCasoModal'
 import type { Atencion } from '@/types'
 
 const gravedadColor: Record<string, string> = {
@@ -20,28 +20,13 @@ const estadoColor: Record<string, string> = {
 
 export function AtencionList() {
   const { profile } = useAuth()
-  const [cerrando, setCerrando] = useState<string | null>(null)
-  const [detalle, setDetalle] = useState('')
+  const [cerrando, setCerrando] = useState<Atencion | null>(null)
 
   const atenciones = useLiveQuery(async () => {
     const all = await db.atenciones.orderBy('fecha').reverse().toArray()
     if (!profile) return []
     return profile.rol === 'ADMIN' ? all : all.filter((a) => a.responsable_id === profile.id)
   }, [profile])
-
-  async function cerrarCaso(a: Atencion) {
-    const now = new Date().toISOString()
-    await db.atenciones.update(a.id, {
-      estado: 'CERRADO',
-      detalle_cierre: detalle,
-      fecha_cierre: now.slice(0, 10),
-      updated_at: now,
-      synced: false,
-    })
-    setCerrando(null)
-    setDetalle('')
-    void pushPending()
-  }
 
   if (!atenciones) return <p className="text-sm text-neutral-500">Cargando...</p>
 
@@ -88,12 +73,6 @@ export function AtencionList() {
             {a.involucrados[0]?.legajo && ` · Legajo ${a.involucrados[0].legajo}`}
             {a.area && ` · ${a.area}`}
           </p>
-          {a.accion_correctiva && (
-            <p className="text-sm text-neutral-600 mt-1">
-              Acción: {a.accion_correctiva}
-              {a.dias_suspension ? ` (${a.dias_suspension} día${a.dias_suspension > 1 ? 's' : ''})` : ''}
-            </p>
-          )}
           {a.comentarios && <p className="text-sm text-neutral-500 mt-1">{a.comentarios}</p>}
           <p className="text-xs text-neutral-400 mt-2">
             Responsable: {a.responsable_nombre}
@@ -102,40 +81,22 @@ export function AtencionList() {
 
           {a.estado !== 'CERRADO' && (
             <div className="mt-3">
-              {cerrando === a.id ? (
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="Detalle del cierre"
-                    value={detalle}
-                    onChange={(e) => setDetalle(e.target.value)}
-                    className="input"
-                  />
-                  <button
-                    onClick={() => cerrarCaso(a)}
-                    className="rounded-md bg-brand text-white px-3 py-1 text-sm whitespace-nowrap"
-                  >
-                    Confirmar
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={() => setCerrando(a.id)}
-                  className="text-sm text-brand hover:underline"
-                >
-                  Cerrar caso
-                </button>
-              )}
+              <button onClick={() => setCerrando(a)} className="text-sm text-brand hover:underline">
+                Cerrar caso
+              </button>
             </div>
           )}
           {a.estado === 'CERRADO' && (
             <p className="text-xs text-neutral-500 mt-2 italic">
               Cierre{a.fecha_cierre ? ` (${a.fecha_cierre})` : ''}
-              {a.detalle_cierre ? `: ${a.detalle_cierre}` : ''}
+              {a.accion_correctiva ? `: ${a.accion_correctiva}` : ''}
+              {a.dias_suspension ? ` (${a.dias_suspension} día${a.dias_suspension > 1 ? 's' : ''})` : ''}
+              {a.detalle_cierre ? ` — ${a.detalle_cierre}` : ''}
             </p>
           )}
         </div>
       ))}
+      {cerrando && <CerrarCasoModal atencion={cerrando} onClose={() => setCerrando(null)} />}
     </div>
   )
 }
