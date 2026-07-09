@@ -30,10 +30,12 @@ export function AtencionList() {
   }, [profile])
 
   async function cerrarCaso(a: Atencion) {
+    const now = new Date().toISOString()
     await db.atenciones.update(a.id, {
       estado: 'CERRADO',
       detalle_cierre: detalle,
-      updated_at: new Date().toISOString(),
+      fecha_cierre: now.slice(0, 10),
+      updated_at: now,
       synced: false,
     })
     setCerrando(null)
@@ -79,12 +81,24 @@ export function AtencionList() {
           <p className="text-sm text-neutral-800">
             <span className="font-medium">{a.tipo}</span> · {a.categoria} · {a.subcategoria}
           </p>
+          {a.falta && <p className="text-sm text-neutral-600 mt-1">Falta: {a.falta}</p>}
           <p className="text-sm text-neutral-600 mt-1">
             {a.involucrados[0]?.nombre_completo}
             {a.involucrados[0]?.dni && ` (DNI ${a.involucrados[0].dni})`}
+            {a.involucrados[0]?.legajo && ` · Legajo ${a.involucrados[0].legajo}`}
+            {a.area && ` · ${a.area}`}
           </p>
+          {a.accion_correctiva && (
+            <p className="text-sm text-neutral-600 mt-1">
+              Acción: {a.accion_correctiva}
+              {a.dias_suspension ? ` (${a.dias_suspension} día${a.dias_suspension > 1 ? 's' : ''})` : ''}
+            </p>
+          )}
           {a.comentarios && <p className="text-sm text-neutral-500 mt-1">{a.comentarios}</p>}
-          <p className="text-xs text-neutral-400 mt-2">Responsable: {a.responsable_nombre}</p>
+          <p className="text-xs text-neutral-400 mt-2">
+            Responsable: {a.responsable_nombre}
+            {a.sup_cuadrilla && ` · Sup. cuadrilla: ${a.sup_cuadrilla}`}
+          </p>
 
           {a.estado !== 'CERRADO' && (
             <div className="mt-3">
@@ -114,8 +128,11 @@ export function AtencionList() {
               )}
             </div>
           )}
-          {a.estado === 'CERRADO' && a.detalle_cierre && (
-            <p className="text-xs text-neutral-500 mt-2 italic">Cierre: {a.detalle_cierre}</p>
+          {a.estado === 'CERRADO' && (
+            <p className="text-xs text-neutral-500 mt-2 italic">
+              Cierre{a.fecha_cierre ? ` (${a.fecha_cierre})` : ''}
+              {a.detalle_cierre ? `: ${a.detalle_cierre}` : ''}
+            </p>
           )}
         </div>
       ))}

@@ -5,6 +5,8 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { atencionSchema, type AtencionFormValues } from './atencionSchema'
 import { TIPOS, categoriasPorTipo, subcategoriasPorCategoria, gravedadDe } from '@/data/categorizacion'
 import { ZONAS, FUNDOS } from '@/data/zonasFundos'
+import { AREAS } from '@/data/areas'
+import { ACCIONES_CORRECTIVAS, requiereDias } from '@/data/accionCorrectiva'
 import { db } from '@/lib/db'
 import { pushPending } from '@/lib/sync'
 import { useAuth } from '@/features/auth/AuthContext'
@@ -38,6 +40,7 @@ export function AtencionForm() {
   const tipo = watch('tipo')
   const categoria = watch('categoria')
   const subcategoria = watch('subcategoria')
+  const accionCorrectiva = watch('accionCorrectiva')
 
   const categorias = useMemo(() => (tipo ? categoriasPorTipo(tipo) : []), [tipo])
   const subcategorias = useMemo(
@@ -59,26 +62,38 @@ export function AtencionForm() {
       id: crypto.randomUUID(),
       client_uuid: crypto.randomUUID(),
       fecha: values.fecha,
+      fecha_cierre: null,
       zona: values.zona,
       fundo: values.fundo || null,
+      modulo: values.modulo || null,
       grupo: values.grupo || null,
+      area: values.area || null,
       tipo: values.tipo,
       categoria: values.categoria,
       subcategoria: values.subcategoria,
+      falta: values.falta || null,
       gravedad: gravedadFinal,
       comentarios: values.comentarios || null,
       involucrados: [
         {
           dni: values.dni || '',
+          legajo: values.legajo || null,
           nombre_completo: values.nombreInvolucrado,
           es_afiliado: values.esAfiliado === 'NO_ESPECIFICA' ? null : values.esAfiliado === 'SI',
         },
       ],
       cantidad_involucrados: values.cantidadInvolucrados,
       estado: 'ABIERTO',
+      accion_correctiva: values.accionCorrectiva || null,
+      dias_suspension: values.accionCorrectiva === 'SUSPENSIÓN' ? (values.diasSuspension ?? null) : null,
       detalle_cierre: null,
+      sup_cuadrilla: values.supCuadrilla || null,
       responsable_id: profile.id,
       responsable_nombre: profile.nombre_completo,
+      sup_rrll: values.supRrll || null,
+      reporte: values.reporte || null,
+      antecedente: values.antecedente || null,
+      notas_seguimiento: values.notasSeguimiento || null,
       created_at: now,
       updated_at: now,
       synced: false,
@@ -128,7 +143,7 @@ export function AtencionForm() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-3 gap-4">
         <div>
           <label className="block text-sm font-medium text-neutral-700 mb-1">Fundo</label>
           <select {...register('fundo')} className="input">
@@ -141,9 +156,25 @@ export function AtencionForm() {
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-neutral-700 mb-1">Grupo / cuadrilla</label>
-          <input type="text" {...register('grupo')} placeholder="ej. CH12, MANTENIMIENTO" className="input" />
+          <label className="block text-sm font-medium text-neutral-700 mb-1">Módulo</label>
+          <input type="text" {...register('modulo')} placeholder="ej. B, K" className="input" />
         </div>
+        <div>
+          <label className="block text-sm font-medium text-neutral-700 mb-1">Grupo / cuadrilla</label>
+          <input type="text" {...register('grupo')} placeholder="ej. CH12" className="input" />
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-neutral-700 mb-1">Área / función del trabajador</label>
+        <select {...register('area')} className="input">
+          <option value="">Selecciona...</option>
+          {AREAS.map((a) => (
+            <option key={a} value={a}>
+              {a}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div>
@@ -202,6 +233,11 @@ export function AtencionForm() {
         </div>
       </div>
 
+      <div>
+        <label className="block text-sm font-medium text-neutral-700 mb-1">Falta (detalle específico)</label>
+        <input type="text" {...register('falta')} placeholder="ej. Fruta con defecto" className="input" />
+      </div>
+
       {gravedad && (
         <div className="flex items-center gap-2 text-sm">
           <span className="text-neutral-500">Gravedad (automática):</span>
@@ -220,10 +256,14 @@ export function AtencionForm() {
             {errors.dni && <p className="field-error">{errors.dni.message}</p>}
           </div>
           <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1">Nombre completo</label>
-            <input type="text" {...register('nombreInvolucrado')} className="input" />
-            {errors.nombreInvolucrado && <p className="field-error">{errors.nombreInvolucrado.message}</p>}
+            <label className="block text-sm font-medium text-neutral-700 mb-1">Legajo</label>
+            <input type="text" {...register('legajo')} className="input" />
           </div>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-neutral-700 mb-1">Nombre completo</label>
+          <input type="text" {...register('nombreInvolucrado')} className="input" />
+          {errors.nombreInvolucrado && <p className="field-error">{errors.nombreInvolucrado.message}</p>}
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div>
@@ -243,6 +283,72 @@ export function AtencionForm() {
               <option value="NO">No</option>
             </select>
           </div>
+        </div>
+      </fieldset>
+
+      <fieldset className="border border-neutral-200 rounded-lg p-4 space-y-4">
+        <legend className="text-sm font-medium text-neutral-700 px-1">Supervisión</legend>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-neutral-700 mb-1">Sup. cuadrilla</label>
+            <input type="text" {...register('supCuadrilla')} className="input" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-neutral-700 mb-1">Sup. RRLL</label>
+            <input type="text" {...register('supRrll')} className="input" />
+          </div>
+        </div>
+      </fieldset>
+
+      <fieldset className="border border-neutral-200 rounded-lg p-4 space-y-4">
+        <legend className="text-sm font-medium text-neutral-700 px-1">Acción correctiva</legend>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-neutral-700 mb-1">Acción</label>
+            <select {...register('accionCorrectiva')} className="input">
+              <option value="">Selecciona...</option>
+              {ACCIONES_CORRECTIVAS.map((a) => (
+                <option key={a} value={a}>
+                  {a}
+                </option>
+              ))}
+            </select>
+          </div>
+          {requiereDias(accionCorrectiva || '') && (
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-1">Días de suspensión</label>
+              <input
+                type="number"
+                min={1}
+                {...register('diasSuspension', { valueAsNumber: true })}
+                className="input"
+              />
+              {errors.diasSuspension && <p className="field-error">{errors.diasSuspension.message}</p>}
+            </div>
+          )}
+        </div>
+      </fieldset>
+
+      <fieldset className="border border-neutral-200 rounded-lg p-4 space-y-4">
+        <legend className="text-sm font-medium text-neutral-700 px-1">Seguimiento (opcional)</legend>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-neutral-700 mb-1">Reporte</label>
+            <input type="text" {...register('reporte')} className="input" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-neutral-700 mb-1">Antecedente</label>
+            <input type="text" {...register('antecedente')} className="input" />
+          </div>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-neutral-700 mb-1">Notas de seguimiento</label>
+          <input
+            type="text"
+            {...register('notasSeguimiento')}
+            placeholder="ej. Vacaciones 6-26/04"
+            className="input"
+          />
         </div>
       </fieldset>
 
