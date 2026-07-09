@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '@/lib/db'
 import { pushPending } from '@/lib/sync'
+import { exportarAtencionesCsv } from '@/lib/exportCsv'
 import { useAuth } from '@/features/auth/AuthContext'
 import type { Atencion } from '@/types'
 
@@ -41,12 +42,22 @@ export function AtencionList() {
   }
 
   if (!atenciones) return <p className="text-sm text-neutral-500">Cargando...</p>
-  if (atenciones.length === 0) {
-    return <p className="text-sm text-neutral-500">Todavía no hay atenciones registradas.</p>
-  }
 
   return (
     <div className="space-y-3">
+      {atenciones.length > 0 && (
+        <div className="flex justify-end">
+          <button
+            onClick={() => exportarAtencionesCsv(atenciones)}
+            className="text-sm rounded-md border border-neutral-300 px-3 py-1.5 text-neutral-700 hover:bg-neutral-100"
+          >
+            Exportar a Excel (CSV)
+          </button>
+        </div>
+      )}
+      {atenciones.length === 0 && (
+        <p className="text-sm text-neutral-500">Todavía no hay atenciones registradas.</p>
+      )}
       {atenciones.map((a) => (
         <div key={a.id} className="rounded-lg border border-neutral-200 bg-white p-4 shadow-sm">
           <div className="flex flex-wrap items-center gap-2 mb-2">
