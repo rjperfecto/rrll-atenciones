@@ -20,7 +20,7 @@ const gravedadColor: Record<string, string> = {
   ALTO: 'bg-red-100 text-red-800',
 }
 
-type EstadoBusqueda = 'idle' | 'buscando' | 'encontrado' | 'no_encontrado'
+type EstadoBusqueda = 'idle' | 'buscando' | 'encontrado' | 'no_encontrado' | 'formato_invalido'
 
 export function AtencionForm() {
   const { profile } = useAuth()
@@ -61,12 +61,14 @@ export function AtencionForm() {
   const supRrll = useMemo(() => (zona ? supRrllPorZona(zona) : null), [zona])
 
   async function buscarTrabajador() {
-    if (!LEGAJO_REGEX.test(legajo || '')) {
-      setBusqueda('no_encontrado')
+    const legajoLimpio = (legajo || '').trim()
+    if (legajoLimpio !== legajo) setValue('legajo', legajoLimpio)
+    if (!LEGAJO_REGEX.test(legajoLimpio)) {
+      setBusqueda('formato_invalido')
       return
     }
     setBusqueda('buscando')
-    const trabajador = await db.trabajadores.get(legajo)
+    const trabajador = await db.trabajadores.get(legajoLimpio)
     if (!trabajador) {
       setBusqueda('no_encontrado')
       return
@@ -185,7 +187,14 @@ export function AtencionForm() {
             </p>
           )}
           {busqueda === 'no_encontrado' && (
-            <p className="text-xs text-amber-600 mt-1">No se encontró ese legajo. Completa los datos manualmente.</p>
+            <p className="text-xs text-amber-600 mt-1">
+              Ese legajo no está en los datos de TAREO cargados. Completa los datos manualmente.
+            </p>
+          )}
+          {busqueda === 'formato_invalido' && (
+            <p className="text-xs text-red-600 mt-1">
+              El legajo debe tener 10 dígitos y empezar con "10" (ej. 1012345678).
+            </p>
           )}
         </div>
         <div>
