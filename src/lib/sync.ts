@@ -44,12 +44,13 @@ export async function pullRemotas(responsableId: string, isAdmin: boolean): Prom
 
 export async function pullTrabajadores(): Promise<void> {
   if (!isSupabaseConfigured || !navigator.onLine) return
-  // Supabase/PostgREST devuelve como máximo ~1000 filas por consulta salvo que
-  // se pagine explícitamente con .range(); con miles de trabajadores hay que
-  // traerlos en tandas o se pierden en silencio. Se pide el total real con
-  // count:'exact' en vez de confiar en "vino menos de una tanda" como señal
-  // de fin, por si el límite real del servidor fuera distinto al tamaño de tanda.
-  const tanda = 1000
+  // Supabase/PostgREST tiene un tope de filas por consulta (típicamente 1000,
+  // pero puede ser otro según cómo esté configurado el proyecto). Pedimos el
+  // total real con count:'exact' y avanzamos el cursor según lo que
+  // efectivamente llega en cada tanda (no según lo pedido) — si el tope real
+  // del servidor fuera menor al que asumimos, avanzar por lo pedido saltearía
+  // filas sin que nos diéramos cuenta.
+  const tandaPedida = 1000
   const { count, error: countError } = await supabase
     .from('trabajadores')
     .select('*', { count: 'exact', head: true })
@@ -57,13 +58,17 @@ export async function pullTrabajadores(): Promise<void> {
   const total = count ?? 0
 
   const todos: Trabajador[] = []
-  for (let desde = 0; desde < total; desde += tanda) {
+  let desde = 0
+  while (desde < total) {
     const { data, error } = await supabase
       .from('trabajadores')
       .select('*')
-      .range(desde, desde + tanda - 1)
+      .range(desde, desde + tandaPedida - 1)
     if (error) return
-    todos.push(...((data as Trabajador[]) ?? []))
+    const recibidas = data ?? []
+    if (recibidas.length === 0) break // evita loop infinito si algo no cuadra
+    todos.push(...(recibidas as Trabajador[]))
+    desde += recibidas.length
   }
   await db.trabajadores.clear()
   await db.trabajadores.bulkPut(todos)
