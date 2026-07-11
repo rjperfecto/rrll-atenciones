@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { BrowserRouter, Navigate, NavLink, Route, Routes } from 'react-router-dom'
+import { ClipboardPlus, History, LayoutDashboard, LogOut, Users, Wifi, WifiOff } from 'lucide-react'
 import { AuthProvider, useAuth } from '@/features/auth/AuthContext'
 import { LoginPage } from '@/features/auth/LoginPage'
 import { AtencionForm } from '@/features/atenciones/AtencionForm'
@@ -7,9 +8,13 @@ import { AtencionList } from '@/features/atenciones/AtencionList'
 import { Dashboard } from '@/features/dashboard/Dashboard'
 import { ImportarPersonal } from '@/features/admin/ImportarPersonal'
 import { setupAutoSync, pullRemotas, pullTrabajadoresHistorial } from '@/lib/sync'
+import { cn } from '@/lib/cn'
 
 function navClass({ isActive }: { isActive: boolean }) {
-  return `py-2 border-b-2 ${isActive ? 'border-brand text-brand font-medium' : 'border-transparent text-neutral-500'}`
+  return cn(
+    'flex items-center gap-1.5 px-1 py-2.5 text-sm font-medium border-b-2 whitespace-nowrap transition-colors',
+    isActive ? 'border-brand text-brand' : 'border-transparent text-neutral-500 hover:text-neutral-800',
+  )
 }
 
 function AppLayout() {
@@ -39,36 +44,48 @@ function AppLayout() {
 
   return (
     <div className="min-h-full flex flex-col">
-      <header className="border-b border-neutral-200 bg-white">
-        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div>
-            <h1 className="text-lg font-semibold text-brand">RRLL Atenciones</h1>
-            <p className="text-xs text-neutral-500">{profile.nombre_completo}</p>
+      <header className="sticky top-0 z-20 border-b border-neutral-200 bg-white/95 backdrop-blur">
+        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="text-base sm:text-lg font-semibold text-brand truncate">RRLL Atenciones</h1>
+            <p className="text-xs text-neutral-500 truncate">{profile.nombre_completo}</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <span
-              className={`text-xs px-2 py-1 rounded-full ${online ? 'bg-emerald-100 text-emerald-700' : 'bg-neutral-200 text-neutral-600'}`}
+              className={cn(
+                'inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full font-medium',
+                online ? 'bg-emerald-100 text-emerald-700' : 'bg-neutral-200 text-neutral-600',
+              )}
             >
-              {online ? 'En línea' : 'Sin conexión'}
+              {online ? <Wifi className="size-3" /> : <WifiOff className="size-3" />}
+              <span className="hidden sm:inline">{online ? 'En línea' : 'Sin conexión'}</span>
             </span>
-            <button onClick={signOut} className="text-sm text-neutral-500 hover:text-neutral-800">
-              Salir
+            <button
+              onClick={signOut}
+              className="flex items-center gap-1 text-sm text-neutral-500 hover:text-neutral-800"
+            >
+              <LogOut className="size-4" />
+              <span className="hidden sm:inline">Salir</span>
             </button>
           </div>
         </div>
-        <nav className="max-w-4xl mx-auto px-4 flex gap-4 text-sm">
+        <nav className="max-w-4xl mx-auto px-4 flex gap-5 text-sm overflow-x-auto">
           <NavLink to="/" end className={navClass}>
+            <ClipboardPlus className="size-4" />
             Nueva atención
           </NavLink>
           <NavLink to="/historial" className={navClass}>
+            <History className="size-4" />
             Historial
           </NavLink>
           {profile.rol === 'ADMIN' && (
             <>
               <NavLink to="/dashboard" className={navClass}>
+                <LayoutDashboard className="size-4" />
                 Dashboard
               </NavLink>
               <NavLink to="/admin/personal" className={navClass}>
+                <Users className="size-4" />
                 Importar personal
               </NavLink>
             </>

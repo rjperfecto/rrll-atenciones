@@ -1,6 +1,11 @@
 import { useState, type FormEvent } from 'react'
+import { AlertTriangle } from 'lucide-react'
 import { useAuth } from './AuthContext'
 import { isSupabaseConfigured } from '@/lib/supabaseClient'
+import { Card } from '@/components/ui/Card'
+import { Field } from '@/components/ui/Field'
+import { Button } from '@/components/ui/Button'
+import { cn } from '@/lib/cn'
 
 export function LoginPage() {
   const { signIn, signInDemo } = useAuth()
@@ -28,8 +33,11 @@ export function LoginPage() {
         </div>
 
         {!isSupabaseConfigured && (
-          <div className="mb-6 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
-            <p className="font-medium mb-1">Supabase aún no está configurado</p>
+          <Card className="mb-6 border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+            <p className="font-medium mb-1 flex items-center gap-1.5">
+              <AlertTriangle className="size-4" />
+              Supabase aún no está configurado
+            </p>
             <p className="mb-3">
               Agrega tus credenciales en <code className="bg-amber-100 px-1 rounded">.env</code> para
               usar login real. Mientras tanto puedes probar la app en modo demo.
@@ -39,48 +47,44 @@ export function LoginPage() {
               placeholder="Tu nombre"
               value={nombreDemo}
               onChange={(e) => setNombreDemo(e.target.value)}
-              className="w-full rounded-md border border-amber-300 px-3 py-2 text-sm mb-2"
+              className="w-full rounded-md border border-amber-300 px-3 py-2 text-sm mb-2 focus:outline-none focus:ring-1 focus:ring-amber-500"
             />
-            <button
+            <Button
               type="button"
               onClick={() => signInDemo(nombreDemo)}
-              className="w-full rounded-md bg-amber-600 text-white py-2 text-sm font-medium hover:bg-amber-700"
+              className="w-full bg-amber-600 hover:bg-amber-700"
             >
               Entrar en modo demo
-            </button>
-          </div>
+            </Button>
+          </Card>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1">Email</label>
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1">Contraseña</label>
-            <input
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
-            />
-          </div>
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-md bg-brand text-white py-2 text-sm font-medium hover:bg-brand-light disabled:opacity-50"
-          >
-            {loading ? 'Ingresando...' : 'Ingresar'}
-          </button>
-        </form>
+        <Card className="p-5">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <Field label="Email">
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="input"
+              />
+            </Field>
+            <Field label="Contraseña">
+              <input
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className={cn('input', error && 'input-error')}
+              />
+            </Field>
+            {error && <p className="text-sm text-red-600">{error}</p>}
+            <Button type="submit" loading={loading} className="w-full">
+              {loading ? 'Ingresando...' : 'Ingresar'}
+            </Button>
+          </form>
+        </Card>
       </div>
     </div>
   )

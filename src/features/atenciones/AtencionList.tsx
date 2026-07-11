@@ -1,26 +1,55 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
+import {
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  Inbox,
+  Search,
+  SearchX,
+  X,
+} from 'lucide-react'
 import { db } from '@/lib/db'
 import { exportarAtencionesCsv } from '@/lib/exportCsv'
 import { useAuth } from '@/features/auth/AuthContext'
 import { CerrarCasoModal } from './CerrarCasoModal'
-import type { Atencion } from '@/types'
+import { ZONAS } from '@/data/zonasFundos'
+import { Card } from '@/components/ui/Card'
+import { Button } from '@/components/ui/Button'
+import { PageHeader } from '@/components/ui/PageHeader'
+import { GravedadBadge, EstadoBadge } from '@/components/ui/Badge'
+import type { Atencion, Estado } from '@/types'
+import type { Gravedad } from '@/data/categorizacion'
 
-const gravedadColor: Record<string, string> = {
-  BAJO: 'bg-emerald-100 text-emerald-800',
-  MEDIO: 'bg-amber-100 text-amber-800',
-  ALTO: 'bg-red-100 text-red-800',
-}
+const PAGE_SIZE = 10
 
-const estadoColor: Record<string, string> = {
-  ABIERTO: 'bg-neutral-100 text-neutral-700',
-  EN_PROCESO: 'bg-blue-100 text-blue-800',
-  CERRADO: 'bg-neutral-200 text-neutral-500',
+const ESTADOS: Estado[] = ['ABIERTO', 'EN_PROCESO', 'CERRADO']
+const GRAVEDADES: Gravedad[] = ['BAJO', 'MEDIO', 'ALTO']
+
+function coincideBusqueda(a: Atencion, texto: string) {
+  if (!texto) return true
+  const q = texto.trim().toLowerCase()
+  const involucrado = a.involucrados[0]
+  return [
+    involucrado?.nombre_completo,
+    involucrado?.dni,
+    involucrado?.legajo,
+    a.fundo,
+    a.grupo,
+    a.subcategoria,
+  ].some((campo) => campo?.toLowerCase().includes(q))
 }
 
 export function AtencionList() {
   const { profile } = useAuth()
   const [cerrando, setCerrando] = useState<Atencion | null>(null)
+  const [busqueda, setBusqueda] = useState('')
+  const [filtroEstado, setFiltroEstado] = useState('')
+  const [filtroGravedad, setFiltroGravedad] = useState('')
+  const [filtroZona, setFiltroZona] = useState('')
+  const [filtroDesde, setFiltroDesde] = useState('')
+  const [filtroHasta, setFiltroHasta] = useState('')
+  const [pagina, setPagina] = useState(1)
 
   const atenciones = useLiveQuery(async () => {
     const all = await db.atenciones.orderBy('fecha').reverse().toArray()
@@ -28,74 +57,230 @@ export function AtencionList() {
     return profile.rol === 'ADMIN' ? all : all.filter((a) => a.responsable_id === profile.id)
   }, [profile])
 
+  const filtradas = useMemo(() => {
+    if (!atenciones) return []
+    return atenciones.filter((a) => {
+      if (filtroEstado && a.estado !== filtroEstado) return false
+      if (filtroGravedad && a.gravedad !== filtroGravedad) return false
+      if (filtroZona && a.zona !== filtroZona) return false
+      if (filtroDesde && a.fecha < filtroDesde) return false
+      if (filtroHasta && a.fecha > filtroHasta) return false
+      if (!coincideBusqueda(a, busqueda)) return false
+      return true
+    })
+  }, [atenciones, filtroEstado, filtroGravedad, filtroZona, filtroDesde, filtroHasta, busqueda])
+
+  const totalPaginas = Math.max(1, Math.ceil(filtradas.length / PAGE_SIZE))
+  const paginaActual = Math.min(pagina, totalPaginas)
+  const visibles = filtradas.slice((paginaActual - 1) * PAGE_SIZE, paginaActual * PAGE_SIZE)
+
+  const hayFiltrosActivos = Boolean(
+    busqueda || filtroEstado || filtroGravedad || filtroZona || filtroDesde || filtroHasta,
+  )
+
+  function limpiarFiltros() {
+    setBusqueda('')
+    setFiltroEstado('')
+    setFiltroGravedad('')
+    setFiltroZona('')
+    setFiltroDesde('')
+    setFiltroHasta('')
+    setPagina(1)
+  }
+
+  function actualizarFiltro(setter: (v: string) => void) {
+    return (v: string) => {
+      setter(v)
+      setPagina(1)
+    }
+  }
+
   if (!atenciones) return <p className="text-sm text-neutral-500">Cargando...</p>
 
   return (
-    <div className="space-y-3">
-      {atenciones.length > 0 && (
-        <div className="flex justify-end">
-          <button
-            onClick={() => exportarAtencionesCsv(atenciones)}
-            className="text-sm rounded-md border border-neutral-300 px-3 py-1.5 text-neutral-700 hover:bg-neutral-100"
-          >
+    <div>
+      <div className="flex items-start justify-between gap-3 flex-wrap mb-4">
+        <PageHeader title="Historial" description={`${filtradas.length} de ${atenciones.length} atenciones`} />
+        {atenciones.length > 0 && (
+          <Button variant="secondary" onClick={() => exportarAtencionesCsv(filtradas)}>
+            <Download className="size-4" />
             Exportar a Excel (CSV)
-          </button>
-        </div>
-      )}
-      {atenciones.length === 0 && (
-        <p className="text-sm text-neutral-500">Todavía no hay atenciones registradas.</p>
-      )}
-      {atenciones.map((a) => (
-        <div key={a.id} className="rounded-lg border border-neutral-200 bg-white p-4 shadow-sm">
-          <div className="flex flex-wrap items-center gap-2 mb-2">
-            <span className="text-sm font-medium text-neutral-900">{a.fecha}</span>
-            <span className="text-xs text-neutral-500">{a.zona}</span>
-            {a.fundo && <span className="text-xs text-neutral-500">· {a.fundo}</span>}
-            <span className={`ml-auto px-2 py-0.5 rounded-full text-xs font-medium ${gravedadColor[a.gravedad]}`}>
-              {a.gravedad}
-            </span>
-            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${estadoColor[a.estado]}`}>
-              {a.estado.replace('_', ' ')}
-            </span>
-            {!a.synced && (
-              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                Pendiente de sincronizar
-              </span>
-            )}
-          </div>
-          <p className="text-sm text-neutral-800">
-            <span className="font-medium">{a.tipo}</span> · {a.categoria} · {a.subcategoria}
-          </p>
-          {a.falta && <p className="text-sm text-neutral-600 mt-1">Falta: {a.falta}</p>}
-          <p className="text-sm text-neutral-600 mt-1">
-            {a.involucrados[0]?.nombre_completo}
-            {a.involucrados[0]?.dni && ` (DNI ${a.involucrados[0].dni})`}
-            {a.involucrados[0]?.legajo && ` · Legajo ${a.involucrados[0].legajo}`}
-            {a.area && ` · ${a.area}`}
-          </p>
-          {a.comentarios && <p className="text-sm text-neutral-500 mt-1">{a.comentarios}</p>}
-          <p className="text-xs text-neutral-400 mt-2">
-            Responsable: {a.responsable_nombre}
-            {a.sup_cuadrilla && ` · Sup. cuadrilla: ${a.sup_cuadrilla}`}
-          </p>
+          </Button>
+        )}
+      </div>
 
-          {a.estado !== 'CERRADO' && (
-            <div className="mt-3">
-              <button onClick={() => setCerrando(a)} className="text-sm text-brand hover:underline">
-                Cerrar caso
+      {atenciones.length === 0 ? (
+        <Card className="p-10 flex flex-col items-center text-center gap-2">
+          <Inbox className="size-10 text-neutral-300" />
+          <p className="text-sm font-medium text-neutral-700">Todavía no hay atenciones registradas</p>
+          <p className="text-sm text-neutral-500">Los casos que registres en "Nueva atención" van a aparecer aquí.</p>
+        </Card>
+      ) : (
+        <>
+          <Card className="p-4 mb-4 space-y-3">
+            <div className="relative">
+              <Search className="size-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={busqueda}
+                onChange={(e) => actualizarFiltro(setBusqueda)(e.target.value)}
+                placeholder="Buscar por nombre, legajo, DNI, fundo o grupo..."
+                className="input pl-9"
+              />
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+              <select
+                value={filtroEstado}
+                onChange={(e) => actualizarFiltro(setFiltroEstado)(e.target.value)}
+                className="input"
+              >
+                <option value="">Todos los estados</option>
+                {ESTADOS.map((e) => (
+                  <option key={e} value={e}>
+                    {e.replace('_', ' ')}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={filtroGravedad}
+                onChange={(e) => actualizarFiltro(setFiltroGravedad)(e.target.value)}
+                className="input"
+              >
+                <option value="">Toda gravedad</option>
+                {GRAVEDADES.map((g) => (
+                  <option key={g} value={g}>
+                    {g}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={filtroZona}
+                onChange={(e) => actualizarFiltro(setFiltroZona)(e.target.value)}
+                className="input"
+              >
+                <option value="">Toda zona</option>
+                {ZONAS.map((z) => (
+                  <option key={z} value={z}>
+                    {z}
+                  </option>
+                ))}
+              </select>
+              <input
+                type="date"
+                value={filtroDesde}
+                onChange={(e) => actualizarFiltro(setFiltroDesde)(e.target.value)}
+                className="input"
+                aria-label="Desde"
+                title="Desde"
+              />
+              <input
+                type="date"
+                value={filtroHasta}
+                onChange={(e) => actualizarFiltro(setFiltroHasta)(e.target.value)}
+                className="input"
+                aria-label="Hasta"
+                title="Hasta"
+              />
+            </div>
+            {hayFiltrosActivos && (
+              <button
+                onClick={limpiarFiltros}
+                className="inline-flex items-center gap-1 text-xs text-neutral-500 hover:text-neutral-800"
+              >
+                <X className="size-3.5" />
+                Limpiar filtros
               </button>
+            )}
+          </Card>
+
+          {filtradas.length === 0 ? (
+            <Card className="p-10 flex flex-col items-center text-center gap-2">
+              <SearchX className="size-10 text-neutral-300" />
+              <p className="text-sm font-medium text-neutral-700">Ningún caso coincide con los filtros</p>
+              <button onClick={limpiarFiltros} className="text-sm text-brand hover:underline">
+                Limpiar filtros
+              </button>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {visibles.map((a) => (
+                <div key={a.id} className="rounded-lg border border-neutral-200 bg-white p-4 shadow-sm">
+                  <div className="flex flex-wrap items-center gap-2 mb-2">
+                    <span className="text-sm font-medium text-neutral-900">{a.fecha}</span>
+                    <span className="text-xs text-neutral-500">{a.zona}</span>
+                    {a.fundo && <span className="text-xs text-neutral-500">· {a.fundo}</span>}
+                    <span className="ml-auto flex items-center gap-2">
+                      <GravedadBadge gravedad={a.gravedad} />
+                      <EstadoBadge estado={a.estado} />
+                    </span>
+                    {!a.synced && (
+                      <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                        Pendiente de sincronizar
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm text-neutral-800">
+                    <span className="font-medium">{a.tipo}</span> · {a.categoria} · {a.subcategoria}
+                  </p>
+                  {a.falta && <p className="text-sm text-neutral-600 mt-1">Falta: {a.falta}</p>}
+                  <p className="text-sm text-neutral-600 mt-1">
+                    {a.involucrados[0]?.nombre_completo}
+                    {a.involucrados[0]?.dni && ` (DNI ${a.involucrados[0].dni})`}
+                    {a.involucrados[0]?.legajo && ` · Legajo ${a.involucrados[0].legajo}`}
+                    {a.area && ` · ${a.area}`}
+                  </p>
+                  {a.comentarios && <p className="text-sm text-neutral-500 mt-1">{a.comentarios}</p>}
+                  <p className="text-xs text-neutral-400 mt-2">
+                    Responsable: {a.responsable_nombre}
+                    {a.sup_cuadrilla && ` · Sup. cuadrilla: ${a.sup_cuadrilla}`}
+                  </p>
+
+                  {a.estado !== 'CERRADO' && (
+                    <div className="mt-3">
+                      <button onClick={() => setCerrando(a)} className="text-sm text-brand hover:underline">
+                        Cerrar caso
+                      </button>
+                    </div>
+                  )}
+                  {a.estado === 'CERRADO' && (
+                    <p className="text-xs text-neutral-500 mt-2 italic">
+                      Cierre{a.fecha_cierre ? ` (${a.fecha_cierre})` : ''}
+                      {a.accion_correctiva ? `: ${a.accion_correctiva}` : ''}
+                      {a.dias_suspension ? ` (${a.dias_suspension} día${a.dias_suspension > 1 ? 's' : ''})` : ''}
+                      {a.detalle_cierre ? ` — ${a.detalle_cierre}` : ''}
+                    </p>
+                  )}
+                </div>
+              ))}
+
+              {totalPaginas > 1 && (
+                <div className="flex items-center justify-between pt-2">
+                  <Button
+                    variant="secondary"
+                    onClick={() => setPagina((p) => Math.max(1, p - 1))}
+                    disabled={paginaActual === 1}
+                  >
+                    <ChevronLeft className="size-4" />
+                    Anterior
+                  </Button>
+                  <span className="text-sm text-neutral-500">
+                    Página {paginaActual} de {totalPaginas}
+                  </span>
+                  <Button
+                    variant="secondary"
+                    onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))}
+                    disabled={paginaActual === totalPaginas}
+                  >
+                    Siguiente
+                    <ChevronRight className="size-4" />
+                  </Button>
+                </div>
+              )}
             </div>
           )}
-          {a.estado === 'CERRADO' && (
-            <p className="text-xs text-neutral-500 mt-2 italic">
-              Cierre{a.fecha_cierre ? ` (${a.fecha_cierre})` : ''}
-              {a.accion_correctiva ? `: ${a.accion_correctiva}` : ''}
-              {a.dias_suspension ? ` (${a.dias_suspension} día${a.dias_suspension > 1 ? 's' : ''})` : ''}
-              {a.detalle_cierre ? ` — ${a.detalle_cierre}` : ''}
-            </p>
-          )}
-        </div>
-      ))}
+        </>
+      )}
+
       {cerrando && <CerrarCasoModal atencion={cerrando} onClose={() => setCerrando(null)} />}
     </div>
   )

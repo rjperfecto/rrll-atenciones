@@ -18,7 +18,12 @@ body {
 
 @layer components {
   .input {
-    @apply w-full rounded-md border border-neutral-300 px-3 py-2 text-sm focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand;
+    @apply w-full rounded-md border border-neutral-300 px-3 py-2 text-sm transition-colors;
+    @apply focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand;
+    @apply disabled:bg-neutral-100 disabled:text-neutral-400;
+  }
+  .input-error {
+    @apply border-red-400 focus:border-red-500 focus:ring-red-500;
   }
   .field-error {
     @apply text-xs text-red-600 mt-1;

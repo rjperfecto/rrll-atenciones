@@ -1,10 +1,14 @@
 import { useState } from 'react'
+import { AlertCircle, CheckCircle2, Upload } from 'lucide-react'
 import { leerFilasXlsx } from './leerXlsx'
 import { mapearEncabezados, indiceColumnaFecha, type CampoTrabajador } from './personalColumnas'
 import { timestampDeCelda, fechaSoloDia } from './parseFecha'
 import { LEGAJO_REGEX, dniDesdeLegajo } from '@/data/legajo'
 import { supabase } from '@/lib/supabaseClient'
 import { pullTrabajadoresHistorial } from '@/lib/sync'
+import { PageHeader } from '@/components/ui/PageHeader'
+import { CardSection, Card } from '@/components/ui/Card'
+import { Button } from '@/components/ui/Button'
 import type { TrabajadorHistorial } from '@/types'
 
 type Resultado = {
@@ -139,61 +143,62 @@ export function ImportarPersonal() {
   }
 
   return (
-    <div className="max-w-xl space-y-5">
-      <div>
-        <h2 className="text-lg font-semibold text-neutral-900">Importar personal (TAREO)</h2>
-        <p className="text-sm text-neutral-500 mt-1">
-          Sube el Excel de TAREO (reporte de auditoría móvil), de uno o varios días. Se guarda un
-          registro por Legajo y Día, para que "Nueva atención" busque el dato del trabajador tal
-          como estaba en la fecha del caso.
-        </p>
-      </div>
+    <div className="max-w-xl">
+      <PageHeader
+        title="Importar personal"
+        description='Sube el Excel de TAREO (reporte de auditoría móvil), de uno o varios días. Se guarda un registro por Legajo y Día, para que "Nueva atención" busque el dato del trabajador tal como estaba en la fecha del caso.'
+      />
 
-      <div>
-        <label className="block text-sm font-medium text-neutral-700 mb-1">Archivo Excel (.xlsx)</label>
-        <input type="file" accept=".xlsx" onChange={onFileSelected} className="input" />
-      </div>
+      <div className="space-y-4">
+        <CardSection title="Archivo" icon={<Upload className="size-4 text-brand" />}>
+          <input type="file" accept=".xlsx" onChange={onFileSelected} className="input" />
+          {procesando && <p className="text-sm text-neutral-500">Procesando archivo...</p>}
+        </CardSection>
 
-      {procesando && <p className="text-sm text-neutral-500">Procesando archivo...</p>}
-      {error && <p className="text-sm text-red-600">{error}</p>}
-      {mensaje && (
-        <div className="rounded-md bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm px-3 py-2">
-          {mensaje}
-        </div>
-      )}
+        {error && (
+          <p className="text-sm text-red-600 flex items-center gap-1.5">
+            <AlertCircle className="size-4 shrink-0" />
+            {error}
+          </p>
+        )}
+        {mensaje && (
+          <div className="rounded-md bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm px-3 py-2 flex items-center gap-2">
+            <CheckCircle2 className="size-4 shrink-0" />
+            {mensaje}
+          </div>
+        )}
 
-      {resultado && resultado.faltaColumnaFecha && (
-        <p className="text-sm text-red-600">
-          No encontré una columna de fecha (ej. "Fecha Hora Tareo") en el archivo — es obligatoria
-          para saber a qué día pertenece cada registro.
-        </p>
-      )}
+        {resultado && resultado.faltaColumnaFecha && (
+          <p className="text-sm text-red-600">
+            No encontré una columna de fecha (ej. "Fecha Hora Tareo") en el archivo — es obligatoria
+            para saber a qué día pertenece cada registro.
+          </p>
+        )}
 
-      {resultado && resultado.columnasFaltantes.length > 0 && (
-        <p className="text-sm text-red-600">
-          Al archivo le faltan columnas obligatorias: {resultado.columnasFaltantes.join(', ')}. Revisa los
-          encabezados del Excel.
-        </p>
-      )}
+        {resultado && resultado.columnasFaltantes.length > 0 && (
+          <p className="text-sm text-red-600">
+            Al archivo le faltan columnas obligatorias: {resultado.columnasFaltantes.join(', ')}. Revisa los
+            encabezados del Excel.
+          </p>
+        )}
 
-      {resultado && resultado.columnasFaltantes.length === 0 && !resultado.faltaColumnaFecha && (
-        <div className="rounded-lg border border-neutral-200 bg-white p-4 space-y-2">
-          <p className="text-sm text-neutral-700">Filas leídas: {resultado.filasLeidas}</p>
-          <p className="text-sm text-neutral-700">Registros (legajo + día) únicos válidos: {resultado.validos.length}</p>
-          {resultado.legajosInvalidos > 0 && (
-            <p className="text-sm text-amber-600">
-              Filas descartadas por legajo o fecha inválidos: {resultado.legajosInvalidos}
+        {resultado && resultado.columnasFaltantes.length === 0 && !resultado.faltaColumnaFecha && (
+          <Card className="p-4 space-y-2">
+            <p className="text-sm text-neutral-700">Filas leídas: {resultado.filasLeidas}</p>
+            <p className="text-sm text-neutral-700">
+              Registros (legajo + día) únicos válidos: {resultado.validos.length}
             </p>
-          )}
-          <button
-            onClick={confirmarCarga}
-            disabled={cargando || resultado.validos.length === 0}
-            className="rounded-md bg-brand text-white px-4 py-2 text-sm font-medium hover:bg-brand-light disabled:opacity-50"
-          >
-            {cargando ? 'Cargando...' : `Confirmar carga (${resultado.validos.length})`}
-          </button>
-        </div>
-      )}
+            {resultado.legajosInvalidos > 0 && (
+              <p className="text-sm text-amber-600">
+                Filas descartadas por legajo o fecha inválidos: {resultado.legajosInvalidos}
+              </p>
+            )}
+            <Button onClick={confirmarCarga} loading={cargando} disabled={resultado.validos.length === 0}>
+              {cargando ? 'Cargando...' : `Confirmar carga (${resultado.validos.length})`}
+            </Button>
+          </Card>
+        )}
+      </div>
     </div>
   )
 }
