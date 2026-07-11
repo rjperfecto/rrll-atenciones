@@ -4,7 +4,6 @@ import { cierreSchema, type CierreFormValues } from './cierreSchema'
 import { ACCIONES_CORRECTIVAS, requiereDias } from '@/data/accionCorrectiva'
 import { db } from '@/lib/db'
 import { pushPending } from '@/lib/sync'
-import { cn } from '@/lib/cn'
 import { Modal } from '@/components/ui/Modal'
 import { Field } from '@/components/ui/Field'
 import { Button } from '@/components/ui/Button'
@@ -18,7 +17,8 @@ export function CerrarCasoModal({ atencion, onClose }: { atencion: Atencion; onC
     formState: { errors, isSubmitting },
   } = useForm<CierreFormValues>({ resolver: zodResolver(cierreSchema), mode: 'onTouched' })
 
-  const accionCorrectiva = watch('accionCorrectiva')
+  const valores = watch()
+  const accionCorrectiva = valores.accionCorrectiva
 
   async function onSubmit(values: CierreFormValues) {
     const now = new Date().toISOString()
@@ -42,8 +42,8 @@ export function CerrarCasoModal({ atencion, onClose }: { atencion: Atencion; onC
       onClose={onClose}
     >
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        <Field label="Acción correctiva" error={errors.accionCorrectiva?.message}>
-          <select {...register('accionCorrectiva')} className={cn('input', errors.accionCorrectiva && 'input-error')}>
+        <Field label="Acción correctiva" value={accionCorrectiva} error={errors.accionCorrectiva?.message}>
+          <select {...register('accionCorrectiva')} className="input">
             <option value="">Selecciona...</option>
             {ACCIONES_CORRECTIVAS.map((a) => (
               <option key={a} value={a}>
@@ -54,17 +54,12 @@ export function CerrarCasoModal({ atencion, onClose }: { atencion: Atencion; onC
         </Field>
 
         {requiereDias(accionCorrectiva || '') && (
-          <Field label="Días de suspensión" error={errors.diasSuspension?.message}>
-            <input
-              type="number"
-              min={1}
-              {...register('diasSuspension', { valueAsNumber: true })}
-              className={cn('input', errors.diasSuspension && 'input-error')}
-            />
+          <Field label="Días de suspensión" value={valores.diasSuspension} error={errors.diasSuspension?.message}>
+            <input type="number" min={1} {...register('diasSuspension', { valueAsNumber: true })} className="input" />
           </Field>
         )}
 
-        <Field label="Detalle del cierre (opcional)">
+        <Field label="Detalle del cierre (opcional)" value={valores.detalleCierre}>
           <input type="text" {...register('detalleCierre')} className="input" />
         </Field>
 

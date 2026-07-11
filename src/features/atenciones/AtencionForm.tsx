@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
   AlertCircle,
+  AlertTriangle,
   CalendarDays,
   CheckCircle2,
   FileWarning,
@@ -14,6 +15,7 @@ import {
   UserSearch,
 } from 'lucide-react'
 import { BarcodeScannerModal } from '@/components/ui/BarcodeScannerModal'
+import { estadoDeCampo, CLASE_INPUT_POR_ESTADO } from '@/lib/campoEstado'
 import { atencionSchema, type AtencionFormValues } from './atencionSchema'
 import { TIPOS, categoriasPorTipo, subcategoriasPorCategoria, gravedadDe } from '@/data/categorizacion'
 import { ZONAS } from '@/data/zonasFundos'
@@ -45,6 +47,7 @@ export function AtencionForm() {
     watch,
     reset,
     setValue,
+    trigger,
     formState: { errors, isSubmitting },
   } = useForm<AtencionFormValues>({
     resolver: zodResolver(atencionSchema),
@@ -55,13 +58,8 @@ export function AtencionForm() {
     },
   })
 
-  const legajo = watch('legajo')
-  const fecha = watch('fecha')
-  const tipo = watch('tipo')
-  const categoria = watch('categoria')
-  const subcategoria = watch('subcategoria')
-  const zona = watch('zona')
-  const fundo = watch('fundo')
+  const valores = watch()
+  const { legajo, fecha, tipo, categoria, subcategoria, zona, fundo } = valores
 
   const categorias = useMemo(() => (tipo ? categoriasPorTipo(tipo) : []), [tipo])
   const subcategorias = useMemo(
@@ -74,6 +72,7 @@ export function AtencionForm() {
   )
   const modulo = useMemo(() => (fundo ? moduloDesdeFundo(fundo) : null), [fundo])
   const supRrll = useMemo(() => (zona ? supRrllPorZona(zona) : null), [zona])
+  const estadoLegajo = estadoDeCampo(legajo, errors.legajo?.message)
 
   const buscarPorLegajo = useCallback(
     async (valorLegajo: string) => {
@@ -81,6 +80,7 @@ export function AtencionForm() {
       if (legajoLimpio !== valorLegajo) setValue('legajo', legajoLimpio)
       if (!LEGAJO_REGEX.test(legajoLimpio)) {
         setBusqueda('formato_invalido')
+        void trigger('legajo') // fuerza a mostrar el error aunque el usuario no haya salido del campo
         return
       }
       setBusqueda('buscando')
@@ -105,7 +105,7 @@ export function AtencionForm() {
       if (trabajador.area) setValue('area', trabajador.area)
       setBusqueda('encontrado')
     },
-    [fecha, setValue],
+    [fecha, setValue, trigger],
   )
 
   const onCodigoEscaneado = useCallback(
@@ -196,22 +196,32 @@ export function AtencionForm() {
         )}
 
         <CardSection title="Fecha" icon={<CalendarDays className="size-4 text-brand" />}>
-          <Field label="Fecha del caso" error={errors.fecha?.message}>
-            <input type="date" {...register('fecha')} className={cn('input', errors.fecha && 'input-error')} />
+          <Field label="Fecha del caso" value={fecha} error={errors.fecha?.message}>
+            <input type="date" {...register('fecha')} className="input" />
           </Field>
         </CardSection>
 
         <CardSection title="Trabajador involucrado" icon={<UserSearch className="size-4 text-brand" />}>
-          <Field label="Legajo" error={errors.legajo?.message}>
+          <div>
+            <label className="block text-sm font-medium text-neutral-700 mb-1">Legajo</label>
             <div className="flex gap-2">
-              <input
-                type="text"
-                inputMode="numeric"
-                maxLength={10}
-                placeholder="ej. 1012345678"
-                {...register('legajo', { onChange: () => setBusqueda('idle') })}
-                className={cn('input', errors.legajo && 'input-error')}
-              />
+              <div className="relative flex-1">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={10}
+                  placeholder="ej. 1012345678"
+                  {...register('legajo', { onChange: () => setBusqueda('idle') })}
+                  className={cn('input', CLASE_INPUT_POR_ESTADO[estadoLegajo], estadoLegajo !== 'neutral' && 'pl-9')}
+                />
+                {estadoLegajo !== 'neutral' && (
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                    {estadoLegajo === 'success' && <CheckCircle2 className="size-4 text-success" />}
+                    {estadoLegajo === 'warning' && <AlertTriangle className="size-4 text-warning" />}
+                    {estadoLegajo === 'error' && <AlertCircle className="size-4 text-danger" />}
+                  </span>
+                )}
+              </div>
               <Button
                 type="button"
                 variant="secondary"
@@ -233,6 +243,12 @@ export function AtencionForm() {
                 <span className="hidden sm:inline">Escanear</span>
               </Button>
             </div>
+            {estadoLegajo === 'warning' && errors.legajo && (
+              <p className="text-xs text-warning mt-1">{errors.legajo.message}</p>
+            )}
+            {estadoLegajo === 'error' && errors.legajo && (
+              <p className="text-xs text-danger mt-1">{errors.legajo.message}</p>
+            )}
             {busqueda === 'encontrado' && (
               <p className="text-xs text-emerald-600 mt-1 flex items-center gap-1">
                 <CheckCircle2 className="size-3.5 shrink-0" />
@@ -245,21 +261,10 @@ export function AtencionForm() {
                 No hay datos de TAREO para ese legajo en esa fecha o antes. Completa los datos manualmente.
               </p>
             )}
-            {busqueda === 'formato_invalido' && (
-              <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
-                <AlertCircle className="size-3.5 shrink-0" />
-                El legajo debe tener 10 dígitos y empezar con "10" (ej. 1012345678).
-              </p>
-            )}
-          </Field>
+          </div>
 
-          <Field label="Nombre completo" error={errors.nombreInvolucrado?.message}>
-            <input
-              type="text"
-              placeholder="ej. Juan Pérez López"
-              {...register('nombreInvolucrado')}
-              className={cn('input', errors.nombreInvolucrado && 'input-error')}
-            />
+          <Field label="Nombre completo" value={valores.nombreInvolucrado} error={errors.nombreInvolucrado?.message}>
+            <input type="text" placeholder="ej. Juan Pérez López" {...register('nombreInvolucrado')} className="input" />
           </Field>
 
           <Field label="¿Afiliado sindical?">
@@ -273,8 +278,8 @@ export function AtencionForm() {
 
         <CardSection title="Ubicación" icon={<MapPin className="size-4 text-brand" />}>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="Zona" error={errors.zona?.message} hint={supRrll ? `Sup. RRLL: ${supRrll}` : undefined}>
-              <select {...register('zona')} className={cn('input', errors.zona && 'input-error')}>
+            <Field label="Zona" value={zona} error={errors.zona?.message} hint={supRrll ? `Sup. RRLL: ${supRrll}` : undefined}>
+              <select {...register('zona')} className="input">
                 <option value="">Selecciona...</option>
                 {ZONAS.map((z) => (
                   <option key={z} value={z}>
@@ -283,15 +288,15 @@ export function AtencionForm() {
                 ))}
               </select>
             </Field>
-            <Field label="Fundo" hint={modulo ? `Módulo detectado: ${modulo}` : 'ej. REM 2-W'}>
+            <Field label="Fundo" value={fundo} hint={modulo ? `Módulo detectado: ${modulo}` : 'ej. REM 2-W'}>
               <input type="text" placeholder="ej. REM 2-W" {...register('fundo')} className="input" />
             </Field>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="Grupo / cuadrilla">
+            <Field label="Grupo / cuadrilla" value={valores.grupo}>
               <input type="text" placeholder="ej. CH12" {...register('grupo')} className="input" />
             </Field>
-            <Field label="Área / actividad">
+            <Field label="Área / actividad" value={valores.area}>
               <input
                 type="text"
                 placeholder="ej. Cosecha ARA Granel 3.0 kg"
@@ -300,16 +305,16 @@ export function AtencionForm() {
               />
             </Field>
           </div>
-          <Field label="Sup. cuadrilla">
+          <Field label="Sup. cuadrilla" value={valores.supCuadrilla}>
             <input type="text" {...register('supCuadrilla')} className="input" />
           </Field>
         </CardSection>
 
         <CardSection title="Tipo de atención" icon={<FileWarning className="size-4 text-brand" />}>
-          <Field label="Tipo" error={errors.tipo?.message}>
+          <Field label="Tipo" value={tipo} error={errors.tipo?.message}>
             <select
               {...register('tipo')}
-              className={cn('input', errors.tipo && 'input-error')}
+              className="input"
               onChange={(e) => {
                 setValue('tipo', e.target.value as AtencionFormValues['tipo'])
                 setValue('categoria', '')
@@ -326,11 +331,11 @@ export function AtencionForm() {
           </Field>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="Categoría" error={errors.categoria?.message}>
+            <Field label="Categoría" value={categoria} error={errors.categoria?.message}>
               <select
                 {...register('categoria')}
                 disabled={!tipo}
-                className={cn('input', errors.categoria && 'input-error')}
+                className="input"
                 onChange={(e) => {
                   setValue('categoria', e.target.value)
                   setValue('subcategoria', '')
@@ -344,11 +349,11 @@ export function AtencionForm() {
                 ))}
               </select>
             </Field>
-            <Field label="Subcategoría" error={errors.subcategoria?.message}>
+            <Field label="Subcategoría" value={subcategoria} error={errors.subcategoria?.message}>
               <select
                 {...register('subcategoria')}
                 disabled={!categoria}
-                className={cn('input', errors.subcategoria && 'input-error')}
+                className="input"
               >
                 <option value="">Selecciona...</option>
                 {subcategorias.map((s) => (
@@ -360,7 +365,7 @@ export function AtencionForm() {
             </Field>
           </div>
 
-          <Field label="Falta (detalle específico)">
+          <Field label="Falta (detalle específico)" value={valores.falta}>
             <input type="text" placeholder="ej. Fruta con defecto" {...register('falta')} className="input" />
           </Field>
 
@@ -374,14 +379,14 @@ export function AtencionForm() {
 
         <CardSection title="Seguimiento (opcional)" icon={<StickyNote className="size-4 text-brand" />}>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="Reporte">
+            <Field label="Reporte" value={valores.reporte}>
               <input type="text" {...register('reporte')} className="input" />
             </Field>
-            <Field label="Antecedente">
+            <Field label="Antecedente" value={valores.antecedente}>
               <input type="text" {...register('antecedente')} className="input" />
             </Field>
           </div>
-          <Field label="Notas de seguimiento">
+          <Field label="Notas de seguimiento" value={valores.notasSeguimiento}>
             <input
               type="text"
               placeholder="ej. Vacaciones 6-26/04"
@@ -389,7 +394,7 @@ export function AtencionForm() {
               className="input"
             />
           </Field>
-          <Field label="Comentarios">
+          <Field label="Comentarios" value={valores.comentarios}>
             <textarea rows={3} placeholder="Detalle narrativo del caso..." {...register('comentarios')} className="input" />
           </Field>
         </CardSection>

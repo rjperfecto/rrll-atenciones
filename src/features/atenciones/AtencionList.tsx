@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
+  AlertCircle,
+  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   Download,
@@ -18,6 +20,8 @@ import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { GravedadBadge, EstadoBadge } from '@/components/ui/Badge'
+import { cn } from '@/lib/cn'
+import { estadoDeCampo, CLASE_INPUT_POR_ESTADO } from '@/lib/campoEstado'
 import type { Atencion, Estado } from '@/types'
 import type { Gravedad } from '@/data/categorizacion'
 
@@ -77,6 +81,14 @@ export function AtencionList() {
   const hayFiltrosActivos = Boolean(
     busqueda || filtroEstado || filtroGravedad || filtroZona || filtroDesde || filtroHasta,
   )
+  const rangoFechaInvalido = Boolean(filtroDesde && filtroHasta && filtroDesde > filtroHasta)
+  const mensajeRango = rangoFechaInvalido ? '"Desde" no puede ser posterior a "Hasta"' : undefined
+  const estadoBusqueda = estadoDeCampo(busqueda)
+  const estadoFiltroEstado = estadoDeCampo(filtroEstado)
+  const estadoFiltroGravedad = estadoDeCampo(filtroGravedad)
+  const estadoFiltroZona = estadoDeCampo(filtroZona)
+  const estadoDesde = estadoDeCampo(filtroDesde, mensajeRango)
+  const estadoHasta = estadoDeCampo(filtroHasta, mensajeRango)
 
   function limpiarFiltros() {
     setBusqueda('')
@@ -119,20 +131,24 @@ export function AtencionList() {
         <>
           <Card className="p-4 mb-4 space-y-3">
             <div className="relative">
-              <Search className="size-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              {estadoBusqueda === 'success' ? (
+                <CheckCircle2 className="size-4 text-success absolute left-3 top-1/2 -translate-y-1/2" />
+              ) : (
+                <Search className="size-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              )}
               <input
                 type="text"
                 value={busqueda}
                 onChange={(e) => actualizarFiltro(setBusqueda)(e.target.value)}
                 placeholder="Buscar por nombre, legajo, DNI, fundo o grupo..."
-                className="input pl-9"
+                className={cn('input pl-9', CLASE_INPUT_POR_ESTADO[estadoBusqueda])}
               />
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
               <select
                 value={filtroEstado}
                 onChange={(e) => actualizarFiltro(setFiltroEstado)(e.target.value)}
-                className="input"
+                className={cn('input', CLASE_INPUT_POR_ESTADO[estadoFiltroEstado])}
               >
                 <option value="">Todos los estados</option>
                 {ESTADOS.map((e) => (
@@ -144,7 +160,7 @@ export function AtencionList() {
               <select
                 value={filtroGravedad}
                 onChange={(e) => actualizarFiltro(setFiltroGravedad)(e.target.value)}
-                className="input"
+                className={cn('input', CLASE_INPUT_POR_ESTADO[estadoFiltroGravedad])}
               >
                 <option value="">Toda gravedad</option>
                 {GRAVEDADES.map((g) => (
@@ -156,7 +172,7 @@ export function AtencionList() {
               <select
                 value={filtroZona}
                 onChange={(e) => actualizarFiltro(setFiltroZona)(e.target.value)}
-                className="input"
+                className={cn('input', CLASE_INPUT_POR_ESTADO[estadoFiltroZona])}
               >
                 <option value="">Toda zona</option>
                 {ZONAS.map((z) => (
@@ -169,7 +185,7 @@ export function AtencionList() {
                 type="date"
                 value={filtroDesde}
                 onChange={(e) => actualizarFiltro(setFiltroDesde)(e.target.value)}
-                className="input"
+                className={cn('input', CLASE_INPUT_POR_ESTADO[estadoDesde])}
                 aria-label="Desde"
                 title="Desde"
               />
@@ -177,11 +193,17 @@ export function AtencionList() {
                 type="date"
                 value={filtroHasta}
                 onChange={(e) => actualizarFiltro(setFiltroHasta)(e.target.value)}
-                className="input"
+                className={cn('input', CLASE_INPUT_POR_ESTADO[estadoHasta])}
                 aria-label="Hasta"
                 title="Hasta"
               />
             </div>
+            {rangoFechaInvalido && (
+              <p className="text-xs text-danger flex items-center gap-1">
+                <AlertCircle className="size-3.5 shrink-0" />
+                {mensajeRango}
+              </p>
+            )}
             {hayFiltrosActivos && (
               <button
                 onClick={limpiarFiltros}
@@ -237,7 +259,12 @@ export function AtencionList() {
 
                   {a.estado !== 'CERRADO' && (
                     <div className="mt-3">
-                      <button onClick={() => setCerrando(a)} className="text-sm text-brand hover:underline">
+                      <button
+                        onClick={() => setCerrando(a)}
+                        title="Cerrar caso"
+                        className="inline-flex items-center gap-1.5 text-sm text-brand hover:underline"
+                      >
+                        <CheckCircle2 className="size-4" />
                         Cerrar caso
                       </button>
                     </div>

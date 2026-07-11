@@ -3,6 +3,15 @@
 @theme {
   --color-brand: #166534;
   --color-brand-light: #16a34a;
+
+  /* Tokens semánticos: acentos de estado de campo (no colores principales
+     del diseño). Generan automáticamente bg-success/border-success/etc. */
+  --color-success: #10b981;
+  --color-success-soft: #d1fae5;
+  --color-warning: #f59e0b;
+  --color-warning-soft: #fef3c7;
+  --color-danger: #ef4444;
+  --color-danger-soft: #fee2e2;
 }
 
 html,
@@ -22,10 +31,19 @@ body {
     @apply focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand;
     @apply disabled:bg-neutral-100 disabled:text-neutral-400;
   }
+  /* Estados de validación (ver src/lib/campoEstado.ts): éxito = campo lleno
+     y válido, advertencia = obligatorio vacío (recién tras tocar/enviar),
+     error = formato inválido. Nunca se aplican a un campo virgen. */
+  .input-success {
+    @apply border-success focus:border-success focus:ring-success;
+  }
+  .input-warning {
+    @apply border-warning focus:border-warning focus:ring-warning;
+  }
   .input-error {
-    @apply border-red-400 focus:border-red-500 focus:ring-red-500;
+    @apply border-danger focus:border-danger focus:ring-danger;
   }
   .field-error {
-    @apply text-xs text-red-600 mt-1;
+    @apply text-xs text-danger mt-1;
   }
 }
