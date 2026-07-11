@@ -53,9 +53,12 @@ export function ImportarPersonal() {
       const idxGrupo = idx('grupo')
       const idxSupCuadrilla = idx('sup_cuadrilla')
 
-      // TAREO trae muchas filas por trabajador (una por marcación); nos
-      // quedamos con la más reciente por legajo según la columna de fecha.
-      const masRecientePorLegajo = new Map<string, { fila: unknown[]; ts: number }>()
+      // TAREO trae muchas filas por trabajador (una por marcación). Nos
+      // quedamos con la más reciente por legajo, pero SIEMPRE preferimos una
+      // fila con Módulo/Fundo lleno sobre una vacía (ej. marcaciones de
+      // vacaciones/permisos no traen fundo y no deben tapar el dato real),
+      // y solo entre filas con el mismo estado de "tiene fundo" gana la más reciente.
+      const masRecientePorLegajo = new Map<string, { fila: unknown[]; ts: number; tieneFundo: boolean }>()
       let legajosInvalidos = 0
 
       for (let i = 1; i < filas.length; i++) {
@@ -66,9 +69,12 @@ export function ImportarPersonal() {
           continue
         }
         const ts = idxFecha >= 0 ? timestampDeCelda(fila[idxFecha]) : i
+        const tieneFundo = idxFundo >= 0 ? String(fila[idxFundo] ?? '').trim() !== '' : false
         const actual = masRecientePorLegajo.get(legajo)
-        if (!actual || ts >= actual.ts) {
-          masRecientePorLegajo.set(legajo, { fila, ts })
+        const esMejor =
+          !actual || (tieneFundo && !actual.tieneFundo) || (tieneFundo === actual.tieneFundo && ts >= actual.ts)
+        if (esMejor) {
+          masRecientePorLegajo.set(legajo, { fila, ts, tieneFundo })
         }
       }
 
