@@ -6,7 +6,7 @@ import { atencionSchema, type AtencionFormValues } from './atencionSchema'
 import { TIPOS, categoriasPorTipo, subcategoriasPorCategoria, gravedadDe } from '@/data/categorizacion'
 import { ZONAS } from '@/data/zonasFundos'
 import { AREAS } from '@/data/areas'
-import { dniDesdeLegajo } from '@/data/legajo'
+import { dniDesdeLegajo, LEGAJO_REGEX } from '@/data/legajo'
 import { supRrllPorZona } from '@/data/supervisoresRrll'
 import { moduloDesdeFundo } from '@/lib/modulo'
 import { db } from '@/lib/db'
@@ -23,12 +23,14 @@ const gravedadColor: Record<string, string> = {
 export function AtencionForm() {
   const { profile } = useAuth()
   const [savedMsg, setSavedMsg] = useState<string | null>(null)
+  const [autocompletado, setAutocompletado] = useState(false)
   const {
     register,
     handleSubmit,
     watch,
     reset,
     setValue,
+    getValues,
     formState: { errors, isSubmitting },
   } = useForm<AtencionFormValues>({
     resolver: zodResolver(atencionSchema),
@@ -55,6 +57,23 @@ export function AtencionForm() {
   )
   const modulo = useMemo(() => (fundo ? moduloDesdeFundo(fundo) : null), [fundo])
   const supRrll = useMemo(() => (zona ? supRrllPorZona(zona) : null), [zona])
+
+  async function onLegajoBlur(legajo: string) {
+    if (!LEGAJO_REGEX.test(legajo)) return
+    const trabajador = await db.trabajadores.get(legajo)
+    if (!trabajador) return
+
+    const actuales = getValues()
+    if (!actuales.nombreInvolucrado && trabajador.nombre_completo) {
+      setValue('nombreInvolucrado', trabajador.nombre_completo)
+    }
+    if (!actuales.area && trabajador.area) setValue('area', trabajador.area as AtencionFormValues['area'])
+    if (!actuales.fundo && trabajador.fundo) setValue('fundo', trabajador.fundo)
+    if (!actuales.zona && trabajador.zona) setValue('zona', trabajador.zona as AtencionFormValues['zona'])
+    if (!actuales.grupo && trabajador.grupo) setValue('grupo', trabajador.grupo)
+    if (!actuales.supCuadrilla && trabajador.sup_cuadrilla) setValue('supCuadrilla', trabajador.sup_cuadrilla)
+    setAutocompletado(true)
+  }
 
   async function onSubmit(values: AtencionFormValues) {
     if (!profile) return
@@ -110,6 +129,7 @@ export function AtencionForm() {
       zona: values.zona,
       fundo: values.fundo,
     })
+    setAutocompletado(false)
     void pushPending()
     setTimeout(() => setSavedMsg(null), 4000)
   }
@@ -244,8 +264,28 @@ export function AtencionForm() {
         <legend className="text-sm font-medium text-neutral-700 px-1">Trabajador involucrado</legend>
         <div>
           <label className="block text-sm font-medium text-neutral-700 mb-1">Legajo</label>
-          <input type="text" inputMode="numeric" maxLength={10} {...register('legajo')} className="input" />
+          {(() => {
+            const { onBlur, ...legajoField } = register('legajo')
+            return (
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={10}
+                {...legajoField}
+                onBlur={(e) => {
+                  void onBlur(e)
+                  void onLegajoBlur(e.target.value)
+                }}
+                className="input"
+              />
+            )
+          })()}
           {errors.legajo && <p className="field-error">{errors.legajo.message}</p>}
+          {autocompletado && (
+            <p className="text-xs text-emerald-600 mt-1">
+              Datos autocompletados desde TAREO — revisa si aplican a este caso.
+            </p>
+          )}
         </div>
         <div>
           <label className="block text-sm font-medium text-neutral-700 mb-1">Nombre completo</label>

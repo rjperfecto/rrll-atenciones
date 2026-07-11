@@ -5,7 +5,8 @@ import { LoginPage } from '@/features/auth/LoginPage'
 import { AtencionForm } from '@/features/atenciones/AtencionForm'
 import { AtencionList } from '@/features/atenciones/AtencionList'
 import { Dashboard } from '@/features/dashboard/Dashboard'
-import { setupAutoSync, pullRemotas } from '@/lib/sync'
+import { ImportarPersonal } from '@/features/admin/ImportarPersonal'
+import { setupAutoSync, pullRemotas, pullTrabajadores } from '@/lib/sync'
 
 function navClass({ isActive }: { isActive: boolean }) {
   return `py-2 border-b-2 ${isActive ? 'border-brand text-brand font-medium' : 'border-transparent text-neutral-500'}`
@@ -30,6 +31,7 @@ function AppLayout() {
     if (!profile) return
     const cleanup = setupAutoSync(() => {})
     void pullRemotas(profile.id, profile.rol === 'ADMIN')
+    void pullTrabajadores()
     return cleanup
   }, [profile])
 
@@ -62,9 +64,14 @@ function AppLayout() {
             Historial
           </NavLink>
           {profile.rol === 'ADMIN' && (
-            <NavLink to="/dashboard" className={navClass}>
-              Dashboard
-            </NavLink>
+            <>
+              <NavLink to="/dashboard" className={navClass}>
+                Dashboard
+              </NavLink>
+              <NavLink to="/admin/personal" className={navClass}>
+                Importar personal
+              </NavLink>
+            </>
           )}
         </nav>
       </header>
@@ -74,6 +81,10 @@ function AppLayout() {
           <Route path="/" element={<AtencionForm />} />
           <Route path="/historial" element={<AtencionList />} />
           <Route path="/dashboard" element={profile.rol === 'ADMIN' ? <Dashboard /> : <Navigate to="/" />} />
+          <Route
+            path="/admin/personal"
+            element={profile.rol === 'ADMIN' ? <ImportarPersonal /> : <Navigate to="/" />}
+          />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </main>

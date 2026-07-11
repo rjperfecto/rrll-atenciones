@@ -10,6 +10,18 @@ export interface Profile {
   rol: Rol
 }
 
+export interface Trabajador {
+  legajo: string
+  dni: string
+  nombre_completo: string
+  area: string | null
+  fundo: string | null
+  zona: string | null
+  grupo: string | null
+  sup_cuadrilla: string | null
+  updated_at: string
+}
+
 export interface Involucrado {
   legajo: string
   dni: string // derivado del legajo (ver src/data/legajo.ts), no se ingresa directo

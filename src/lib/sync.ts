@@ -1,6 +1,6 @@
 import { db } from './db'
 import { supabase, isSupabaseConfigured } from './supabaseClient'
-import type { Atencion } from '@/types'
+import type { Atencion, Trabajador } from '@/types'
 
 let syncing = false
 
@@ -40,6 +40,14 @@ export async function pullRemotas(responsableId: string, isAdmin: boolean): Prom
   const { data, error } = await query
   if (error || !data) return
   await db.atenciones.bulkPut((data as Atencion[]).map((a) => ({ ...a, synced: true })))
+}
+
+export async function pullTrabajadores(): Promise<void> {
+  if (!isSupabaseConfigured || !navigator.onLine) return
+  const { data, error } = await supabase.from('trabajadores').select('*')
+  if (error || !data) return
+  await db.trabajadores.clear()
+  await db.trabajadores.bulkPut(data as Trabajador[])
 }
 
 export function setupAutoSync(onSync: () => void) {
