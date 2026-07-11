@@ -10,13 +10,16 @@ export interface Profile {
   rol: Rol
 }
 
-export interface Trabajador {
+// Un registro por cada combinación Legajo+Fecha (historial diario de TAREO),
+// no un solo "actual" por trabajador — así se puede buscar el dato tal como
+// estaba en la fecha del caso.
+export interface TrabajadorHistorial {
   legajo: string
+  fecha: string // YYYY-MM-DD
   dni: string
   nombre_completo: string
   area: string | null
   fundo: string | null
-  zona: string | null
   grupo: string | null
   sup_cuadrilla: string | null
   updated_at: string

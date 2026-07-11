@@ -42,6 +42,7 @@ export function AtencionForm() {
   })
 
   const legajo = watch('legajo')
+  const fecha = watch('fecha')
   const tipo = watch('tipo')
   const categoria = watch('categoria')
   const subcategoria = watch('subcategoria')
@@ -68,7 +69,12 @@ export function AtencionForm() {
       return
     }
     setBusqueda('buscando')
-    const trabajador = await db.trabajadores.get(legajoLimpio)
+    // Busca el registro de TAREO de ese legajo tal como estaba EN la fecha del
+    // caso: si no hay marcación exacta ese día, usa la más cercana anterior
+    // (nunca una posterior a la fecha de la atención).
+    const registros = await db.trabajadoresHistorial.where('legajo').equals(legajoLimpio).toArray()
+    const candidatos = registros.filter((r) => r.fecha <= fecha).sort((a, b) => (a.fecha < b.fecha ? 1 : -1))
+    const trabajador = candidatos[0]
     if (!trabajador) {
       setBusqueda('no_encontrado')
       return
@@ -188,7 +194,7 @@ export function AtencionForm() {
           )}
           {busqueda === 'no_encontrado' && (
             <p className="text-xs text-amber-600 mt-1">
-              Ese legajo no está en los datos de TAREO cargados. Completa los datos manualmente.
+              No hay datos de TAREO para ese legajo en esa fecha o antes. Completa los datos manualmente.
             </p>
           )}
           {busqueda === 'formato_invalido' && (

@@ -1,17 +1,18 @@
 import { useState } from 'react'
 import { leerFilasXlsx } from './leerXlsx'
 import { mapearEncabezados, indiceColumnaFecha, type CampoTrabajador } from './personalColumnas'
-import { timestampDeCelda } from './parseFecha'
+import { timestampDeCelda, fechaSoloDia } from './parseFecha'
 import { LEGAJO_REGEX, dniDesdeLegajo } from '@/data/legajo'
 import { supabase } from '@/lib/supabaseClient'
-import { pullTrabajadores } from '@/lib/sync'
-import type { Trabajador } from '@/types'
+import { pullTrabajadoresHistorial } from '@/lib/sync'
+import type { TrabajadorHistorial } from '@/types'
 
 type Resultado = {
-  validos: Trabajador[]
+  validos: TrabajadorHistorial[]
   filasLeidas: number
   legajosInvalidos: number
   columnasFaltantes: CampoTrabajador[]
+  faltaColumnaFecha: boolean
 }
 
 const OBLIGATORIAS: CampoTrabajador[] = ['legajo', 'nombre_completo']
@@ -39,8 +40,14 @@ export function ImportarPersonal() {
       const idxFecha = indiceColumnaFecha(encabezados)
 
       const columnasFaltantes = OBLIGATORIAS.filter((c) => !campoPorColumna.includes(c))
-      if (columnasFaltantes.length > 0) {
-        setResultado({ validos: [], filasLeidas: filas.length - 1, legajosInvalidos: 0, columnasFaltantes })
+      if (columnasFaltantes.length > 0 || idxFecha < 0) {
+        setResultado({
+          validos: [],
+          filasLeidas: filas.length - 1,
+          legajosInvalidos: 0,
+          columnasFaltantes,
+          faltaColumnaFecha: idxFecha < 0,
+        })
         return
       }
 
@@ -49,48 +56,58 @@ export function ImportarPersonal() {
       const idxNombre = idx('nombre_completo')
       const idxArea = idx('area')
       const idxFundo = idx('fundo')
-      const idxZona = idx('zona')
       const idxGrupo = idx('grupo')
       const idxSupCuadrilla = idx('sup_cuadrilla')
 
-      // TAREO trae muchas filas por trabajador (una por marcación). Nos
-      // quedamos con la más reciente por legajo, pero SIEMPRE preferimos una
-      // fila con Módulo/Fundo lleno sobre una vacía (ej. marcaciones de
-      // vacaciones/permisos no traen fundo y no deben tapar el dato real),
-      // y solo entre filas con el mismo estado de "tiene fundo" gana la más reciente.
-      const masRecientePorLegajo = new Map<string, { fila: unknown[]; ts: number; tieneFundo: boolean }>()
+      // TAREO trae muchas filas por trabajador y por día (una por marcación).
+      // Se guarda un registro por Legajo+Día (no uno solo "actual" por legajo),
+      // para poder buscar el dato tal como estaba en la fecha del caso. Dentro
+      // de un mismo día, se prefiere la fila con Módulo/Fundo lleno sobre una
+      // vacía, y entre esas gana la más reciente por hora.
+      const mejorPorLegajoYDia = new Map<string, { fila: unknown[]; dia: string; ts: number; tieneFundo: boolean }>()
       let legajosInvalidos = 0
 
       for (let i = 1; i < filas.length; i++) {
         const fila = filas[i]
         const legajo = String(fila[idxLegajo] ?? '').trim()
-        if (!LEGAJO_REGEX.test(legajo)) {
+        const dia = fechaSoloDia(fila[idxFecha])
+        if (!LEGAJO_REGEX.test(legajo) || !dia) {
           legajosInvalidos++
           continue
         }
-        const ts = idxFecha >= 0 ? timestampDeCelda(fila[idxFecha]) : i
+        const clave = `${legajo}|${dia}`
+        const ts = timestampDeCelda(fila[idxFecha])
         const tieneFundo = idxFundo >= 0 ? String(fila[idxFundo] ?? '').trim() !== '' : false
-        const actual = masRecientePorLegajo.get(legajo)
+        const actual = mejorPorLegajoYDia.get(clave)
         const esMejor =
           !actual || (tieneFundo && !actual.tieneFundo) || (tieneFundo === actual.tieneFundo && ts >= actual.ts)
         if (esMejor) {
-          masRecientePorLegajo.set(legajo, { fila, ts, tieneFundo })
+          mejorPorLegajoYDia.set(clave, { fila, dia, ts, tieneFundo })
         }
       }
 
-      const validos: Trabajador[] = [...masRecientePorLegajo.entries()].map(([legajo, { fila }]) => ({
-        legajo,
-        dni: dniDesdeLegajo(legajo),
-        nombre_completo: String(fila[idxNombre] ?? '').trim(),
-        area: idxArea >= 0 ? String(fila[idxArea] ?? '').trim() || null : null,
-        fundo: idxFundo >= 0 ? String(fila[idxFundo] ?? '').trim() || null : null,
-        zona: idxZona >= 0 ? String(fila[idxZona] ?? '').trim() || null : null,
-        grupo: idxGrupo >= 0 ? String(fila[idxGrupo] ?? '').trim() || null : null,
-        sup_cuadrilla: idxSupCuadrilla >= 0 ? String(fila[idxSupCuadrilla] ?? '').trim() || null : null,
-        updated_at: new Date().toISOString(),
-      }))
+      const validos: TrabajadorHistorial[] = [...mejorPorLegajoYDia.entries()].map(([clave, { fila, dia }]) => {
+        const legajo = clave.split('|')[0]
+        return {
+          legajo,
+          fecha: dia,
+          dni: dniDesdeLegajo(legajo),
+          nombre_completo: String(fila[idxNombre] ?? '').trim(),
+          area: idxArea >= 0 ? String(fila[idxArea] ?? '').trim() || null : null,
+          fundo: idxFundo >= 0 ? String(fila[idxFundo] ?? '').trim() || null : null,
+          grupo: idxGrupo >= 0 ? String(fila[idxGrupo] ?? '').trim() || null : null,
+          sup_cuadrilla: idxSupCuadrilla >= 0 ? String(fila[idxSupCuadrilla] ?? '').trim() || null : null,
+          updated_at: new Date().toISOString(),
+        }
+      })
 
-      setResultado({ validos, filasLeidas: filas.length - 1, legajosInvalidos, columnasFaltantes: [] })
+      setResultado({
+        validos,
+        filasLeidas: filas.length - 1,
+        legajosInvalidos,
+        columnasFaltantes: [],
+        faltaColumnaFecha: false,
+      })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo leer el archivo.')
     } finally {
@@ -107,12 +124,12 @@ export function ImportarPersonal() {
       const lote = 500
       for (let i = 0; i < resultado.validos.length; i += lote) {
         const { error: upsertError } = await supabase
-          .from('trabajadores')
-          .upsert(resultado.validos.slice(i, i + lote), { onConflict: 'legajo' })
+          .from('trabajadores_historial')
+          .upsert(resultado.validos.slice(i, i + lote), { onConflict: 'legajo,fecha' })
         if (upsertError) throw new Error(upsertError.message)
       }
-      await pullTrabajadores()
-      setMensaje(`Cargado: ${resultado.validos.length} trabajadores actualizados/agregados.`)
+      await pullTrabajadoresHistorial()
+      setMensaje(`Cargado: ${resultado.validos.length} registros (legajo + día) actualizados/agregados.`)
       setResultado(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo subir a la base de datos.')
@@ -126,8 +143,9 @@ export function ImportarPersonal() {
       <div>
         <h2 className="text-lg font-semibold text-neutral-900">Importar personal (TAREO)</h2>
         <p className="text-sm text-neutral-500 mt-1">
-          Sube el Excel de TAREO (reporte de auditoría móvil). Se usa la fila más reciente de cada
-          Legajo para autocompletar Nombre, Fundo, Grupo y Sup. cuadrilla en "Nueva atención".
+          Sube el Excel de TAREO (reporte de auditoría móvil), de uno o varios días. Se guarda un
+          registro por Legajo y Día, para que "Nueva atención" busque el dato del trabajador tal
+          como estaba en la fecha del caso.
         </p>
       </div>
 
@@ -144,6 +162,13 @@ export function ImportarPersonal() {
         </div>
       )}
 
+      {resultado && resultado.faltaColumnaFecha && (
+        <p className="text-sm text-red-600">
+          No encontré una columna de fecha (ej. "Fecha Hora Tareo") en el archivo — es obligatoria
+          para saber a qué día pertenece cada registro.
+        </p>
+      )}
+
       {resultado && resultado.columnasFaltantes.length > 0 && (
         <p className="text-sm text-red-600">
           Al archivo le faltan columnas obligatorias: {resultado.columnasFaltantes.join(', ')}. Revisa los
@@ -151,13 +176,13 @@ export function ImportarPersonal() {
         </p>
       )}
 
-      {resultado && resultado.columnasFaltantes.length === 0 && (
+      {resultado && resultado.columnasFaltantes.length === 0 && !resultado.faltaColumnaFecha && (
         <div className="rounded-lg border border-neutral-200 bg-white p-4 space-y-2">
           <p className="text-sm text-neutral-700">Filas leídas: {resultado.filasLeidas}</p>
-          <p className="text-sm text-neutral-700">Trabajadores únicos válidos: {resultado.validos.length}</p>
+          <p className="text-sm text-neutral-700">Registros (legajo + día) únicos válidos: {resultado.validos.length}</p>
           {resultado.legajosInvalidos > 0 && (
             <p className="text-sm text-amber-600">
-              Filas descartadas por legajo inválido: {resultado.legajosInvalidos}
+              Filas descartadas por legajo o fecha inválidos: {resultado.legajosInvalidos}
             </p>
           )}
           <button

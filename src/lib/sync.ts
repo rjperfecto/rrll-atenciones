@@ -1,6 +1,6 @@
 import { db } from './db'
 import { supabase, isSupabaseConfigured } from './supabaseClient'
-import type { Atencion, Trabajador } from '@/types'
+import type { Atencion, TrabajadorHistorial } from '@/types'
 
 let syncing = false
 
@@ -42,7 +42,7 @@ export async function pullRemotas(responsableId: string, isAdmin: boolean): Prom
   await db.atenciones.bulkPut((data as Atencion[]).map((a) => ({ ...a, synced: true })))
 }
 
-export async function pullTrabajadores(): Promise<void> {
+export async function pullTrabajadoresHistorial(): Promise<void> {
   if (!isSupabaseConfigured || !navigator.onLine) return
   // Supabase/PostgREST tiene un tope de filas por consulta (típicamente 1000,
   // pero puede ser otro según cómo esté configurado el proyecto). Pedimos el
@@ -52,26 +52,26 @@ export async function pullTrabajadores(): Promise<void> {
   // filas sin que nos diéramos cuenta.
   const tandaPedida = 1000
   const { count, error: countError } = await supabase
-    .from('trabajadores')
+    .from('trabajadores_historial')
     .select('*', { count: 'exact', head: true })
   if (countError) return
   const total = count ?? 0
 
-  const todos: Trabajador[] = []
+  const todos: TrabajadorHistorial[] = []
   let desde = 0
   while (desde < total) {
     const { data, error } = await supabase
-      .from('trabajadores')
+      .from('trabajadores_historial')
       .select('*')
       .range(desde, desde + tandaPedida - 1)
     if (error) return
     const recibidas = data ?? []
     if (recibidas.length === 0) break // evita loop infinito si algo no cuadra
-    todos.push(...(recibidas as Trabajador[]))
+    todos.push(...(recibidas as TrabajadorHistorial[]))
     desde += recibidas.length
   }
-  await db.trabajadores.clear()
-  await db.trabajadores.bulkPut(todos)
+  await db.trabajadoresHistorial.clear()
+  await db.trabajadoresHistorial.bulkPut(todos)
 }
 
 export function setupAutoSync(onSync: () => void) {

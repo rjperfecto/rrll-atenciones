@@ -1,12 +1,12 @@
-import Dexie, { type EntityTable } from 'dexie'
-import type { Atencion, Trabajador } from '@/types'
+import Dexie, { type EntityTable, type Table } from 'dexie'
+import type { Atencion, TrabajadorHistorial } from '@/types'
 
 // Dexie es la única fuente de verdad en el dispositivo: toda lectura de la UI
 // pasa por aquí. Las atenciones se guardan localmente de inmediato (optimista)
 // y el syncEngine las sube a Supabase cuando hay conexión (ver lib/sync.ts).
 export const db = new Dexie('rrll-atenciones') as Dexie & {
   atenciones: EntityTable<Atencion, 'id'>
-  trabajadores: EntityTable<Trabajador, 'legajo'>
+  trabajadoresHistorial: Table<TrabajadorHistorial, [string, string]>
 }
 
 db.version(1).stores({
@@ -17,6 +17,13 @@ db.version(1).stores({
 
 db.version(2).stores({
   atenciones: 'id, client_uuid, fecha, zona, estado, responsable_id',
-  // maestro de personal, cacheado offline para autocompletar por legajo
   trabajadores: 'legajo',
+})
+
+db.version(3).stores({
+  atenciones: 'id, client_uuid, fecha, zona, estado, responsable_id',
+  trabajadores: null, // reemplazado por trabajadoresHistorial (historial por día)
+  // clave compuesta legajo+fecha: permite buscar el dato del trabajador tal
+  // como estaba en la fecha del caso, no solo el más reciente cargado.
+  trabajadoresHistorial: '[legajo+fecha], legajo',
 })

@@ -6,7 +6,7 @@ import { AtencionForm } from '@/features/atenciones/AtencionForm'
 import { AtencionList } from '@/features/atenciones/AtencionList'
 import { Dashboard } from '@/features/dashboard/Dashboard'
 import { ImportarPersonal } from '@/features/admin/ImportarPersonal'
-import { setupAutoSync, pullRemotas, pullTrabajadores } from '@/lib/sync'
+import { setupAutoSync, pullRemotas, pullTrabajadoresHistorial } from '@/lib/sync'
 
 function navClass({ isActive }: { isActive: boolean }) {
   return `py-2 border-b-2 ${isActive ? 'border-brand text-brand font-medium' : 'border-transparent text-neutral-500'}`
@@ -31,7 +31,7 @@ function AppLayout() {
     if (!profile) return
     const cleanup = setupAutoSync(() => {})
     void pullRemotas(profile.id, profile.rol === 'ADMIN')
-    void pullTrabajadores()
+    void pullTrabajadoresHistorial()
     return cleanup
   }, [profile])
 

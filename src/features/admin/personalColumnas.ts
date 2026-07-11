@@ -1,5 +1,5 @@
 // Mapeo tolerante de encabezados del Excel de personal (hoy: export de TAREO,
-// "reporte_auditoria_movil") a los campos de la tabla `trabajadores`.
+// "reporte_auditoria_movil") a los campos de la tabla `trabajadores_historial`.
 // Normaliza (mayúsculas, sin tildes, sin espacios extra) antes de comparar,
 // para aceptar variantes razonables de nombre de columna.
 
@@ -23,7 +23,6 @@ const SINONIMOS: Record<string, string> = {
   ACTIVIDAD: 'area',
   FUNDO: 'fundo',
   MODULO: 'fundo',
-  ZONA: 'zona',
   GRUPO: 'grupo',
   SUPERVISOR: 'sup_cuadrilla',
   'SUP. CUADRILLA': 'sup_cuadrilla',
@@ -36,7 +35,7 @@ const SINONIMOS: Record<string, string> = {
 // (TAREO trae muchas filas por trabajador, una por marcación/actividad).
 const SINONIMOS_FECHA = ['FECHA HORA TAREO', 'FECHA Y HORA TAREO', 'FECHA TAREO', 'FECHA']
 
-export type CampoTrabajador = 'legajo' | 'nombre_completo' | 'area' | 'fundo' | 'zona' | 'grupo' | 'sup_cuadrilla'
+export type CampoTrabajador = 'legajo' | 'nombre_completo' | 'area' | 'fundo' | 'grupo' | 'sup_cuadrilla'
 
 export function mapearEncabezados(encabezados: string[]): (CampoTrabajador | null)[] {
   return encabezados.map((h) => (SINONIMOS[normalizar(h)] as CampoTrabajador | undefined) ?? null)
