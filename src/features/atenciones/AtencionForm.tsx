@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -8,10 +8,12 @@ import {
   CheckCircle2,
   FileWarning,
   MapPin,
+  ScanLine,
   Search,
   StickyNote,
   UserSearch,
 } from 'lucide-react'
+import { BarcodeScannerModal } from '@/components/ui/BarcodeScannerModal'
 import { atencionSchema, type AtencionFormValues } from './atencionSchema'
 import { TIPOS, categoriasPorTipo, subcategoriasPorCategoria, gravedadDe } from '@/data/categorizacion'
 import { ZONAS } from '@/data/zonasFundos'
@@ -36,6 +38,7 @@ export function AtencionForm() {
   const { profile } = useAuth()
   const [savedMsg, setSavedMsg] = useState<string | null>(null)
   const [busqueda, setBusqueda] = useState<EstadoBusqueda>('idle')
+  const [escaneando, setEscaneando] = useState(false)
   const {
     register,
     handleSubmit,
@@ -72,35 +75,47 @@ export function AtencionForm() {
   const modulo = useMemo(() => (fundo ? moduloDesdeFundo(fundo) : null), [fundo])
   const supRrll = useMemo(() => (zona ? supRrllPorZona(zona) : null), [zona])
 
-  async function buscarTrabajador() {
-    const legajoLimpio = (legajo || '').trim()
-    if (legajoLimpio !== legajo) setValue('legajo', legajoLimpio)
-    if (!LEGAJO_REGEX.test(legajoLimpio)) {
-      setBusqueda('formato_invalido')
-      return
-    }
-    setBusqueda('buscando')
-    // Busca el registro de TAREO de ese legajo tal como estaba EN la fecha del
-    // caso: si no hay marcación exacta ese día, usa la más cercana anterior
-    // (nunca una posterior a la fecha de la atención).
-    const registros = await db.trabajadoresHistorial.where('legajo').equals(legajoLimpio).toArray()
-    const candidatos = registros.filter((r) => r.fecha <= fecha).sort((a, b) => (a.fecha < b.fecha ? 1 : -1))
-    const trabajador = candidatos[0]
-    if (!trabajador) {
-      setBusqueda('no_encontrado')
-      return
-    }
-    setValue('nombreInvolucrado', trabajador.nombre_completo)
-    if (trabajador.fundo) {
-      setValue('fundo', trabajador.fundo)
-      const zonaDetectada = zonaDesdeFundo(trabajador.fundo)
-      if (zonaDetectada) setValue('zona', zonaDetectada)
-    }
-    if (trabajador.grupo) setValue('grupo', trabajador.grupo)
-    if (trabajador.sup_cuadrilla) setValue('supCuadrilla', trabajador.sup_cuadrilla)
-    if (trabajador.area) setValue('area', trabajador.area)
-    setBusqueda('encontrado')
-  }
+  const buscarPorLegajo = useCallback(
+    async (valorLegajo: string) => {
+      const legajoLimpio = valorLegajo.trim()
+      if (legajoLimpio !== valorLegajo) setValue('legajo', legajoLimpio)
+      if (!LEGAJO_REGEX.test(legajoLimpio)) {
+        setBusqueda('formato_invalido')
+        return
+      }
+      setBusqueda('buscando')
+      // Busca el registro de TAREO de ese legajo tal como estaba EN la fecha del
+      // caso: si no hay marcación exacta ese día, usa la más cercana anterior
+      // (nunca una posterior a la fecha de la atención).
+      const registros = await db.trabajadoresHistorial.where('legajo').equals(legajoLimpio).toArray()
+      const candidatos = registros.filter((r) => r.fecha <= fecha).sort((a, b) => (a.fecha < b.fecha ? 1 : -1))
+      const trabajador = candidatos[0]
+      if (!trabajador) {
+        setBusqueda('no_encontrado')
+        return
+      }
+      setValue('nombreInvolucrado', trabajador.nombre_completo)
+      if (trabajador.fundo) {
+        setValue('fundo', trabajador.fundo)
+        const zonaDetectada = zonaDesdeFundo(trabajador.fundo)
+        if (zonaDetectada) setValue('zona', zonaDetectada)
+      }
+      if (trabajador.grupo) setValue('grupo', trabajador.grupo)
+      if (trabajador.sup_cuadrilla) setValue('supCuadrilla', trabajador.sup_cuadrilla)
+      if (trabajador.area) setValue('area', trabajador.area)
+      setBusqueda('encontrado')
+    },
+    [fecha, setValue],
+  )
+
+  const onCodigoEscaneado = useCallback(
+    (texto: string) => {
+      setEscaneando(false)
+      setValue('legajo', texto)
+      void buscarPorLegajo(texto)
+    },
+    [buscarPorLegajo, setValue],
+  )
 
   function limpiarFormulario() {
     reset({
@@ -200,12 +215,22 @@ export function AtencionForm() {
               <Button
                 type="button"
                 variant="secondary"
-                onClick={buscarTrabajador}
+                onClick={() => buscarPorLegajo(legajo || '')}
                 loading={busqueda === 'buscando'}
                 className="shrink-0"
               >
                 <Search className="size-4" />
                 Buscar
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setEscaneando(true)}
+                className="shrink-0"
+                title="Escanear carnet"
+              >
+                <ScanLine className="size-4" />
+                <span className="hidden sm:inline">Escanear</span>
               </Button>
             </div>
             {busqueda === 'encontrado' && (
@@ -378,6 +403,8 @@ export function AtencionForm() {
           </Button>
         </div>
       </form>
+
+      {escaneando && <BarcodeScannerModal onDetected={onCodigoEscaneado} onClose={() => setEscaneando(false)} />}
     </div>
   )
 }
