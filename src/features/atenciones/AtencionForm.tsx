@@ -5,10 +5,10 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { atencionSchema, type AtencionFormValues } from './atencionSchema'
 import { TIPOS, categoriasPorTipo, subcategoriasPorCategoria, gravedadDe } from '@/data/categorizacion'
 import { ZONAS } from '@/data/zonasFundos'
-import { AREAS } from '@/data/areas'
 import { dniDesdeLegajo, LEGAJO_REGEX } from '@/data/legajo'
 import { supRrllPorZona } from '@/data/supervisoresRrll'
 import { moduloDesdeFundo } from '@/lib/modulo'
+import { zonaDesdeFundo } from '@/lib/zonaFundo'
 import { db } from '@/lib/db'
 import { pushPending } from '@/lib/sync'
 import { useAuth } from '@/features/auth/AuthContext'
@@ -20,17 +20,18 @@ const gravedadColor: Record<string, string> = {
   ALTO: 'bg-red-100 text-red-800',
 }
 
+type EstadoBusqueda = 'idle' | 'buscando' | 'encontrado' | 'no_encontrado'
+
 export function AtencionForm() {
   const { profile } = useAuth()
   const [savedMsg, setSavedMsg] = useState<string | null>(null)
-  const [autocompletado, setAutocompletado] = useState(false)
+  const [busqueda, setBusqueda] = useState<EstadoBusqueda>('idle')
   const {
     register,
     handleSubmit,
     watch,
     reset,
     setValue,
-    getValues,
     formState: { errors, isSubmitting },
   } = useForm<AtencionFormValues>({
     resolver: zodResolver(atencionSchema),
@@ -40,6 +41,7 @@ export function AtencionForm() {
     },
   })
 
+  const legajo = watch('legajo')
   const tipo = watch('tipo')
   const categoria = watch('categoria')
   const subcategoria = watch('subcategoria')
@@ -58,21 +60,27 @@ export function AtencionForm() {
   const modulo = useMemo(() => (fundo ? moduloDesdeFundo(fundo) : null), [fundo])
   const supRrll = useMemo(() => (zona ? supRrllPorZona(zona) : null), [zona])
 
-  async function onLegajoBlur(legajo: string) {
-    if (!LEGAJO_REGEX.test(legajo)) return
-    const trabajador = await db.trabajadores.get(legajo)
-    if (!trabajador) return
-
-    const actuales = getValues()
-    if (!actuales.nombreInvolucrado && trabajador.nombre_completo) {
-      setValue('nombreInvolucrado', trabajador.nombre_completo)
+  async function buscarTrabajador() {
+    if (!LEGAJO_REGEX.test(legajo || '')) {
+      setBusqueda('no_encontrado')
+      return
     }
-    if (!actuales.area && trabajador.area) setValue('area', trabajador.area as AtencionFormValues['area'])
-    if (!actuales.fundo && trabajador.fundo) setValue('fundo', trabajador.fundo)
-    if (!actuales.zona && trabajador.zona) setValue('zona', trabajador.zona as AtencionFormValues['zona'])
-    if (!actuales.grupo && trabajador.grupo) setValue('grupo', trabajador.grupo)
-    if (!actuales.supCuadrilla && trabajador.sup_cuadrilla) setValue('supCuadrilla', trabajador.sup_cuadrilla)
-    setAutocompletado(true)
+    setBusqueda('buscando')
+    const trabajador = await db.trabajadores.get(legajo)
+    if (!trabajador) {
+      setBusqueda('no_encontrado')
+      return
+    }
+    setValue('nombreInvolucrado', trabajador.nombre_completo)
+    if (trabajador.fundo) {
+      setValue('fundo', trabajador.fundo)
+      const zonaDetectada = zonaDesdeFundo(trabajador.fundo)
+      if (zonaDetectada) setValue('zona', zonaDetectada)
+    }
+    if (trabajador.grupo) setValue('grupo', trabajador.grupo)
+    if (trabajador.sup_cuadrilla) setValue('supCuadrilla', trabajador.sup_cuadrilla)
+    if (trabajador.area) setValue('area', trabajador.area)
+    setBusqueda('encontrado')
   }
 
   async function onSubmit(values: AtencionFormValues) {
@@ -126,10 +134,8 @@ export function AtencionForm() {
     reset({
       fecha: values.fecha,
       esAfiliado: 'NO_ESPECIFICA',
-      zona: values.zona,
-      fundo: values.fundo,
     })
-    setAutocompletado(false)
+    setBusqueda('idle')
     void pushPending()
     setTimeout(() => setSavedMsg(null), 4000)
   }
@@ -145,12 +151,59 @@ export function AtencionForm() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-4">
+      <div>
+        <label className="block text-sm font-medium text-neutral-700 mb-1">Fecha</label>
+        <input type="date" {...register('fecha')} className="input" />
+        {errors.fecha && <p className="field-error">{errors.fecha.message}</p>}
+      </div>
+
+      <fieldset className="border border-neutral-200 rounded-lg p-4 space-y-4">
+        <legend className="text-sm font-medium text-neutral-700 px-1">Trabajador involucrado</legend>
         <div>
-          <label className="block text-sm font-medium text-neutral-700 mb-1">Fecha</label>
-          <input type="date" {...register('fecha')} className="input" />
-          {errors.fecha && <p className="field-error">{errors.fecha.message}</p>}
+          <label className="block text-sm font-medium text-neutral-700 mb-1">Legajo</label>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              inputMode="numeric"
+              maxLength={10}
+              {...register('legajo', { onChange: () => setBusqueda('idle') })}
+              className="input"
+            />
+            <button
+              type="button"
+              onClick={buscarTrabajador}
+              disabled={busqueda === 'buscando'}
+              className="rounded-md bg-neutral-800 text-white px-4 py-2 text-sm font-medium hover:bg-neutral-700 disabled:opacity-50 whitespace-nowrap"
+            >
+              {busqueda === 'buscando' ? 'Buscando...' : 'Buscar'}
+            </button>
+          </div>
+          {errors.legajo && <p className="field-error">{errors.legajo.message}</p>}
+          {busqueda === 'encontrado' && (
+            <p className="text-xs text-emerald-600 mt-1">
+              Datos autocompletados desde TAREO — revisa si aplican a este caso.
+            </p>
+          )}
+          {busqueda === 'no_encontrado' && (
+            <p className="text-xs text-amber-600 mt-1">No se encontró ese legajo. Completa los datos manualmente.</p>
+          )}
         </div>
+        <div>
+          <label className="block text-sm font-medium text-neutral-700 mb-1">Nombre completo</label>
+          <input type="text" {...register('nombreInvolucrado')} className="input" />
+          {errors.nombreInvolucrado && <p className="field-error">{errors.nombreInvolucrado.message}</p>}
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-neutral-700 mb-1">¿Afiliado sindical?</label>
+          <select {...register('esAfiliado')} className="input">
+            <option value="NO_ESPECIFICA">No especifica</option>
+            <option value="SI">Sí</option>
+            <option value="NO">No</option>
+          </select>
+        </div>
+      </fieldset>
+
+      <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-neutral-700 mb-1">Zona</label>
           <select {...register('zona')} className="input">
@@ -164,30 +217,27 @@ export function AtencionForm() {
           {errors.zona && <p className="field-error">{errors.zona.message}</p>}
           {supRrll && <p className="text-xs text-neutral-500 mt-1">Sup. RRLL: {supRrll}</p>}
         </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-neutral-700 mb-1">Fundo</label>
           <input type="text" {...register('fundo')} placeholder="ej. REM 2-W" className="input" />
           {modulo && <p className="text-xs text-neutral-500 mt-1">Módulo detectado: {modulo}</p>}
         </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-neutral-700 mb-1">Grupo / cuadrilla</label>
           <input type="text" {...register('grupo')} placeholder="ej. CH12" className="input" />
         </div>
+        <div>
+          <label className="block text-sm font-medium text-neutral-700 mb-1">Área / actividad</label>
+          <input type="text" {...register('area')} placeholder="ej. Cosecha ARA Granel 3.0 kg" className="input" />
+        </div>
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-neutral-700 mb-1">Área / función del trabajador</label>
-        <select {...register('area')} className="input">
-          <option value="">Selecciona...</option>
-          {AREAS.map((a) => (
-            <option key={a} value={a}>
-              {a}
-            </option>
-          ))}
-        </select>
+        <label className="block text-sm font-medium text-neutral-700 mb-1">Sup. cuadrilla</label>
+        <input type="text" {...register('supCuadrilla')} className="input" />
       </div>
 
       <div>
@@ -259,53 +309,6 @@ export function AtencionForm() {
           </span>
         </div>
       )}
-
-      <fieldset className="border border-neutral-200 rounded-lg p-4 space-y-4">
-        <legend className="text-sm font-medium text-neutral-700 px-1">Trabajador involucrado</legend>
-        <div>
-          <label className="block text-sm font-medium text-neutral-700 mb-1">Legajo</label>
-          {(() => {
-            const { onBlur, ...legajoField } = register('legajo')
-            return (
-              <input
-                type="text"
-                inputMode="numeric"
-                maxLength={10}
-                {...legajoField}
-                onBlur={(e) => {
-                  void onBlur(e)
-                  void onLegajoBlur(e.target.value)
-                }}
-                className="input"
-              />
-            )
-          })()}
-          {errors.legajo && <p className="field-error">{errors.legajo.message}</p>}
-          {autocompletado && (
-            <p className="text-xs text-emerald-600 mt-1">
-              Datos autocompletados desde TAREO — revisa si aplican a este caso.
-            </p>
-          )}
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-neutral-700 mb-1">Nombre completo</label>
-          <input type="text" {...register('nombreInvolucrado')} className="input" />
-          {errors.nombreInvolucrado && <p className="field-error">{errors.nombreInvolucrado.message}</p>}
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-neutral-700 mb-1">¿Afiliado sindical?</label>
-          <select {...register('esAfiliado')} className="input">
-            <option value="NO_ESPECIFICA">No especifica</option>
-            <option value="SI">Sí</option>
-            <option value="NO">No</option>
-          </select>
-        </div>
-      </fieldset>
-
-      <div>
-        <label className="block text-sm font-medium text-neutral-700 mb-1">Sup. cuadrilla</label>
-        <input type="text" {...register('supCuadrilla')} className="input" />
-      </div>
 
       <fieldset className="border border-neutral-200 rounded-lg p-4 space-y-4">
         <legend className="text-sm font-medium text-neutral-700 px-1">Seguimiento (opcional)</legend>

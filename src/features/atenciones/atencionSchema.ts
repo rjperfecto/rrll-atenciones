@@ -1,7 +1,6 @@
 import { z } from 'zod'
 import { TIPOS } from '@/data/categorizacion'
 import { ZONAS } from '@/data/zonasFundos'
-import { AREAS } from '@/data/areas'
 import { LEGAJO_REGEX } from '@/data/legajo'
 
 export const atencionSchema = z.object({
@@ -9,7 +8,7 @@ export const atencionSchema = z.object({
   zona: z.enum(ZONAS, { message: 'Selecciona una zona' }),
   fundo: z.string().optional(),
   grupo: z.string().optional(),
-  area: z.enum(AREAS).optional().or(z.literal('')),
+  area: z.string().optional(),
   tipo: z.enum(TIPOS, { message: 'Selecciona un tipo' }),
   categoria: z.string().min(1, 'Selecciona una categoría'),
   subcategoria: z.string().min(1, 'Selecciona una subcategoría'),

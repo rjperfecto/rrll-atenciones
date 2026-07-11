@@ -20,6 +20,7 @@ const SINONIMOS: Record<string, string> = {
   'NOMBRE COMPLETO': 'nombre_completo',
   INVOLUCRADO: 'nombre_completo',
   AREA: 'area',
+  ACTIVIDAD: 'area',
   FUNDO: 'fundo',
   MODULO: 'fundo',
   ZONA: 'zona',
