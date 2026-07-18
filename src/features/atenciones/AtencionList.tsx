@@ -6,6 +6,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
+  Eye,
   Inbox,
   Search,
   SearchX,
@@ -15,6 +16,7 @@ import { db } from '@/lib/db'
 import { exportarAtencionesCsv } from '@/lib/exportCsv'
 import { useAuth } from '@/features/auth/AuthContext'
 import { CerrarCasoModal } from './CerrarCasoModal'
+import { DetalleAtencionModal } from './DetalleAtencionModal'
 import { ZONAS } from '@/data/zonasFundos'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -47,6 +49,7 @@ function coincideBusqueda(a: Atencion, texto: string) {
 export function AtencionList() {
   const { profile } = useAuth()
   const [cerrando, setCerrando] = useState<Atencion | null>(null)
+  const [viendoDetalle, setViendoDetalle] = useState<Atencion | null>(null)
   const [busqueda, setBusqueda] = useState('')
   const [filtroEstado, setFiltroEstado] = useState('')
   const [filtroGravedad, setFiltroGravedad] = useState('')
@@ -241,42 +244,21 @@ export function AtencionList() {
                       </span>
                     )}
                   </div>
-                  <p className="text-sm text-neutral-800">
-                    <span className="font-medium">{a.tipo}</span> · {a.categoria} · {a.subcategoria}
-                  </p>
-                  {a.falta && <p className="text-sm text-neutral-600 mt-1">Falta: {a.falta}</p>}
-                  <p className="text-sm text-neutral-600 mt-1">
-                    {a.involucrados[0]?.nombre_completo}
-                    {a.involucrados[0]?.dni && ` (DNI ${a.involucrados[0].dni})`}
-                    {a.involucrados[0]?.legajo && ` · Legajo ${a.involucrados[0].legajo}`}
-                    {a.area && ` · ${a.area}`}
-                  </p>
-                  {a.comentarios && <p className="text-sm text-neutral-500 mt-1">{a.comentarios}</p>}
-                  <p className="text-xs text-neutral-400 mt-2">
-                    Responsable: {a.responsable_nombre}
-                    {a.sup_cuadrilla && ` · Sup. cuadrilla: ${a.sup_cuadrilla}`}
-                  </p>
+                  {a.falta && <p className="text-sm text-neutral-600">Falta: {a.falta}</p>}
+                  <p className="text-sm font-medium text-neutral-900 mt-1">{a.involucrados[0]?.nombre_completo}</p>
 
-                  {a.estado !== 'CERRADO' && (
-                    <div className="mt-3">
-                      <button
-                        onClick={() => setCerrando(a)}
-                        title="Cerrar caso"
-                        className="inline-flex items-center gap-1.5 text-sm text-brand hover:underline"
-                      >
+                  <div className="flex items-center gap-2 mt-3">
+                    <Button variant="secondary" onClick={() => setViendoDetalle(a)}>
+                      <Eye className="size-4" />
+                      Ver detalles
+                    </Button>
+                    {a.estado !== 'CERRADO' && (
+                      <Button onClick={() => setCerrando(a)}>
                         <CheckCircle2 className="size-4" />
                         Cerrar caso
-                      </button>
-                    </div>
-                  )}
-                  {a.estado === 'CERRADO' && (
-                    <p className="text-xs text-neutral-500 mt-2 italic">
-                      Cierre{a.fecha_cierre ? ` (${a.fecha_cierre})` : ''}
-                      {a.accion_correctiva ? `: ${a.accion_correctiva}` : ''}
-                      {a.dias_suspension ? ` (${a.dias_suspension} día${a.dias_suspension > 1 ? 's' : ''})` : ''}
-                      {a.detalle_cierre ? ` — ${a.detalle_cierre}` : ''}
-                    </p>
-                  )}
+                      </Button>
+                    )}
+                  </div>
                 </div>
               ))}
 
@@ -309,6 +291,7 @@ export function AtencionList() {
       )}
 
       {cerrando && <CerrarCasoModal atencion={cerrando} onClose={() => setCerrando(null)} />}
+      {viendoDetalle && <DetalleAtencionModal atencion={viendoDetalle} onClose={() => setViendoDetalle(null)} />}
     </div>
   )
 }

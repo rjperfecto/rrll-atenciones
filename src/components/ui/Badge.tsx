@@ -36,7 +36,7 @@ const ESTADO_ICONOS: Record<Estado, typeof Clock> = {
 }
 
 const ESTADO_ETIQUETAS: Record<Estado, string> = {
-  ABIERTO: 'Abierto',
+  ABIERTO: 'Pendiente',
   EN_PROCESO: 'En proceso',
   CERRADO: 'Cerrado',
 }
