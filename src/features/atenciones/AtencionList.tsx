@@ -244,7 +244,7 @@ export function AtencionList() {
                       </span>
                     )}
                   </div>
-                  {a.falta && <p className="text-sm text-neutral-600">Falta: {a.falta}</p>}
+                  <p className="text-sm text-neutral-600">Falta: {a.falta ?? a.subcategoria}</p>
                   <p className="text-sm font-medium text-neutral-900 mt-1">{a.involucrados[0]?.nombre_completo}</p>
 
                   <div className="flex items-center gap-2 mt-3">

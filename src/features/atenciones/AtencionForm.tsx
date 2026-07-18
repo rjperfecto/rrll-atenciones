@@ -144,7 +144,7 @@ export function AtencionForm() {
       tipo: values.tipo,
       categoria: values.categoria,
       subcategoria: values.subcategoria,
-      falta: values.falta || null,
+      falta: null,
       gravedad: gravedadFinal,
       comentarios: values.comentarios || null,
       involucrados: [
@@ -364,10 +364,6 @@ export function AtencionForm() {
               </select>
             </Field>
           </div>
-
-          <Field label="Falta (detalle específico)" value={valores.falta}>
-            <input type="text" placeholder="ej. Fruta con defecto" {...register('falta')} className="input" />
-          </Field>
 
           {gravedad && (
             <div className="flex items-center gap-2 text-sm">

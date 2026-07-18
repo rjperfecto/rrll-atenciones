@@ -66,7 +66,7 @@ export function exportarAtencionesCsv(atenciones: Atencion[]) {
       FUNDO: a.fundo ?? '',
       MODULO: a.modulo ?? '',
       'SUP. CUADRILLA': a.sup_cuadrilla ?? '',
-      FALTA: a.falta ?? '',
+      FALTA: a.falta ?? a.subcategoria,
       'ACCION CORRECTIVA': a.accion_correctiva ?? '',
       ANTECEDENTE: a.antecedente ?? '',
       COMENTARIO: a.comentarios ?? '',
