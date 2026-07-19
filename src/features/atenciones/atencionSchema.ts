@@ -16,8 +16,6 @@ export const atencionSchema = z.object({
   nombreInvolucrado: z.string().min(1, 'El nombre del trabajador es obligatorio'),
   supCuadrilla: z.string().optional(),
   reporte: z.string().optional(),
-  antecedente: z.string().optional(),
-  notasSeguimiento: z.string().optional(),
   comentarios: z.string().optional(),
 })
 

@@ -25,3 +25,27 @@ export async function cerrarCasoAtencion(
   const { error } = await supabase.from('atenciones').update(cambios).eq('id', id)
   return { error: error?.message ?? null }
 }
+
+export interface AntecedenteFalta {
+  fecha: string
+  subcategoria: string
+  gravedad: Atencion['gravedad']
+}
+
+// Antecedentes disciplinarios del trabajador: solo cuentan las atenciones
+// Tipo=INTERVENCIÓN (faltas reales de la Matriz), no consultas/reclamos/etc,
+// para ayudar a definir una medida correctiva acorde al historial de la persona.
+export async function buscarAntecedentesPorLegajo(legajo: string, excluirId: string): Promise<AntecedenteFalta[]> {
+  const { data, error } = await supabase
+    .from('atenciones')
+    .select('fecha, subcategoria, gravedad, involucrados')
+    // .contains() genera sintaxis de array de Postgres (cs.{...}) para este
+    // caso en vez de JSON (cs.[...]), que Postgres rechaza por ser jsonb;
+    // .filter() con el JSON ya serializado evita ese problema.
+    .filter('involucrados', 'cs', JSON.stringify([{ legajo }]))
+    .eq('tipo', 'INTERVENCIÓN')
+    .neq('id', excluirId)
+    .order('fecha', { ascending: false })
+  if (error || !data) return []
+  return data as AntecedenteFalta[]
+}

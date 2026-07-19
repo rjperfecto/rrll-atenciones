@@ -1,17 +1,19 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { AlertCircle } from 'lucide-react'
+import { AlertCircle, History } from 'lucide-react'
 import { cierreSchema, type CierreFormValues } from './cierreSchema'
 import { ACCIONES_CORRECTIVAS, requiereDias } from '@/data/accionCorrectiva'
-import { cerrarCasoAtencion } from '@/lib/atencionesApi'
+import { cerrarCasoAtencion, buscarAntecedentesPorLegajo, type AntecedenteFalta } from '@/lib/atencionesApi'
 import { Modal } from '@/components/ui/Modal'
 import { Field } from '@/components/ui/Field'
 import { Button } from '@/components/ui/Button'
+import { GravedadBadge } from '@/components/ui/Badge'
 import type { Atencion } from '@/types'
 
 export function CerrarCasoModal({ atencion, onClose }: { atencion: Atencion; onClose: () => void }) {
   const [error, setError] = useState<string | null>(null)
+  const [antecedentes, setAntecedentes] = useState<AntecedenteFalta[] | null>(null)
   const {
     register,
     handleSubmit,
@@ -21,6 +23,15 @@ export function CerrarCasoModal({ atencion, onClose }: { atencion: Atencion; onC
 
   const valores = watch()
   const accionCorrectiva = valores.accionCorrectiva
+  const legajo = atencion.involucrados[0]?.legajo
+
+  useEffect(() => {
+    if (!legajo) {
+      setAntecedentes([])
+      return
+    }
+    void buscarAntecedentesPorLegajo(legajo, atencion.id).then(setAntecedentes)
+  }, [legajo, atencion.id])
 
   async function onSubmit(values: CierreFormValues) {
     setError(null)
@@ -45,7 +56,35 @@ export function CerrarCasoModal({ atencion, onClose }: { atencion: Atencion; onC
       title="Cerrar caso"
       description={`${atencion.involucrados[0]?.nombre_completo ?? ''} · ${atencion.subcategoria}`}
       onClose={onClose}
+      size="lg"
     >
+      <div className="mb-4 rounded-md border border-neutral-200 bg-neutral-50 p-3">
+        <p className="text-sm font-medium text-neutral-800 flex items-center gap-1.5 mb-1">
+          <History className="size-4 text-brand" />
+          ANTECEDENTES
+        </p>
+        {antecedentes === null ? (
+          <p className="text-sm text-neutral-500">Buscando antecedentes del legajo...</p>
+        ) : antecedentes.length === 0 ? (
+          <p className="text-sm text-neutral-500">Sin faltas previas registradas para este legajo.</p>
+        ) : (
+          <>
+            <p className="text-sm text-neutral-700 mb-2">
+              {antecedentes.length} falta{antecedentes.length > 1 ? 's' : ''} previa{antecedentes.length > 1 ? 's' : ''} registrada{antecedentes.length > 1 ? 's' : ''} para este legajo:
+            </p>
+            <ul className="space-y-1 max-h-40 overflow-y-auto">
+              {antecedentes.map((a, i) => (
+                <li key={i} className="text-sm text-neutral-600 flex items-center gap-2">
+                  <span className="text-neutral-400">{a.fecha}</span>
+                  <span className="flex-1">{a.subcategoria}</span>
+                  <GravedadBadge gravedad={a.gravedad} />
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </div>
+
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <Field label="Acción correctiva" value={accionCorrectiva} error={errors.accionCorrectiva?.message}>
           <select {...register('accionCorrectiva')} className="input">

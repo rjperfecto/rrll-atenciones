@@ -30,7 +30,7 @@ const COLUMNAS = [
   'FECHA CIERRE',
   'ESTADO',
   'ÁREA',
-  'REPORTE',
+  'REPORTA',
   'RESPONSABLE RRLL',
   'SUP. RRLL',
 ] as const
@@ -73,7 +73,7 @@ export function exportarAtencionesCsv(atenciones: Atencion[]) {
       'FECHA CIERRE': a.fecha_cierre ?? '',
       ESTADO: a.estado,
       ÁREA: a.area ?? '',
-      REPORTE: a.reporte ?? '',
+      REPORTA: a.reporte ?? '',
       'RESPONSABLE RRLL': a.responsable_nombre,
       'SUP. RRLL': a.sup_rrll ?? '',
     }

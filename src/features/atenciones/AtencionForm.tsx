@@ -175,8 +175,8 @@ export function AtencionForm() {
       responsable_nombre: profile.nombre_completo,
       sup_rrll: supRrllPorZona(values.zona),
       reporte: values.reporte || null,
-      antecedente: values.antecedente || null,
-      notas_seguimiento: values.notasSeguimiento || null,
+      antecedente: null,
+      notas_seguimiento: null,
       created_at: now,
       updated_at: now,
     }
@@ -401,21 +401,8 @@ export function AtencionForm() {
         </CardSection>
 
         <CardSection title="Seguimiento (opcional)" icon={<StickyNote className="size-4 text-brand" />}>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="Reporte" value={valores.reporte}>
-              <input type="text" {...register('reporte')} className="input" />
-            </Field>
-            <Field label="Antecedente" value={valores.antecedente}>
-              <input type="text" {...register('antecedente')} className="input" />
-            </Field>
-          </div>
-          <Field label="Notas de seguimiento" value={valores.notasSeguimiento}>
-            <input
-              type="text"
-              placeholder="ej. Vacaciones 6-26/04"
-              {...register('notasSeguimiento')}
-              className="input"
-            />
+          <Field label="Reporta" value={valores.reporte}>
+            <input type="text" {...register('reporte')} className="input" />
           </Field>
           <Field label="Comentarios" value={valores.comentarios}>
             <textarea rows={3} placeholder="Detalle narrativo del caso..." {...register('comentarios')} className="input" />

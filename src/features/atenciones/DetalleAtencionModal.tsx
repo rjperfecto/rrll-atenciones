@@ -49,11 +49,10 @@ export function DetalleAtencionModal({ atencion, onClose }: { atencion: Atencion
         <Dato label="Falta" value={atencion.falta} />
       </dl>
 
-      {(atencion.reporte || atencion.antecedente || atencion.notas_seguimiento || atencion.comentarios) && (
+      {(atencion.reporte || atencion.antecedente || atencion.comentarios) && (
         <div className="mt-4 pt-4 border-t border-neutral-200 space-y-3">
-          <Dato label="Reporte" value={atencion.reporte} />
+          <Dato label="Reporta" value={atencion.reporte} />
           <Dato label="Antecedente" value={atencion.antecedente} />
-          <Dato label="Notas de seguimiento" value={atencion.notas_seguimiento} />
           <Dato label="Comentarios" value={atencion.comentarios} />
         </div>
       )}
