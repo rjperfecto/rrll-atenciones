@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
   AlertCircle,
   CheckCircle2,
@@ -7,12 +7,13 @@ import {
   Download,
   Eye,
   Inbox,
+  Loader2,
   RefreshCw,
   Search,
   SearchX,
   X,
 } from 'lucide-react'
-import { listarAtenciones } from '@/lib/atencionesApi'
+import { listarAtencionesPaginado, listarAtencionesParaExportar, type FiltrosAtenciones } from '@/lib/atencionesApi'
 import { exportarAtencionesCsv } from '@/lib/exportCsv'
 import { useAuth } from '@/features/auth/AuthContext'
 import { CerrarCasoModal } from './CerrarCasoModal'
@@ -32,25 +33,12 @@ const PAGE_SIZE = 10
 const ESTADOS: Estado[] = ['ABIERTO', 'EN_PROCESO', 'CERRADO']
 const GRAVEDADES: Gravedad[] = ['BAJO', 'MEDIO', 'ALTO']
 
-function coincideBusqueda(a: Atencion, texto: string) {
-  if (!texto) return true
-  const q = texto.trim().toLowerCase()
-  const involucrado = a.involucrados[0]
-  return [
-    involucrado?.nombre_completo,
-    involucrado?.dni,
-    involucrado?.legajo,
-    a.fundo,
-    a.grupo,
-    a.subcategoria,
-  ].some((campo) => campo?.toLowerCase().includes(q))
-}
-
 export function AtencionList() {
   const { profile } = useAuth()
   const [cerrando, setCerrando] = useState<Atencion | null>(null)
   const [viendoDetalle, setViendoDetalle] = useState<Atencion | null>(null)
   const [busqueda, setBusqueda] = useState('')
+  const [busquedaDebounced, setBusquedaDebounced] = useState('')
   const [filtroEstado, setFiltroEstado] = useState('')
   const [filtroGravedad, setFiltroGravedad] = useState('')
   const [filtroZona, setFiltroZona] = useState('')
@@ -58,41 +46,57 @@ export function AtencionList() {
   const [filtroHasta, setFiltroHasta] = useState('')
   const [pagina, setPagina] = useState(1)
   const [atenciones, setAtenciones] = useState<Atencion[] | null>(null)
+  const [total, setTotal] = useState(0)
+  const [cargando, setCargando] = useState(false)
+  const [exportando, setExportando] = useState(false)
   const [errorCarga, setErrorCarga] = useState<string | null>(null)
 
+  // Debounce del texto libre: evita disparar una consulta por cada tecla.
+  useEffect(() => {
+    const t = setTimeout(() => setBusquedaDebounced(busqueda), 400)
+    return () => clearTimeout(t)
+  }, [busqueda])
+
+  const rangoFechaInvalido = Boolean(filtroDesde && filtroHasta && filtroDesde > filtroHasta)
+  const mensajeRango = rangoFechaInvalido ? '"Desde" no puede ser posterior a "Hasta"' : undefined
+
+  const filtros: FiltrosAtenciones = {
+    busqueda: busquedaDebounced || undefined,
+    estado: filtroEstado || undefined,
+    gravedad: filtroGravedad || undefined,
+    zona: filtroZona || undefined,
+    desde: filtroDesde || undefined,
+    hasta: filtroHasta || undefined,
+  }
+  const filtrosClave = JSON.stringify(filtros)
+
   const cargarAtenciones = useCallback(async () => {
-    if (!profile) return
-    const { data, error } = await listarAtenciones(profile.id, profile.rol === 'ADMIN')
+    if (!profile || rangoFechaInvalido) return
+    setCargando(true)
+    const { data, total: totalNuevo, error } = await listarAtencionesPaginado(
+      profile.id,
+      profile.rol === 'ADMIN',
+      JSON.parse(filtrosClave),
+      pagina,
+      PAGE_SIZE,
+    )
     setAtenciones(data)
+    setTotal(totalNuevo)
     setErrorCarga(error)
-  }, [profile])
+    setCargando(false)
+    // Si la pagina pedida quedo fuera de rango (ej. tras un filtro nuevo), vuelve a la 1.
+    if (data.length === 0 && totalNuevo > 0 && pagina > 1) setPagina(1)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile, rangoFechaInvalido, filtrosClave, pagina])
 
   useEffect(() => {
     void cargarAtenciones()
   }, [cargarAtenciones])
 
-  const filtradas = useMemo(() => {
-    if (!atenciones) return []
-    return atenciones.filter((a) => {
-      if (filtroEstado && a.estado !== filtroEstado) return false
-      if (filtroGravedad && a.gravedad !== filtroGravedad) return false
-      if (filtroZona && a.zona !== filtroZona) return false
-      if (filtroDesde && a.fecha < filtroDesde) return false
-      if (filtroHasta && a.fecha > filtroHasta) return false
-      if (!coincideBusqueda(a, busqueda)) return false
-      return true
-    })
-  }, [atenciones, filtroEstado, filtroGravedad, filtroZona, filtroDesde, filtroHasta, busqueda])
-
-  const totalPaginas = Math.max(1, Math.ceil(filtradas.length / PAGE_SIZE))
-  const paginaActual = Math.min(pagina, totalPaginas)
-  const visibles = filtradas.slice((paginaActual - 1) * PAGE_SIZE, paginaActual * PAGE_SIZE)
-
+  const totalPaginas = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const hayFiltrosActivos = Boolean(
     busqueda || filtroEstado || filtroGravedad || filtroZona || filtroDesde || filtroHasta,
   )
-  const rangoFechaInvalido = Boolean(filtroDesde && filtroHasta && filtroDesde > filtroHasta)
-  const mensajeRango = rangoFechaInvalido ? '"Desde" no puede ser posterior a "Hasta"' : undefined
   const estadoBusqueda = estadoDeCampo(busqueda)
   const estadoFiltroEstado = estadoDeCampo(filtroEstado)
   const estadoFiltroGravedad = estadoDeCampo(filtroGravedad)
@@ -102,6 +106,7 @@ export function AtencionList() {
 
   function limpiarFiltros() {
     setBusqueda('')
+    setBusquedaDebounced('')
     setFiltroEstado('')
     setFiltroGravedad('')
     setFiltroZona('')
@@ -115,6 +120,14 @@ export function AtencionList() {
       setter(v)
       setPagina(1)
     }
+  }
+
+  async function exportar() {
+    if (!profile) return
+    setExportando(true)
+    const { data, error } = await listarAtencionesParaExportar(profile.id, profile.rol === 'ADMIN', filtros)
+    if (!error) exportarAtencionesCsv(data)
+    setExportando(false)
   }
 
   if (errorCarga) {
@@ -136,16 +149,16 @@ export function AtencionList() {
   return (
     <div>
       <div className="flex items-start justify-between gap-3 flex-wrap mb-4">
-        <PageHeader title="Historial" description={`${filtradas.length} de ${atenciones.length} atenciones`} />
-        {atenciones.length > 0 && (
-          <Button variant="secondary" onClick={() => exportarAtencionesCsv(filtradas)}>
+        <PageHeader title="Historial" description={`${total} atencion${total === 1 ? '' : 'es'}`} />
+        {total > 0 && (
+          <Button variant="secondary" onClick={exportar} loading={exportando}>
             <Download className="size-4" />
-            Exportar a Excel (CSV)
+            {exportando ? 'Exportando...' : 'Exportar a Excel (CSV)'}
           </Button>
         )}
       </div>
 
-      {atenciones.length === 0 ? (
+      {total === 0 && !hayFiltrosActivos ? (
         <Card className="p-10 flex flex-col items-center text-center gap-2">
           <Inbox className="size-10 text-neutral-300" />
           <p className="text-sm font-medium text-neutral-700">Todavía no hay atenciones registradas</p>
@@ -163,7 +176,10 @@ export function AtencionList() {
               <input
                 type="text"
                 value={busqueda}
-                onChange={(e) => actualizarFiltro(setBusqueda)(e.target.value)}
+                onChange={(e) => {
+                  setBusqueda(e.target.value)
+                  setPagina(1)
+                }}
                 placeholder="Buscar por nombre, legajo, DNI, fundo o grupo..."
                 className={cn('input pl-9', CLASE_INPUT_POR_ESTADO[estadoBusqueda])}
               />
@@ -239,7 +255,11 @@ export function AtencionList() {
             )}
           </Card>
 
-          {filtradas.length === 0 ? (
+          {cargando ? (
+            <Card className="p-10 flex items-center justify-center">
+              <Loader2 className="size-6 text-brand animate-spin" />
+            </Card>
+          ) : total === 0 ? (
             <Card className="p-10 flex flex-col items-center text-center gap-2">
               <SearchX className="size-10 text-neutral-300" />
               <p className="text-sm font-medium text-neutral-700">Ningún caso coincide con los filtros</p>
@@ -249,7 +269,7 @@ export function AtencionList() {
             </Card>
           ) : (
             <div className="space-y-3">
-              {visibles.map((a) => (
+              {atenciones.map((a) => (
                 <div key={a.id} className="rounded-lg border border-neutral-200 bg-white p-4 shadow-sm">
                   <div className="flex flex-wrap items-center gap-2 mb-2">
                     <span className="text-sm font-medium text-neutral-900">{a.fecha}</span>
@@ -283,18 +303,18 @@ export function AtencionList() {
                   <Button
                     variant="secondary"
                     onClick={() => setPagina((p) => Math.max(1, p - 1))}
-                    disabled={paginaActual === 1}
+                    disabled={pagina === 1}
                   >
                     <ChevronLeft className="size-4" />
                     Anterior
                   </Button>
                   <span className="text-sm text-neutral-500">
-                    Página {paginaActual} de {totalPaginas}
+                    Página {pagina} de {totalPaginas}
                   </span>
                   <Button
                     variant="secondary"
                     onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))}
-                    disabled={paginaActual === totalPaginas}
+                    disabled={pagina === totalPaginas}
                   >
                     Siguiente
                     <ChevronRight className="size-4" />
