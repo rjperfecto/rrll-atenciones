@@ -4,7 +4,6 @@ import { leerFilasXlsx } from './leerXlsx'
 import { mapearEncabezadosAfiliados, esContingenciaAfiliado, type CampoAfiliado } from './afiliadosColumnas'
 import { LEGAJO_REGEX } from '@/data/legajo'
 import { supabase } from '@/lib/supabaseClient'
-import { pullAfiliados } from '@/lib/sync'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { CardSection, Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -109,7 +108,6 @@ export function ImportarAfiliados() {
           .upsert(resultado.validos.slice(i, i + lote), { onConflict: 'legajo' })
         if (upsertError) throw new Error(upsertError.message)
       }
-      await pullAfiliados()
       setMensaje(`Cargado: ${resultado.validos.length} legajos actualizados/agregados.`)
       setResultado(null)
     } catch (err) {

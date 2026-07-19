@@ -8,10 +8,9 @@ import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/cn'
 
 export function LoginPage() {
-  const { signIn, signInDemo } = useAuth()
+  const { signIn } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [nombreDemo, setNombreDemo] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -38,24 +37,10 @@ export function LoginPage() {
               <AlertTriangle className="size-4" />
               Supabase aún no está configurado
             </p>
-            <p className="mb-3">
-              Agrega tus credenciales en <code className="bg-amber-100 px-1 rounded">.env</code> para
-              usar login real. Mientras tanto puedes probar la app en modo demo.
+            <p>
+              Agrega tus credenciales en <code className="bg-amber-100 px-1 rounded">.env</code> para poder
+              iniciar sesión — la app requiere conexión a Supabase para funcionar.
             </p>
-            <input
-              type="text"
-              placeholder="Tu nombre"
-              value={nombreDemo}
-              onChange={(e) => setNombreDemo(e.target.value)}
-              className="w-full rounded-md border border-amber-300 px-3 py-2 text-sm mb-2 focus:outline-none focus:ring-1 focus:ring-amber-500"
-            />
-            <Button
-              type="button"
-              onClick={() => signInDemo(nombreDemo)}
-              className="w-full bg-amber-600 hover:bg-amber-700"
-            >
-              Entrar en modo demo
-            </Button>
           </Card>
         )}
 

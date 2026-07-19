@@ -2,14 +2,10 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import { supabase, isSupabaseConfigured } from '@/lib/supabaseClient'
 import type { Profile } from '@/types'
 
-const DEMO_PROFILE_KEY = 'rrll-demo-profile'
-
 interface AuthState {
   profile: Profile | null
   loading: boolean
-  isDemo: boolean
   signIn: (email: string, password: string) => Promise<string | null>
-  signInDemo: (nombre: string) => void
   signOut: () => Promise<void>
 }
 
@@ -18,17 +14,8 @@ const AuthContext = createContext<AuthState | null>(null)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
-  const [isDemo, setIsDemo] = useState(false)
 
   useEffect(() => {
-    const demoRaw = localStorage.getItem(DEMO_PROFILE_KEY)
-    if (demoRaw) {
-      setProfile(JSON.parse(demoRaw) as Profile)
-      setIsDemo(true)
-      setLoading(false)
-      return
-    }
-
     if (!isSupabaseConfigured) {
       setLoading(false)
       return
@@ -70,21 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return error?.message ?? null
   }
 
-  function signInDemo(nombre: string) {
-    const demoProfile: Profile = {
-      id: 'demo-user',
-      email: 'demo@rrll.local',
-      nombre_completo: nombre || 'Usuario demo',
-      rol: 'ADMIN',
-    }
-    localStorage.setItem(DEMO_PROFILE_KEY, JSON.stringify(demoProfile))
-    setProfile(demoProfile)
-    setIsDemo(true)
-  }
-
   async function signOut() {
-    localStorage.removeItem(DEMO_PROFILE_KEY)
-    setIsDemo(false)
     setProfile(null)
     if (isSupabaseConfigured) {
       await supabase.auth.signOut()
@@ -92,7 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ profile, loading, isDemo, signIn, signInDemo, signOut }}>
+    <AuthContext.Provider value={{ profile, loading, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   )

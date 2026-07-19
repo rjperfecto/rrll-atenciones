@@ -1,5 +1,4 @@
-import { useMemo } from 'react'
-import { useLiveQuery } from 'dexie-react-hooks'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Bar,
   BarChart,
@@ -11,16 +10,21 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { db } from '@/lib/db'
+import { listarAtenciones } from '@/lib/atencionesApi'
 import { CardSection } from '@/components/ui/Card'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { GRAVEDAD_COLORES } from '@/components/ui/Badge'
+import type { Atencion } from '@/types'
 
 // Reemplaza la hoja "INDICADOR" del Excel: casos por zona, por gravedad,
-// y cruce responsable x gravedad, calculados en vivo sobre los datos locales.
+// y cruce responsable x gravedad, calculados en vivo sobre los datos de Supabase.
 
 export function Dashboard() {
-  const atenciones = useLiveQuery(() => db.atenciones.toArray(), [])
+  const [atenciones, setAtenciones] = useState<Atencion[] | null>(null)
+
+  useEffect(() => {
+    void listarAtenciones('', true).then(({ data }) => setAtenciones(data))
+  }, [])
 
   const porZona = useMemo(() => {
     if (!atenciones) return []

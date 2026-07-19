@@ -71,5 +71,4 @@ export interface Atencion {
   notas_seguimiento: string | null
   created_at: string
   updated_at: string
-  synced: boolean
 }

@@ -8,7 +8,6 @@ import { AtencionList } from '@/features/atenciones/AtencionList'
 import { Dashboard } from '@/features/dashboard/Dashboard'
 import { ImportarPersonal } from '@/features/admin/ImportarPersonal'
 import { ImportarAfiliados } from '@/features/admin/ImportarAfiliados'
-import { setupAutoSync, pullRemotas, pullTrabajadoresHistorial, pullAfiliados } from '@/lib/sync'
 import { cn } from '@/lib/cn'
 
 function navClass({ isActive }: { isActive: boolean }) {
@@ -32,15 +31,6 @@ function AppLayout() {
       window.removeEventListener('offline', off)
     }
   }, [])
-
-  useEffect(() => {
-    if (!profile) return
-    const cleanup = setupAutoSync(() => {})
-    void pullRemotas(profile.id, profile.rol === 'ADMIN')
-    void pullTrabajadoresHistorial()
-    void pullAfiliados()
-    return cleanup
-  }, [profile])
 
   if (!profile) return <LoginPage />
 

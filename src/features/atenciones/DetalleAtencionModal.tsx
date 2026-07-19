@@ -25,11 +25,6 @@ export function DetalleAtencionModal({ atencion, onClose }: { atencion: Atencion
       <div className="flex items-center gap-2 mb-4">
         <GravedadBadge gravedad={atencion.gravedad} />
         <EstadoBadge estado={atencion.estado} />
-        {!atencion.synced && (
-          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-            Pendiente de sincronizar
-          </span>
-        )}
       </div>
 
       <dl className="grid grid-cols-2 gap-x-4 gap-y-3">

@@ -23,8 +23,8 @@ import { dniDesdeLegajo, LEGAJO_REGEX } from '@/data/legajo'
 import { supRrllPorZona } from '@/data/supervisoresRrll'
 import { moduloDesdeFundo } from '@/lib/modulo'
 import { zonaDesdeFundo } from '@/lib/zonaFundo'
-import { db } from '@/lib/db'
-import { pushPending } from '@/lib/sync'
+import { buscarTrabajadorPorLegajo, buscarAfiliadoPorLegajo } from '@/lib/trabajadoresApi'
+import { crearAtencion } from '@/lib/atencionesApi'
 import { useAuth } from '@/features/auth/AuthContext'
 import { cn } from '@/lib/cn'
 import { Button } from '@/components/ui/Button'
@@ -39,6 +39,7 @@ type EstadoBusqueda = 'idle' | 'buscando' | 'encontrado' | 'no_encontrado' | 'fo
 export function AtencionForm() {
   const { profile } = useAuth()
   const [savedMsg, setSavedMsg] = useState<string | null>(null)
+  const [errorGuardado, setErrorGuardado] = useState<string | null>(null)
   const [busqueda, setBusqueda] = useState<EstadoBusqueda>('idle')
   const [escaneando, setEscaneando] = useState(false)
   const [esAfiliado, setEsAfiliado] = useState<boolean | null>(null)
@@ -87,14 +88,14 @@ export function AtencionForm() {
       setBusqueda('buscando')
       // La afiliación no depende de la fecha del caso, solo del legajo: se
       // resuelve aparte del historial de TAREO (que sí es por Legajo+Fecha).
-      const afiliado = await db.afiliados.get(legajoLimpio)
-      setEsAfiliado(afiliado?.es_afiliado ?? false)
-      // Busca el registro de TAREO de ese legajo tal como estaba EN la fecha del
-      // caso: si no hay marcación exacta ese día, usa la más cercana anterior
-      // (nunca una posterior a la fecha de la atención).
-      const registros = await db.trabajadoresHistorial.where('legajo').equals(legajoLimpio).toArray()
-      const candidatos = registros.filter((r) => r.fecha <= fecha).sort((a, b) => (a.fecha < b.fecha ? 1 : -1))
-      const trabajador = candidatos[0]
+      const [esAfiliadoEncontrado, trabajador] = await Promise.all([
+        buscarAfiliadoPorLegajo(legajoLimpio),
+        // Busca el registro de TAREO de ese legajo tal como estaba EN la fecha
+        // del caso: si no hay marcación exacta ese día, usa la más cercana
+        // anterior (nunca una posterior a la fecha de la atención).
+        buscarTrabajadorPorLegajo(legajoLimpio, fecha),
+      ])
+      setEsAfiliado(esAfiliadoEncontrado)
       if (!trabajador) {
         setBusqueda('no_encontrado')
         return
@@ -132,13 +133,13 @@ export function AtencionForm() {
 
   async function onSubmit(values: AtencionFormValues) {
     if (!profile) return
+    setErrorGuardado(null)
     const gravedadFinal = gravedadDe(values.tipo, values.categoria, values.subcategoria)
     if (!gravedadFinal) return
 
     // Se recalcula aquí (no se confía solo en el estado de "Buscar") por si
     // el usuario escribió el legajo y envió el formulario sin buscar antes.
-    const afiliadoInfo = await db.afiliados.get(values.legajo)
-    const esAfiliadoFinal = afiliadoInfo?.es_afiliado ?? false
+    const esAfiliadoFinal = await buscarAfiliadoPorLegajo(values.legajo)
 
     const now = new Date().toISOString()
     const atencion: Atencion = {
@@ -178,13 +179,15 @@ export function AtencionForm() {
       notas_seguimiento: values.notasSeguimiento || null,
       created_at: now,
       updated_at: now,
-      synced: false,
     }
 
-    await db.atenciones.add(atencion)
-    setSavedMsg(navigator.onLine ? 'Guardado. Sincronizando...' : 'Guardado localmente. Se sincronizará cuando haya conexión.')
+    const { error } = await crearAtencion(atencion)
+    if (error) {
+      setErrorGuardado(`No se pudo guardar: ${error}. Verifica tu conexión e intenta de nuevo.`)
+      return
+    }
+    setSavedMsg('Guardado.')
     limpiarFormulario()
-    void pushPending()
     setTimeout(() => setSavedMsg(null), 4000)
   }
 
@@ -202,6 +205,12 @@ export function AtencionForm() {
             <Link to="/historial" className="underline whitespace-nowrap">
               Ver en historial
             </Link>
+          </div>
+        )}
+        {errorGuardado && (
+          <div className="rounded-md bg-red-50 border border-red-200 text-red-800 text-sm px-3 py-2 flex items-center gap-2">
+            <AlertCircle className="size-4 shrink-0" />
+            {errorGuardado}
           </div>
         )}
 

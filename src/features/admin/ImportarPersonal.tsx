@@ -5,7 +5,6 @@ import { mapearEncabezados, indiceColumnaFecha, type CampoTrabajador } from './p
 import { timestampDeCelda, fechaSoloDia } from './parseFecha'
 import { LEGAJO_REGEX, dniDesdeLegajo } from '@/data/legajo'
 import { supabase } from '@/lib/supabaseClient'
-import { pullTrabajadoresHistorial } from '@/lib/sync'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { CardSection, Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -141,7 +140,6 @@ export function ImportarPersonal() {
           .upsert(resultado.validos.slice(i, i + lote), { onConflict: 'legajo,fecha' })
         if (upsertError) throw new Error(upsertError.message)
       }
-      await pullTrabajadoresHistorial()
       setMensaje(`Reemplazado: la tabla ahora tiene solo estos ${resultado.validos.length} registros (legajo + día).`)
       setResultado(null)
     } catch (err) {

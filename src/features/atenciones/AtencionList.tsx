@@ -1,5 +1,4 @@
-import { useMemo, useState } from 'react'
-import { useLiveQuery } from 'dexie-react-hooks'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   AlertCircle,
   CheckCircle2,
@@ -8,11 +7,12 @@ import {
   Download,
   Eye,
   Inbox,
+  RefreshCw,
   Search,
   SearchX,
   X,
 } from 'lucide-react'
-import { db } from '@/lib/db'
+import { listarAtenciones } from '@/lib/atencionesApi'
 import { exportarAtencionesCsv } from '@/lib/exportCsv'
 import { useAuth } from '@/features/auth/AuthContext'
 import { CerrarCasoModal } from './CerrarCasoModal'
@@ -57,12 +57,19 @@ export function AtencionList() {
   const [filtroDesde, setFiltroDesde] = useState('')
   const [filtroHasta, setFiltroHasta] = useState('')
   const [pagina, setPagina] = useState(1)
+  const [atenciones, setAtenciones] = useState<Atencion[] | null>(null)
+  const [errorCarga, setErrorCarga] = useState<string | null>(null)
 
-  const atenciones = useLiveQuery(async () => {
-    const all = await db.atenciones.orderBy('fecha').reverse().toArray()
-    if (!profile) return []
-    return profile.rol === 'ADMIN' ? all : all.filter((a) => a.responsable_id === profile.id)
+  const cargarAtenciones = useCallback(async () => {
+    if (!profile) return
+    const { data, error } = await listarAtenciones(profile.id, profile.rol === 'ADMIN')
+    setAtenciones(data)
+    setErrorCarga(error)
   }, [profile])
+
+  useEffect(() => {
+    void cargarAtenciones()
+  }, [cargarAtenciones])
 
   const filtradas = useMemo(() => {
     if (!atenciones) return []
@@ -108,6 +115,20 @@ export function AtencionList() {
       setter(v)
       setPagina(1)
     }
+  }
+
+  if (errorCarga) {
+    return (
+      <Card className="p-10 flex flex-col items-center text-center gap-2">
+        <AlertCircle className="size-10 text-red-300" />
+        <p className="text-sm font-medium text-neutral-700">No se pudo cargar el historial</p>
+        <p className="text-sm text-neutral-500">{errorCarga}</p>
+        <Button variant="secondary" onClick={cargarAtenciones}>
+          <RefreshCw className="size-4" />
+          Reintentar
+        </Button>
+      </Card>
+    )
   }
 
   if (!atenciones) return <p className="text-sm text-neutral-500">Cargando...</p>
@@ -238,11 +259,6 @@ export function AtencionList() {
                       <GravedadBadge gravedad={a.gravedad} />
                       <EstadoBadge estado={a.estado} />
                     </span>
-                    {!a.synced && (
-                      <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                        Pendiente de sincronizar
-                      </span>
-                    )}
                   </div>
                   <p className="text-sm text-neutral-600">Falta: {a.falta ?? a.subcategoria}</p>
                   <p className="text-sm font-medium text-neutral-900 mt-1">{a.involucrados[0]?.nombre_completo}</p>
@@ -290,7 +306,15 @@ export function AtencionList() {
         </>
       )}
 
-      {cerrando && <CerrarCasoModal atencion={cerrando} onClose={() => setCerrando(null)} />}
+      {cerrando && (
+        <CerrarCasoModal
+          atencion={cerrando}
+          onClose={() => {
+            setCerrando(null)
+            void cargarAtenciones()
+          }}
+        />
+      )}
       {viendoDetalle && <DetalleAtencionModal atencion={viendoDetalle} onClose={() => setViendoDetalle(null)} />}
     </div>
   )
