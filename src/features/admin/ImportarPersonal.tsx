@@ -122,9 +122,18 @@ export function ImportarPersonal() {
 
   async function confirmarCarga() {
     if (!resultado || resultado.validos.length === 0) return
+    const confirmado = window.confirm(
+      'Esto va a borrar TODO el historial de personal anterior y lo reemplaza solo con los datos de este archivo. ¿Continuar?',
+    )
+    if (!confirmado) return
     setCargando(true)
     setError(null)
     try {
+      // Reemplazo total: ya no se conserva historial de cargas anteriores,
+      // cada archivo subido sustituye por completo a la tabla.
+      const { error: deleteError } = await supabase.from('trabajadores_historial').delete().neq('legajo', '')
+      if (deleteError) throw new Error(deleteError.message)
+
       const lote = 500
       for (let i = 0; i < resultado.validos.length; i += lote) {
         const { error: upsertError } = await supabase
@@ -133,7 +142,7 @@ export function ImportarPersonal() {
         if (upsertError) throw new Error(upsertError.message)
       }
       await pullTrabajadoresHistorial()
-      setMensaje(`Cargado: ${resultado.validos.length} registros (legajo + día) actualizados/agregados.`)
+      setMensaje(`Reemplazado: la tabla ahora tiene solo estos ${resultado.validos.length} registros (legajo + día).`)
       setResultado(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo subir a la base de datos.')
@@ -146,7 +155,7 @@ export function ImportarPersonal() {
     <div className="max-w-xl">
       <PageHeader
         title="Importar personal"
-        description='Sube el Excel de TAREO (reporte de auditoría móvil), de uno o varios días. Se guarda un registro por Legajo y Día, para que "Nueva atención" busque el dato del trabajador tal como estaba en la fecha del caso.'
+        description="Sube el Excel de TAREO (reporte de auditoría móvil). Cada carga reemplaza por completo los datos anteriores: la tabla queda solo con lo que traiga este archivo."
       />
 
       <div className="space-y-4">
@@ -193,8 +202,11 @@ export function ImportarPersonal() {
                 Filas descartadas por legajo o fecha inválidos: {resultado.legajosInvalidos}
               </p>
             )}
+            <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+              Esto borra todo el historial de personal cargado antes y lo reemplaza solo con estos registros.
+            </p>
             <Button onClick={confirmarCarga} loading={cargando} disabled={resultado.validos.length === 0}>
-              {cargando ? 'Cargando...' : `Confirmar carga (${resultado.validos.length})`}
+              {cargando ? 'Reemplazando...' : `Reemplazar todo (${resultado.validos.length})`}
             </Button>
           </Card>
         )}
