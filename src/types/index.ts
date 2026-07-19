@@ -25,6 +25,15 @@ export interface TrabajadorHistorial {
   updated_at: string
 }
 
+// Lista de afiliados sindicales (Excel AFILIADOS, columna CONTINGENCIA).
+// Informativo y de solo lectura: si el legajo no aparece aquí, se asume no afiliado.
+export interface Afiliado {
+  legajo: string
+  nombre_completo: string
+  es_afiliado: boolean
+  updated_at: string
+}
+
 export interface Involucrado {
   legajo: string
   dni: string // derivado del legajo (ver src/data/legajo.ts), no se ingresa directo

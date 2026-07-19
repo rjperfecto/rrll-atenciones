@@ -1,6 +1,6 @@
 import { db } from './db'
 import { supabase, isSupabaseConfigured } from './supabaseClient'
-import type { Atencion, TrabajadorHistorial } from '@/types'
+import type { Afiliado, Atencion, TrabajadorHistorial } from '@/types'
 
 let syncing = false
 
@@ -72,6 +72,27 @@ export async function pullTrabajadoresHistorial(): Promise<void> {
   }
   await db.trabajadoresHistorial.clear()
   await db.trabajadoresHistorial.bulkPut(todos)
+}
+
+export async function pullAfiliados(): Promise<void> {
+  if (!isSupabaseConfigured || !navigator.onLine) return
+  const tandaPedida = 1000
+  const { count, error: countError } = await supabase.from('afiliados').select('*', { count: 'exact', head: true })
+  if (countError) return
+  const total = count ?? 0
+
+  const todos: Afiliado[] = []
+  let desde = 0
+  while (desde < total) {
+    const { data, error } = await supabase.from('afiliados').select('*').range(desde, desde + tandaPedida - 1)
+    if (error) return
+    const recibidas = data ?? []
+    if (recibidas.length === 0) break
+    todos.push(...(recibidas as Afiliado[]))
+    desde += recibidas.length
+  }
+  await db.afiliados.clear()
+  await db.afiliados.bulkPut(todos)
 }
 
 export function setupAutoSync(onSync: () => void) {

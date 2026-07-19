@@ -41,6 +41,7 @@ export function AtencionForm() {
   const [savedMsg, setSavedMsg] = useState<string | null>(null)
   const [busqueda, setBusqueda] = useState<EstadoBusqueda>('idle')
   const [escaneando, setEscaneando] = useState(false)
+  const [esAfiliado, setEsAfiliado] = useState<boolean | null>(null)
   const {
     register,
     handleSubmit,
@@ -54,7 +55,6 @@ export function AtencionForm() {
     mode: 'onTouched', // valida al salir de un campo, no solo al enviar
     defaultValues: {
       fecha: new Date().toISOString().slice(0, 10),
-      esAfiliado: 'NO_ESPECIFICA',
     },
   })
 
@@ -80,10 +80,15 @@ export function AtencionForm() {
       if (legajoLimpio !== valorLegajo) setValue('legajo', legajoLimpio)
       if (!LEGAJO_REGEX.test(legajoLimpio)) {
         setBusqueda('formato_invalido')
+        setEsAfiliado(null)
         void trigger('legajo') // fuerza a mostrar el error aunque el usuario no haya salido del campo
         return
       }
       setBusqueda('buscando')
+      // La afiliación no depende de la fecha del caso, solo del legajo: se
+      // resuelve aparte del historial de TAREO (que sí es por Legajo+Fecha).
+      const afiliado = await db.afiliados.get(legajoLimpio)
+      setEsAfiliado(afiliado?.es_afiliado ?? false)
       // Busca el registro de TAREO de ese legajo tal como estaba EN la fecha del
       // caso: si no hay marcación exacta ese día, usa la más cercana anterior
       // (nunca una posterior a la fecha de la atención).
@@ -120,15 +125,20 @@ export function AtencionForm() {
   function limpiarFormulario() {
     reset({
       fecha: new Date().toISOString().slice(0, 10),
-      esAfiliado: 'NO_ESPECIFICA',
     })
     setBusqueda('idle')
+    setEsAfiliado(null)
   }
 
   async function onSubmit(values: AtencionFormValues) {
     if (!profile) return
     const gravedadFinal = gravedadDe(values.tipo, values.categoria, values.subcategoria)
     if (!gravedadFinal) return
+
+    // Se recalcula aquí (no se confía solo en el estado de "Buscar") por si
+    // el usuario escribió el legajo y envió el formulario sin buscar antes.
+    const afiliadoInfo = await db.afiliados.get(values.legajo)
+    const esAfiliadoFinal = afiliadoInfo?.es_afiliado ?? false
 
     const now = new Date().toISOString()
     const atencion: Atencion = {
@@ -152,7 +162,7 @@ export function AtencionForm() {
           legajo: values.legajo,
           dni: dniDesdeLegajo(values.legajo),
           nombre_completo: values.nombreInvolucrado,
-          es_afiliado: values.esAfiliado === 'NO_ESPECIFICA' ? null : values.esAfiliado === 'SI',
+          es_afiliado: esAfiliadoFinal,
         },
       ],
       estado: 'ABIERTO',
@@ -211,7 +221,12 @@ export function AtencionForm() {
                   inputMode="numeric"
                   maxLength={10}
                   placeholder="ej. 1012345678"
-                  {...register('legajo', { onChange: () => setBusqueda('idle') })}
+                  {...register('legajo', {
+                    onChange: () => {
+                      setBusqueda('idle')
+                      setEsAfiliado(null)
+                    },
+                  })}
                   className={cn('input', CLASE_INPUT_POR_ESTADO[estadoLegajo], estadoLegajo !== 'neutral' && 'pl-9')}
                 />
                 {estadoLegajo !== 'neutral' && (
@@ -267,12 +282,15 @@ export function AtencionForm() {
             <input type="text" placeholder="ej. Juan Pérez López" {...register('nombreInvolucrado')} className="input" />
           </Field>
 
-          <Field label="¿Afiliado sindical?">
-            <select {...register('esAfiliado')} className="input">
-              <option value="NO_ESPECIFICA">No especifica</option>
-              <option value="SI">Sí</option>
-              <option value="NO">No</option>
-            </select>
+          <Field label="¿Afiliado?" hint="Informativo, se llena solo desde la lista de afiliados.">
+            <input
+              type="text"
+              readOnly
+              disabled
+              value={esAfiliado === null ? '' : esAfiliado ? 'SI' : 'NO'}
+              placeholder="Busca el legajo para saber si es afiliado"
+              className="input bg-neutral-50 text-neutral-700"
+            />
           </Field>
         </CardSection>
 

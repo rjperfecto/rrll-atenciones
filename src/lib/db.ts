@@ -1,5 +1,5 @@
 import Dexie, { type EntityTable, type Table } from 'dexie'
-import type { Atencion, TrabajadorHistorial } from '@/types'
+import type { Afiliado, Atencion, TrabajadorHistorial } from '@/types'
 
 // Dexie es la única fuente de verdad en el dispositivo: toda lectura de la UI
 // pasa por aquí. Las atenciones se guardan localmente de inmediato (optimista)
@@ -7,6 +7,7 @@ import type { Atencion, TrabajadorHistorial } from '@/types'
 export const db = new Dexie('rrll-atenciones') as Dexie & {
   atenciones: EntityTable<Atencion, 'id'>
   trabajadoresHistorial: Table<TrabajadorHistorial, [string, string]>
+  afiliados: EntityTable<Afiliado, 'legajo'>
 }
 
 db.version(1).stores({
@@ -26,4 +27,10 @@ db.version(3).stores({
   // clave compuesta legajo+fecha: permite buscar el dato del trabajador tal
   // como estaba en la fecha del caso, no solo el más reciente cargado.
   trabajadoresHistorial: '[legajo+fecha], legajo',
+})
+
+db.version(4).stores({
+  atenciones: 'id, client_uuid, fecha, zona, estado, responsable_id',
+  trabajadoresHistorial: '[legajo+fecha], legajo',
+  afiliados: 'legajo',
 })

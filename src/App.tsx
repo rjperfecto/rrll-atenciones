@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react'
 import { BrowserRouter, Navigate, NavLink, Route, Routes } from 'react-router-dom'
-import { ClipboardPlus, History, LayoutDashboard, LogOut, Users, Wifi, WifiOff } from 'lucide-react'
+import { ClipboardPlus, History, LayoutDashboard, LogOut, UserCheck, Users, Wifi, WifiOff } from 'lucide-react'
 import { AuthProvider, useAuth } from '@/features/auth/AuthContext'
 import { LoginPage } from '@/features/auth/LoginPage'
 import { AtencionForm } from '@/features/atenciones/AtencionForm'
 import { AtencionList } from '@/features/atenciones/AtencionList'
 import { Dashboard } from '@/features/dashboard/Dashboard'
 import { ImportarPersonal } from '@/features/admin/ImportarPersonal'
-import { setupAutoSync, pullRemotas, pullTrabajadoresHistorial } from '@/lib/sync'
+import { ImportarAfiliados } from '@/features/admin/ImportarAfiliados'
+import { setupAutoSync, pullRemotas, pullTrabajadoresHistorial, pullAfiliados } from '@/lib/sync'
 import { cn } from '@/lib/cn'
 
 function navClass({ isActive }: { isActive: boolean }) {
@@ -37,6 +38,7 @@ function AppLayout() {
     const cleanup = setupAutoSync(() => {})
     void pullRemotas(profile.id, profile.rol === 'ADMIN')
     void pullTrabajadoresHistorial()
+    void pullAfiliados()
     return cleanup
   }, [profile])
 
@@ -88,6 +90,10 @@ function AppLayout() {
                 <Users className="size-4" />
                 Importar personal
               </NavLink>
+              <NavLink to="/admin/afiliados" className={navClass}>
+                <UserCheck className="size-4" />
+                Importar afiliados
+              </NavLink>
             </>
           )}
         </nav>
@@ -101,6 +107,10 @@ function AppLayout() {
           <Route
             path="/admin/personal"
             element={profile.rol === 'ADMIN' ? <ImportarPersonal /> : <Navigate to="/" />}
+          />
+          <Route
+            path="/admin/afiliados"
+            element={profile.rol === 'ADMIN' ? <ImportarAfiliados /> : <Navigate to="/" />}
           />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>

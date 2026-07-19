@@ -14,7 +14,6 @@ export const atencionSchema = z.object({
   subcategoria: z.string().min(1, 'Selecciona una subcategoría'),
   legajo: z.string().regex(LEGAJO_REGEX, 'El legajo debe empezar con "10" seguido del DNI (8 dígitos)'),
   nombreInvolucrado: z.string().min(1, 'El nombre del trabajador es obligatorio'),
-  esAfiliado: z.enum(['SI', 'NO', 'NO_ESPECIFICA']),
   supCuadrilla: z.string().optional(),
   reporte: z.string().optional(),
   antecedente: z.string().optional(),
