@@ -8,7 +8,7 @@ import { cerrarCasoAtencion, buscarAntecedentesPorLegajo, type AntecedenteFalta 
 import { Modal } from '@/components/ui/Modal'
 import { Field } from '@/components/ui/Field'
 import { Button } from '@/components/ui/Button'
-import { GravedadBadge } from '@/components/ui/Badge'
+import { cn } from '@/lib/cn'
 import type { Atencion } from '@/types'
 
 export function CerrarCasoModal({ atencion, onClose }: { atencion: Atencion; onClose: () => void }) {
@@ -77,7 +77,14 @@ export function CerrarCasoModal({ atencion, onClose }: { atencion: Atencion; onC
                 <li key={i} className="text-sm text-neutral-600 flex items-center gap-2">
                   <span className="text-neutral-400">{a.fecha}</span>
                   <span className="flex-1">{a.subcategoria}</span>
-                  <GravedadBadge gravedad={a.gravedad} />
+                  <span
+                    className={cn(
+                      'px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap',
+                      a.estado === 'CERRADO' ? 'bg-success-soft text-emerald-800' : 'bg-warning-soft text-amber-800',
+                    )}
+                  >
+                    {a.estado === 'CERRADO' ? a.accion_correctiva : 'PENDIENTE'}
+                  </span>
                 </li>
               ))}
             </ul>
