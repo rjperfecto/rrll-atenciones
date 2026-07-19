@@ -1,5 +1,4 @@
 import { useCallback, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
@@ -8,6 +7,7 @@ import {
   CalendarDays,
   CheckCircle2,
   FileWarning,
+  Loader2,
   MapPin,
   ScanLine,
   Search,
@@ -38,7 +38,7 @@ type EstadoBusqueda = 'idle' | 'buscando' | 'encontrado' | 'no_encontrado' | 'fo
 
 export function AtencionForm() {
   const { profile } = useAuth()
-  const [savedMsg, setSavedMsg] = useState<string | null>(null)
+  const [estadoGuardado, setEstadoGuardado] = useState<'idle' | 'guardando' | 'guardado'>('idle')
   const [errorGuardado, setErrorGuardado] = useState<string | null>(null)
   const [busqueda, setBusqueda] = useState<EstadoBusqueda>('idle')
   const [escaneando, setEscaneando] = useState(false)
@@ -124,9 +124,11 @@ export function AtencionForm() {
   )
 
   function limpiarFormulario() {
-    reset({
-      fecha: new Date().toISOString().slice(0, 10),
-    })
+    // reset(valoresParciales) no limpia los campos no incluidos en esta
+    // version de react-hook-form (se probó y confirmó); reset() sin
+    // argumentos sí limpia todo, y luego se fija la fecha de hoy aparte.
+    reset()
+    setValue('fecha', new Date().toISOString().slice(0, 10))
     setBusqueda('idle')
     setEsAfiliado(null)
   }
@@ -136,6 +138,7 @@ export function AtencionForm() {
     setErrorGuardado(null)
     const gravedadFinal = gravedadDe(values.tipo, values.categoria, values.subcategoria)
     if (!gravedadFinal) return
+    setEstadoGuardado('guardando')
 
     // Se recalcula aquí (no se confía solo en el estado de "Buscar") por si
     // el usuario escribió el legajo y envió el formulario sin buscar antes.
@@ -183,12 +186,14 @@ export function AtencionForm() {
 
     const { error } = await crearAtencion(atencion)
     if (error) {
+      setEstadoGuardado('idle')
       setErrorGuardado(`No se pudo guardar: ${error}. Verifica tu conexión e intenta de nuevo.`)
       return
     }
-    setSavedMsg('Guardado.')
+    setEstadoGuardado('guardado')
     limpiarFormulario()
-    setTimeout(() => setSavedMsg(null), 4000)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+    setTimeout(() => setEstadoGuardado('idle'), 1500)
   }
 
   return (
@@ -196,17 +201,6 @@ export function AtencionForm() {
       <PageHeader title="Nueva atención" description="Registra un caso de RRLL en campo." />
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-        {savedMsg && (
-          <div className="rounded-md bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm px-3 py-2 flex items-center justify-between gap-2">
-            <span className="flex items-center gap-2">
-              <CheckCircle2 className="size-4 shrink-0" />
-              {savedMsg}
-            </span>
-            <Link to="/historial" className="underline whitespace-nowrap">
-              Ver en historial
-            </Link>
-          </div>
-        )}
         {errorGuardado && (
           <div className="rounded-md bg-red-50 border border-red-200 text-red-800 text-sm px-3 py-2 flex items-center gap-2">
             <AlertCircle className="size-4 shrink-0" />
@@ -420,6 +414,24 @@ export function AtencionForm() {
       </form>
 
       {escaneando && <BarcodeScannerModal onDetected={onCodigoEscaneado} onClose={() => setEscaneando(false)} />}
+
+      {estadoGuardado !== 'idle' && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-lg p-8 flex flex-col items-center gap-3 max-w-xs w-full">
+            {estadoGuardado === 'guardando' ? (
+              <>
+                <Loader2 className="size-10 text-brand animate-spin" />
+                <p className="text-sm font-medium text-neutral-700">Guardando...</p>
+              </>
+            ) : (
+              <>
+                <CheckCircle2 className="size-10 text-success" />
+                <p className="text-sm font-medium text-neutral-800">Atención registrada</p>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
