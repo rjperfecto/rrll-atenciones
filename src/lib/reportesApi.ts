@@ -48,7 +48,10 @@ export async function obtenerReportesDashboard(): Promise<{
     supabase.from('v_casos_por_gravedad').select('*'),
     supabase.from('v_responsable_x_gravedad').select('*'),
     supabase.from('v_casos_por_estado').select('*'),
-    supabase.from('v_casos_por_semana').select('*').order('anio', { ascending: true }).order('semana', { ascending: true }),
+    // Solo se grafican las últimas 12 semanas (ver Dashboard.tsx), así que se
+    // pide en ese orden y con ese límite: no tiene sentido bajar años de
+    // historial agregado para descartarlo del lado del cliente.
+    supabase.from('v_casos_por_semana').select('*').order('anio', { ascending: false }).order('semana', { ascending: false }).limit(12),
   ])
   const error =
     zona.error?.message ??
@@ -62,7 +65,7 @@ export async function obtenerReportesDashboard(): Promise<{
     porGravedad: (gravedad.data as CasosPorGravedad[]) ?? [],
     porResponsableGravedad: (responsable.data as CasosPorResponsableGravedad[]) ?? [],
     porEstado: (estado.data as CasosPorEstado[]) ?? [],
-    porSemana: (semana.data as CasosPorSemana[]) ?? [],
+    porSemana: ((semana.data as CasosPorSemana[]) ?? []).reverse(),
     error,
   }
 }
