@@ -14,6 +14,14 @@ export const GRAVEDAD_COLORES: Record<Gravedad, string> = {
   ALTO: '#ef4444',
 }
 
+// Mismos tonos que ESTADO_CLASES (abajo) pero en hex, para usar en gráficos
+// (recharts no acepta clases de Tailwind como fill).
+export const ESTADO_COLORES: Record<Estado, string> = {
+  ABIERTO: '#f59e0b',
+  EN_PROCESO: '#2563eb',
+  CERRADO: '#10b981',
+}
+
 const GRAVEDAD_CLASES: Record<Gravedad, string> = {
   BAJO: 'bg-success-soft text-emerald-800',
   MEDIO: 'bg-warning-soft text-amber-800',

@@ -1,5 +1,6 @@
 import { supabase } from './supabaseClient'
 import type { Gravedad } from '@/data/categorizacion'
+import type { Estado } from '@/types'
 
 // El Dashboard antes traía TODAS las atenciones y agregaba en el navegador,
 // lo que crecía sin límite igual que le pasaba al Historial. Estas vistas ya
@@ -23,22 +24,45 @@ export interface CasosPorResponsableGravedad {
   casos: number
 }
 
+export interface CasosPorEstado {
+  estado: Estado
+  casos: number
+}
+
+export interface CasosPorSemana {
+  anio: number
+  semana: number
+  casos: number
+}
+
 export async function obtenerReportesDashboard(): Promise<{
   porZona: CasosPorZona[]
   porGravedad: CasosPorGravedad[]
   porResponsableGravedad: CasosPorResponsableGravedad[]
+  porEstado: CasosPorEstado[]
+  porSemana: CasosPorSemana[]
   error: string | null
 }> {
-  const [zona, gravedad, responsable] = await Promise.all([
+  const [zona, gravedad, responsable, estado, semana] = await Promise.all([
     supabase.from('v_casos_por_zona').select('*'),
     supabase.from('v_casos_por_gravedad').select('*'),
     supabase.from('v_responsable_x_gravedad').select('*'),
+    supabase.from('v_casos_por_estado').select('*'),
+    supabase.from('v_casos_por_semana').select('*').order('anio', { ascending: true }).order('semana', { ascending: true }),
   ])
-  const error = zona.error?.message ?? gravedad.error?.message ?? responsable.error?.message ?? null
+  const error =
+    zona.error?.message ??
+    gravedad.error?.message ??
+    responsable.error?.message ??
+    estado.error?.message ??
+    semana.error?.message ??
+    null
   return {
     porZona: (zona.data as CasosPorZona[]) ?? [],
     porGravedad: (gravedad.data as CasosPorGravedad[]) ?? [],
     porResponsableGravedad: (responsable.data as CasosPorResponsableGravedad[]) ?? [],
+    porEstado: (estado.data as CasosPorEstado[]) ?? [],
+    porSemana: (semana.data as CasosPorSemana[]) ?? [],
     error,
   }
 }
