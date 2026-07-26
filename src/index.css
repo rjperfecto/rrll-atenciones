@@ -4,6 +4,11 @@
   --color-brand: #166534;
   --color-brand-light: #16a34a;
 
+  /* Menú lateral oscuro (mismo verde de marca, solo mucho más oscuro) para
+     que combine con --color-brand en vez de ser un color arbitrario. */
+  --color-sidebar: #0b2015;
+  --color-sidebar-hover: #163826;
+
   /* Tokens semánticos: acentos de estado de campo (no colores principales
      del diseño). Generan automáticamente bg-success/border-success/etc. */
   --color-success: #10b981;

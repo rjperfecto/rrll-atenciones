@@ -22,8 +22,8 @@ export function StatTile({
     <Card className={cn('p-4 flex items-center gap-3', className)}>
       {icon && (
         <span
-          className="flex items-center justify-center size-9 rounded-full shrink-0"
-          style={{ backgroundColor: accent ? `${accent}1a` : undefined, color: accent }}
+          className="flex items-center justify-center size-11 rounded-xl shrink-0 text-white"
+          style={{ backgroundColor: accent, boxShadow: accent ? `0 6px 14px -2px ${accent}66` : undefined }}
         >
           {icon}
         </span>

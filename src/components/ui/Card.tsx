@@ -4,7 +4,7 @@ import { cn } from '@/lib/cn'
 // Contenedor visual único (borde + sombra + radio) usado en toda la app
 // (listas, gráficos, modales) para que la jerarquía visual sea consistente.
 export function Card({ className, children }: { className?: string; children: ReactNode }) {
-  return <div className={cn('rounded-lg border border-neutral-200 bg-white shadow-sm', className)}>{children}</div>
+  return <div className={cn('rounded-xl border border-neutral-100 bg-white shadow-sm', className)}>{children}</div>
 }
 
 export function CardSection({

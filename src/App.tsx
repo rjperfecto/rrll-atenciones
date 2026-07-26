@@ -24,8 +24,13 @@ import { cn } from '@/lib/cn'
 function navClass({ isActive }: { isActive: boolean }) {
   return cn(
     'flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors',
-    isActive ? 'bg-brand/10 text-brand' : 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900',
+    isActive ? 'bg-white text-sidebar' : 'text-emerald-100/80 hover:bg-sidebar-hover hover:text-white',
   )
+}
+
+function iniciales(nombre: string) {
+  const partes = nombre.trim().split(/\s+/)
+  return ((partes[0]?.[0] ?? '') + (partes[1]?.[0] ?? '')).toUpperCase()
 }
 
 function AppLayout() {
@@ -85,6 +90,9 @@ function AppLayout() {
               {online ? <Wifi className="size-3" /> : <WifiOff className="size-3" />}
               <span className="hidden sm:inline">{online ? 'En línea' : 'Sin conexión'}</span>
             </span>
+            <span className="hidden sm:flex items-center justify-center size-8 rounded-full bg-brand text-white text-xs font-semibold shrink-0">
+              {iniciales(profile.nombre_completo)}
+            </span>
             <button
               onClick={signOut}
               className="flex items-center gap-1 text-sm text-neutral-500 hover:text-neutral-800"
@@ -105,16 +113,26 @@ function AppLayout() {
       )}
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-40 w-72 max-w-[80vw] bg-white shadow-xl transition-transform duration-200 flex flex-col',
+          'fixed inset-y-0 left-0 z-40 w-72 max-w-[80vw] bg-sidebar shadow-xl transition-transform duration-200 flex flex-col',
           menuAbierto ? 'translate-x-0' : '-translate-x-full',
         )}
       >
-        <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200">
-          <span className="text-sm font-semibold text-brand">Módulos</span>
-          <button onClick={cerrarMenu} aria-label="Cerrar menú" className="p-1.5 rounded-md text-neutral-500 hover:bg-neutral-100">
+        <div className="flex items-center justify-between px-4 py-4">
+          <span className="text-sm font-semibold text-white">RRLL Atenciones</span>
+          <button onClick={cerrarMenu} aria-label="Cerrar menú" className="p-1.5 rounded-md text-emerald-100/70 hover:bg-sidebar-hover hover:text-white">
             <X className="size-4" />
           </button>
         </div>
+        <div className="flex items-center gap-3 px-4 pb-4">
+          <span className="flex items-center justify-center size-10 rounded-full bg-brand-light text-white text-sm font-semibold shrink-0">
+            {iniciales(profile.nombre_completo)}
+          </span>
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-white truncate">{profile.nombre_completo}</p>
+            <p className="text-xs text-emerald-100/70 truncate">{profile.email}</p>
+          </div>
+        </div>
+        <div className="border-t border-white/10" />
         <nav className="flex-1 overflow-y-auto p-3 space-y-1">
           <NavLink to="/" end className={navClass} onClick={cerrarMenu}>
             <ClipboardPlus className="size-4" />
