@@ -30,7 +30,7 @@ import type { Atencion, Estado } from '@/types'
 
 const PAGE_SIZE = 10
 
-const ESTADOS: Estado[] = ['ABIERTO', 'EN_PROCESO', 'CERRADO']
+const ESTADOS: Estado[] = ['ABIERTO', 'CERRADO']
 
 export function AtencionList() {
   const { profile } = useAuth()

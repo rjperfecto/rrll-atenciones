@@ -26,7 +26,7 @@ import { CardSection } from '@/components/ui/Card'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { StatTile } from '@/components/ui/StatTile'
 import { GRAVEDAD_COLORES, ESTADO_COLORES } from '@/components/ui/Badge'
-import { ClipboardList, Clock, RefreshCw, CheckCircle2 } from 'lucide-react'
+import { ClipboardList, Clock, CheckCircle2 } from 'lucide-react'
 
 // Reemplaza la hoja "INDICADOR" del Excel: casos por zona, por gravedad, y
 // cruce responsable x gravedad. Los totales se calculan en Supabase (vistas
@@ -104,7 +104,6 @@ export function Dashboard() {
     const map = new Map(datos?.porEstado.map((e) => [e.estado, e.casos]) ?? [])
     return {
       abierto: map.get('ABIERTO') ?? 0,
-      enProceso: map.get('EN_PROCESO') ?? 0,
       cerrado: map.get('CERRADO') ?? 0,
     }
   }, [datos])
@@ -117,10 +116,9 @@ export function Dashboard() {
     <div>
       <PageHeader title="Dashboard" description={`${total} atenciones registradas en total`} />
 
-      <div className="grid gap-4 grid-cols-2 sm:grid-cols-4 mb-6">
+      <div className="grid gap-4 grid-cols-3 mb-6">
         <StatTile label="Total de casos" value={total} icon={<ClipboardList className="size-4" />} accent={BRAND} />
-        <StatTile label="Abiertos" value={conteoEstado.abierto} icon={<Clock className="size-4" />} accent={ESTADO_COLORES.ABIERTO} />
-        <StatTile label="En proceso" value={conteoEstado.enProceso} icon={<RefreshCw className="size-4" />} accent={ESTADO_COLORES.EN_PROCESO} />
+        <StatTile label="Pendientes" value={conteoEstado.abierto} icon={<Clock className="size-4" />} accent={ESTADO_COLORES.ABIERTO} />
         <StatTile label="Cerrados" value={conteoEstado.cerrado} icon={<CheckCircle2 className="size-4" />} accent={ESTADO_COLORES.CERRADO} />
       </div>
 

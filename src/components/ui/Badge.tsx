@@ -1,4 +1,4 @@
-import { CheckCircle2, Clock, RefreshCw } from 'lucide-react'
+import { CheckCircle2, Clock } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import type { Estado } from '@/types'
 import type { Gravedad } from '@/data/categorizacion'
@@ -19,7 +19,6 @@ export const GRAVEDAD_COLORES: Record<Gravedad, string> = {
 // de marca (dorado/navy/verde institucional), no colores genéricos sueltos.
 export const ESTADO_COLORES: Record<Estado, string> = {
   ABIERTO: '#fabd49',
-  EN_PROCESO: '#192689',
   CERRADO: '#0c8d50',
 }
 
@@ -33,23 +32,19 @@ const GRAVEDAD_CLASES: Record<Gravedad, string> = {
 }
 
 // Mapeo de estado -> color e ícono, con la paleta de marca: CERRADO (verde
-// institucional) = finalizado, ABIERTO (dorado) = pendiente de cierre,
-// EN_PROCESO (navy) = en curso.
+// institucional) = finalizado, ABIERTO (dorado) = pendiente de cierre.
 const ESTADO_CLASES: Record<Estado, string> = {
   ABIERTO: 'bg-gold-soft text-amber-800',
-  EN_PROCESO: 'bg-navy-soft text-navy',
   CERRADO: 'bg-success-soft text-emerald-800',
 }
 
 const ESTADO_ICONOS: Record<Estado, typeof Clock> = {
   ABIERTO: Clock,
-  EN_PROCESO: RefreshCw,
   CERRADO: CheckCircle2,
 }
 
 const ESTADO_ETIQUETAS: Record<Estado, string> = {
   ABIERTO: 'Pendiente',
-  EN_PROCESO: 'En proceso',
   CERRADO: 'Cerrado',
 }
 

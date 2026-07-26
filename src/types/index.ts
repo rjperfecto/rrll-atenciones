@@ -1,6 +1,6 @@
 import type { Gravedad, Tipo } from '@/data/categorizacion'
 
-export type Estado = 'ABIERTO' | 'EN_PROCESO' | 'CERRADO'
+export type Estado = 'ABIERTO' | 'CERRADO'
 export type Rol = 'CAMPO' | 'ADMIN'
 
 // Clasificación del registro, independiente de Tipo/Categoría/Subcategoría.
