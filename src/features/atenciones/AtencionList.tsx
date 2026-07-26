@@ -149,7 +149,7 @@ export function AtencionList() {
   return (
     <div>
       <div className="flex items-start justify-between gap-3 flex-wrap mb-4">
-        <PageHeader title="Historial" description={`${total} atencion${total === 1 ? '' : 'es'}`} />
+        <PageHeader title="Atenciones" description={`${total} atencion${total === 1 ? '' : 'es'}`} />
         {total > 0 && (
           <Button variant="secondary" onClick={exportar} loading={exportando}>
             <Download className="size-4" />
@@ -162,7 +162,7 @@ export function AtencionList() {
         <Card className="p-10 flex flex-col items-center text-center gap-2">
           <Inbox className="size-10 text-neutral-300" />
           <p className="text-sm font-medium text-neutral-700">Todavía no hay atenciones registradas</p>
-          <p className="text-sm text-neutral-500">Los casos que registres en "Nueva atención" van a aparecer aquí.</p>
+          <p className="text-sm text-neutral-500">Los casos que registres en "Registrar" van a aparecer aquí.</p>
         </Card>
       ) : (
         <>

@@ -245,7 +245,7 @@ export function AtencionForm() {
 
   return (
     <div className="max-w-xl">
-      <PageHeader title="Nueva atención" description="Registra un caso de RRLL en campo." />
+      <PageHeader title="Registrar" description="Registra un caso de RRLL en campo." />
 
       <Stepper pasos={PASOS} activo={seccionActiva} onIrA={irASeccion} />
 

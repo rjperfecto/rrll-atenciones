@@ -136,11 +136,11 @@ function AppLayout() {
         <nav className="flex-1 overflow-y-auto p-3 space-y-1">
           <NavLink to="/" end className={navClass} onClick={cerrarMenu}>
             <ClipboardPlus className="size-4" />
-            Nueva atención
+            Registrar
           </NavLink>
           <NavLink to="/historial" className={navClass} onClick={cerrarMenu}>
             <History className="size-4" />
-            Historial
+            Atenciones
           </NavLink>
           {profile.rol === 'ADMIN' && (
             <>
