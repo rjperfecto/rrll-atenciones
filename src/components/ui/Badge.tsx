@@ -15,25 +15,29 @@ export const GRAVEDAD_COLORES: Record<Gravedad, string> = {
 }
 
 // Mismos tonos que ESTADO_CLASES (abajo) pero en hex, para usar en gráficos
-// (recharts no acepta clases de Tailwind como fill).
+// (recharts no acepta clases de Tailwind como fill). Alineados a la paleta
+// de marca (dorado/navy/verde institucional), no colores genéricos sueltos.
 export const ESTADO_COLORES: Record<Estado, string> = {
-  ABIERTO: '#f59e0b',
-  EN_PROCESO: '#2563eb',
-  CERRADO: '#10b981',
+  ABIERTO: '#fabd49',
+  EN_PROCESO: '#192689',
+  CERRADO: '#0c8d50',
 }
 
+// Gravedad usa el semáforo universal rojo/ámbar/verde (no la paleta de
+// marca): es una señal de riesgo/severidad, y ese código de color ya es
+// una convención que la gente reconoce de inmediato en cualquier formulario.
 const GRAVEDAD_CLASES: Record<Gravedad, string> = {
   BAJO: 'bg-success-soft text-emerald-800',
   MEDIO: 'bg-warning-soft text-amber-800',
   ALTO: 'bg-danger-soft text-red-800',
 }
 
-// Mapeo de estado -> color e ícono semántico:
-// CERRADO (finalizado) = éxito/verde, ABIERTO (pendiente de cierre) =
-// advertencia/ámbar, EN_PROCESO (en curso) = informativo/azul.
+// Mapeo de estado -> color e ícono, con la paleta de marca: CERRADO (verde
+// institucional) = finalizado, ABIERTO (dorado) = pendiente de cierre,
+// EN_PROCESO (navy) = en curso.
 const ESTADO_CLASES: Record<Estado, string> = {
-  ABIERTO: 'bg-warning-soft text-amber-800',
-  EN_PROCESO: 'bg-blue-100 text-blue-800',
+  ABIERTO: 'bg-gold-soft text-amber-800',
+  EN_PROCESO: 'bg-navy-soft text-navy',
   CERRADO: 'bg-success-soft text-emerald-800',
 }
 

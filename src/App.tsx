@@ -71,7 +71,7 @@ function AppLayout() {
             <button
               onClick={() => setMenuAbierto(true)}
               aria-label="Abrir menú"
-              className="p-2 -ml-2 rounded-md text-neutral-600 hover:bg-neutral-100 shrink-0"
+              className="flex items-center justify-center size-10 -ml-1 rounded-md border border-neutral-200 text-navy hover:bg-navy-soft hover:border-navy/30 transition-colors duration-200 shrink-0"
             >
               <Menu className="size-5" />
             </button>
@@ -83,8 +83,8 @@ function AppLayout() {
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <span
               className={cn(
-                'inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full font-medium',
-                online ? 'bg-emerald-100 text-emerald-700' : 'bg-neutral-200 text-neutral-600',
+                'inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full font-semibold transition-colors duration-200',
+                online ? 'bg-brand text-white' : 'bg-danger-soft text-red-700',
               )}
             >
               {online ? <Wifi className="size-3" /> : <WifiOff className="size-3" />}

@@ -1,5 +1,5 @@
-import { useCallback, useMemo, useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useCallback, useEffect, useMemo, useState, type ChangeEvent } from 'react'
+import { useForm, type UseFormRegisterReturn } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
   AlertCircle,
@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   FileWarning,
   Loader2,
+  Lock,
   MapPin,
   ScanLine,
   Search,
@@ -32,9 +33,32 @@ import { CardSection } from '@/components/ui/Card'
 import { Field } from '@/components/ui/Field'
 import { GravedadBadge } from '@/components/ui/Badge'
 import { PageHeader } from '@/components/ui/PageHeader'
+import { Stepper, type PasoStepper } from '@/components/ui/Stepper'
 import type { Atencion } from '@/types'
 
 type EstadoBusqueda = 'idle' | 'buscando' | 'encontrado' | 'no_encontrado' | 'formato_invalido'
+
+const PASOS: PasoStepper[] = [
+  { id: 'seccion-fecha', label: 'Fecha', icon: <CalendarDays className="size-3" /> },
+  { id: 'seccion-trabajador', label: 'Trabajador', icon: <UserSearch className="size-3" /> },
+  { id: 'seccion-ubicacion', label: 'Ubicación', icon: <MapPin className="size-3" /> },
+  { id: 'seccion-tipo', label: 'Tipo', icon: <FileWarning className="size-3" /> },
+  { id: 'seccion-seguimiento', label: 'Seguimiento', icon: <StickyNote className="size-3" /> },
+]
+
+// Convierte a mayúsculas mientras se escribe (no solo visualmente: el valor
+// que guarda react-hook-form también queda en mayúscula), para los campos de
+// texto libre del negocio (nombre, fundo, grupo, área, etc.). Legajo/fecha/
+// selects quedan afuera porque no aplica (numérico, catálogos ya en mayúscula).
+function conMayusculas(campo: UseFormRegisterReturn) {
+  return {
+    ...campo,
+    onChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      e.target.value = e.target.value.toUpperCase()
+      return campo.onChange(e)
+    },
+  }
+}
 
 export function AtencionForm() {
   const { profile } = useAuth()
@@ -43,6 +67,7 @@ export function AtencionForm() {
   const [busqueda, setBusqueda] = useState<EstadoBusqueda>('idle')
   const [escaneando, setEscaneando] = useState(false)
   const [esAfiliado, setEsAfiliado] = useState<boolean | null>(null)
+  const [seccionActiva, setSeccionActiva] = useState(PASOS[0].id)
   const {
     register,
     handleSubmit,
@@ -50,7 +75,7 @@ export function AtencionForm() {
     reset,
     setValue,
     trigger,
-    formState: { errors, isSubmitting },
+    formState: { errors, isSubmitting, isDirty },
   } = useForm<AtencionFormValues>({
     resolver: zodResolver(atencionSchema),
     mode: 'onTouched', // valida al salir de un campo, no solo al enviar
@@ -74,6 +99,28 @@ export function AtencionForm() {
   const modulo = useMemo(() => (fundo ? moduloDesdeFundo(fundo) : null), [fundo])
   const supRrll = useMemo(() => (zona ? supRrllPorZona(zona) : null), [zona])
   const estadoLegajo = estadoDeCampo(legajo, errors.legajo?.message)
+
+  // Resalta en el Stepper la sección visible en pantalla (scroll-spy): es
+  // solo orientación, ningún campo se bloquea por "no haber llegado" a un paso.
+  useEffect(() => {
+    const secciones = PASOS.map((p) => document.getElementById(p.id)).filter((el): el is HTMLElement => el !== null)
+    if (secciones.length === 0) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visibles = entries.filter((e) => e.isIntersecting)
+        if (visibles.length === 0) return
+        const masArriba = visibles.reduce((a, b) => (a.boundingClientRect.top < b.boundingClientRect.top ? a : b))
+        setSeccionActiva(masArriba.target.id)
+      },
+      { rootMargin: '-96px 0px -75% 0px', threshold: [0, 0.25, 0.5, 1] },
+    )
+    secciones.forEach((s) => observer.observe(s))
+    return () => observer.disconnect()
+  }, [])
+
+  function irASeccion(id: string) {
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 
   const buscarPorLegajo = useCallback(
     async (valorLegajo: string) => {
@@ -100,15 +147,15 @@ export function AtencionForm() {
         setBusqueda('no_encontrado')
         return
       }
-      setValue('nombreInvolucrado', trabajador.nombre_completo)
+      setValue('nombreInvolucrado', trabajador.nombre_completo.toUpperCase())
       if (trabajador.fundo) {
-        setValue('fundo', trabajador.fundo)
+        setValue('fundo', trabajador.fundo.toUpperCase())
         const zonaDetectada = zonaDesdeFundo(trabajador.fundo)
         if (zonaDetectada) setValue('zona', zonaDetectada)
       }
-      if (trabajador.grupo) setValue('grupo', trabajador.grupo)
-      if (trabajador.sup_cuadrilla) setValue('supCuadrilla', trabajador.sup_cuadrilla)
-      if (trabajador.area) setValue('area', trabajador.area)
+      if (trabajador.grupo) setValue('grupo', trabajador.grupo.toUpperCase())
+      if (trabajador.sup_cuadrilla) setValue('supCuadrilla', trabajador.sup_cuadrilla.toUpperCase())
+      if (trabajador.area) setValue('area', trabajador.area.toUpperCase())
       setBusqueda('encontrado')
     },
     [fecha, setValue, trigger],
@@ -200,6 +247,8 @@ export function AtencionForm() {
     <div className="max-w-xl">
       <PageHeader title="Nueva atención" description="Registra un caso de RRLL en campo." />
 
+      <Stepper pasos={PASOS} activo={seccionActiva} onIrA={irASeccion} />
+
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         {errorGuardado && (
           <div className="rounded-md bg-red-50 border border-red-200 text-red-800 text-sm px-3 py-2 flex items-center gap-2">
@@ -208,18 +257,21 @@ export function AtencionForm() {
           </div>
         )}
 
-        <CardSection title="Fecha" icon={<CalendarDays className="size-4 text-brand" />}>
+        <CardSection id="seccion-fecha" title="Fecha" icon={<CalendarDays className="size-4 text-brand" />}>
           <Field label="Fecha del caso" value={fecha} error={errors.fecha?.message}>
             <input type="date" {...register('fecha')} className="input" />
           </Field>
         </CardSection>
 
-        <CardSection title="Trabajador involucrado" icon={<UserSearch className="size-4 text-brand" />}>
+        <CardSection id="seccion-trabajador" title="Trabajador involucrado" icon={<UserSearch className="size-4 text-brand" />}>
           <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1">Legajo</label>
+            <label htmlFor="campo-legajo" className="block text-[13px] font-medium text-neutral-700 mb-1.5">
+              Legajo
+            </label>
             <div className="flex gap-2">
               <div className="relative flex-1">
                 <input
+                  id="campo-legajo"
                   type="text"
                   inputMode="numeric"
                   maxLength={10}
@@ -242,7 +294,7 @@ export function AtencionForm() {
               </div>
               <Button
                 type="button"
-                variant="secondary"
+                variant="primary"
                 onClick={() => buscarPorLegajo(legajo || '')}
                 loading={busqueda === 'buscando'}
                 className="shrink-0"
@@ -276,28 +328,39 @@ export function AtencionForm() {
             {busqueda === 'no_encontrado' && (
               <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
                 <AlertCircle className="size-3.5 shrink-0" />
-                No hay datos de TAREO para ese legajo en esa fecha o antes. Completa los datos manualmente.
+                No encontramos ese legajo en el tareo de esa fecha. Verifica el número o completa los datos a mano.
               </p>
             )}
           </div>
 
           <Field label="Nombre completo" value={valores.nombreInvolucrado} error={errors.nombreInvolucrado?.message}>
-            <input type="text" placeholder="ej. Juan Pérez López" {...register('nombreInvolucrado')} className="input" />
+            <input
+              type="text"
+              placeholder="EJ. JUAN PÉREZ LÓPEZ"
+              {...conMayusculas(register('nombreInvolucrado'))}
+              className="input"
+            />
           </Field>
 
-          <Field label="¿Afiliado?" hint="Informativo, se llena solo desde la lista de afiliados.">
+          <div>
+            <label htmlFor="campo-afiliado" className="flex items-center gap-1.5 text-[13px] font-medium text-neutral-700 mb-1.5">
+              ¿Afiliado?
+              <Lock className="size-3 text-neutral-400" aria-hidden="true" />
+            </label>
             <input
+              id="campo-afiliado"
               type="text"
               readOnly
               disabled
               value={esAfiliado === null ? '' : esAfiliado ? 'SI' : 'NO'}
-              placeholder="Busca el legajo para saber si es afiliado"
-              className="input bg-neutral-50 text-neutral-700"
+              placeholder="Se completa al buscar el legajo"
+              className="input bg-neutral-100 text-neutral-500 cursor-not-allowed"
             />
-          </Field>
+            <p className="text-xs text-neutral-400 mt-1">Solo lectura: se toma de la lista de afiliados, no se edita aquí.</p>
+          </div>
         </CardSection>
 
-        <CardSection title="Ubicación" icon={<MapPin className="size-4 text-brand" />}>
+        <CardSection id="seccion-ubicacion" title="Ubicación" icon={<MapPin className="size-4 text-brand" />}>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Zona" value={zona} error={errors.zona?.message} hint={supRrll ? `Sup. RRLL: ${supRrll}` : undefined}>
               <select {...register('zona')} className="input">
@@ -309,29 +372,29 @@ export function AtencionForm() {
                 ))}
               </select>
             </Field>
-            <Field label="Fundo" value={fundo} hint={modulo ? `Módulo detectado: ${modulo}` : 'ej. REM 2-W'}>
-              <input type="text" placeholder="ej. REM 2-W" {...register('fundo')} className="input" />
+            <Field label="Fundo" value={fundo} hint={modulo ? `Módulo detectado: ${modulo}` : undefined}>
+              <input type="text" placeholder="ej. REM 2-W" {...conMayusculas(register('fundo'))} className="input" />
             </Field>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Grupo / cuadrilla" value={valores.grupo}>
-              <input type="text" placeholder="ej. CH12" {...register('grupo')} className="input" />
+              <input type="text" placeholder="ej. CH12" {...conMayusculas(register('grupo'))} className="input" />
             </Field>
             <Field label="Área / actividad" value={valores.area}>
               <input
                 type="text"
                 placeholder="ej. Cosecha ARA Granel 3.0 kg"
-                {...register('area')}
+                {...conMayusculas(register('area'))}
                 className="input"
               />
             </Field>
           </div>
           <Field label="Sup. cuadrilla" value={valores.supCuadrilla}>
-            <input type="text" {...register('supCuadrilla')} className="input" />
+            <input type="text" {...conMayusculas(register('supCuadrilla'))} className="input" />
           </Field>
         </CardSection>
 
-        <CardSection title="Tipo de atención" icon={<FileWarning className="size-4 text-brand" />}>
+        <CardSection id="seccion-tipo" title="Tipo de atención" icon={<FileWarning className="size-4 text-brand" />}>
           <Field label="Tipo" value={tipo} error={errors.tipo?.message}>
             <select
               {...register('tipo')}
@@ -394,22 +457,37 @@ export function AtencionForm() {
           )}
         </CardSection>
 
-        <CardSection title="Seguimiento (opcional)" icon={<StickyNote className="size-4 text-brand" />}>
+        <CardSection id="seccion-seguimiento" title="Seguimiento (opcional)" icon={<StickyNote className="size-4 text-brand" />}>
           <Field label="Reporta" value={valores.reporte}>
-            <input type="text" {...register('reporte')} className="input" />
+            <input type="text" {...conMayusculas(register('reporte'))} className="input" />
           </Field>
           <Field label="Comentarios" value={valores.comentarios}>
-            <textarea rows={3} placeholder="Detalle narrativo del caso..." {...register('comentarios')} className="input" />
+            <textarea
+              rows={3}
+              placeholder="Detalle narrativo del caso..."
+              {...conMayusculas(register('comentarios'))}
+              className="input"
+            />
           </Field>
         </CardSection>
 
-        <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">
-          <Button type="button" variant="secondary" onClick={limpiarFormulario} disabled={isSubmitting}>
-            Limpiar formulario
-          </Button>
-          <Button type="submit" loading={isSubmitting}>
-            {isSubmitting ? 'Guardando...' : 'Registrar atención'}
-          </Button>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <span
+            className={cn(
+              'text-xs font-medium transition-opacity duration-200 text-amber-700',
+              isDirty && estadoGuardado === 'idle' ? 'opacity-100' : 'opacity-0',
+            )}
+          >
+            ● Cambios sin guardar
+          </span>
+          <div className="flex flex-col-reverse sm:flex-row gap-3">
+            <Button type="button" variant="secondary" onClick={limpiarFormulario} disabled={isSubmitting}>
+              Limpiar formulario
+            </Button>
+            <Button type="submit" loading={isSubmitting}>
+              {isSubmitting ? 'Guardando...' : 'Registrar atención'}
+            </Button>
+          </div>
         </div>
       </form>
 

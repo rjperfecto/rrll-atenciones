@@ -1,16 +1,29 @@
 @import "tailwindcss";
 
 @theme {
-  --color-brand: #166534;
-  --color-brand-light: #16a34a;
+  /* Identidad de marca. Verde institucional = color primario (botones,
+     enlaces activos, focus rings); azul marino = texto fuerte/secciones;
+     dorado = acento, reservado para insignias/resaltes puntuales, nunca
+     como color de fondo grande (se ve "alerta" si se usa de más); crema =
+     fondo general de la app en vez de un gris genérico "tech". */
+  --color-brand: #0c8d50;
+  --color-brand-light: #15a868;
+  --color-navy: #192689;
+  --color-navy-soft: #e6e8f7;
+  --color-gold: #fabd49;
+  --color-gold-soft: #fdf1da;
+  --color-cream: #fbf9f1;
 
-  /* Menú lateral oscuro (mismo verde de marca, solo mucho más oscuro) para
-     que combine con --color-brand en vez de ser un color arbitrario. */
+  /* Menú lateral oscuro (verde muy oscuro) para que combine con
+     --color-brand en vez de ser un color arbitrario. */
   --color-sidebar: #0b2015;
   --color-sidebar-hover: #163826;
 
-  /* Tokens semánticos: acentos de estado de campo (no colores principales
-     del diseño). Generan automáticamente bg-success/border-success/etc. */
+  /* Tokens semánticos: acentos de estado de CAMPO (validación de
+     formulario), no colores principales del diseño. Se mantienen como
+     convención universal (verde=ok, ámbar=falta, rojo=error) independiente
+     de la marca, porque cambiar estos códigos por marca confundiría la
+     lectura instantánea que la gente ya trae de otros formularios. */
   --color-success: #10b981;
   --color-success-soft: #d1fae5;
   --color-warning: #f59e0b;
@@ -27,26 +40,26 @@ body,
 
 body {
   margin: 0;
-  @apply bg-neutral-50 text-neutral-900 antialiased;
+  @apply bg-cream text-neutral-900 antialiased;
 }
 
 @layer components {
   .input {
-    @apply w-full rounded-md border border-neutral-300 px-3 py-2 text-sm transition-colors;
-    @apply focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand;
-    @apply disabled:bg-neutral-100 disabled:text-neutral-400;
+    @apply w-full min-h-11 rounded-md border border-neutral-300 px-3 py-2.5 text-sm text-neutral-900 transition-all duration-200;
+    @apply focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/30;
+    @apply disabled:bg-neutral-100 disabled:text-neutral-400 disabled:cursor-not-allowed;
   }
   /* Estados de validación (ver src/lib/campoEstado.ts): éxito = campo lleno
      y válido, advertencia = obligatorio vacío (recién tras tocar/enviar),
      error = formato inválido. Nunca se aplican a un campo virgen. */
   .input-success {
-    @apply border-success focus:border-success focus:ring-success;
+    @apply border-success focus:border-success focus:ring-success/30;
   }
   .input-warning {
-    @apply border-warning focus:border-warning focus:ring-warning;
+    @apply border-warning focus:border-warning focus:ring-warning/30;
   }
   .input-error {
-    @apply border-danger focus:border-danger focus:ring-danger;
+    @apply border-danger focus:border-danger focus:ring-danger/30;
   }
   .field-error {
     @apply text-xs text-danger mt-1;

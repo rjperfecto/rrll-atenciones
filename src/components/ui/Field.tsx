@@ -1,4 +1,4 @@
-import { Children, cloneElement, isValidElement, type ReactElement, type ReactNode } from 'react'
+import { Children, cloneElement, isValidElement, useId, type ReactElement, type ReactNode } from 'react'
 import { AlertCircle, AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { estadoDeCampo, CLASE_INPUT_POR_ESTADO } from '@/lib/campoEstado'
@@ -23,6 +23,7 @@ export function Field({
   className?: string
   children: ReactNode
 }) {
+  const idGenerado = useId()
   const hijo = Children.only(children)
   // Un campo deshabilitado (ej. Subcategoría antes de elegir Categoría) no
   // debe mostrarse en advertencia/error: el usuario todavía no puede
@@ -32,15 +33,19 @@ export function Field({
   const claseEstado = CLASE_INPUT_POR_ESTADO[estado]
   const conIcono = estado !== 'neutral'
   const esTextarea = isValidElement(hijo) && hijo.type === 'textarea'
+  const idCampo = (isValidElement(hijo) && (hijo.props as { id?: string }).id) || idGenerado
   const hijoConEstado =
     isValidElement(hijo) &&
-    cloneElement(hijo as ReactElement<{ className?: string }>, {
+    cloneElement(hijo as ReactElement<{ className?: string; id?: string }>, {
+      id: idCampo,
       className: cn((hijo.props as { className?: string }).className, claseEstado, conIcono && 'pl-9'),
     })
 
   return (
     <div className={className}>
-      <label className="block text-sm font-medium text-neutral-700 mb-1">{label}</label>
+      <label htmlFor={idCampo} className="block text-[13px] font-medium text-neutral-700 mb-1.5">
+        {label}
+      </label>
       <div className="relative">
         {hijoConEstado}
         {conIcono && (

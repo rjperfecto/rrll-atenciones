@@ -3,7 +3,7 @@
 export function PageHeader({ title, description }: { title: string; description?: string }) {
   return (
     <div className="mb-6">
-      <h2 className="text-xl font-semibold text-neutral-900">{title}</h2>
+      <h2 className="text-xl font-semibold text-navy">{title}</h2>
       {description && <p className="text-sm text-neutral-500 mt-1">{description}</p>}
     </div>
   )
