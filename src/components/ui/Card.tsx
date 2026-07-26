@@ -21,7 +21,7 @@ export function CardSection({
   id?: string
 }) {
   return (
-    <Card id={id} className={cn('p-4 sm:p-5 space-y-4 scroll-mt-24', className)}>
+    <Card id={id} className={cn('p-4 sm:p-5 space-y-4', className)}>
       <h3 className="flex items-center gap-2 text-base font-semibold text-navy">
         {icon}
         {title}

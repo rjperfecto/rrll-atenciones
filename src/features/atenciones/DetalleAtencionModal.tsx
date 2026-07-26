@@ -23,6 +23,7 @@ export function DetalleAtencionModal({ atencion, onClose }: { atencion: Atencion
       size="lg"
     >
       <div className="flex items-center gap-2 mb-4">
+        <span className="text-xs font-medium text-navy bg-navy-soft px-2 py-0.5 rounded-full">{atencion.tipo_registro}</span>
         <GravedadBadge gravedad={atencion.gravedad} />
         <EstadoBadge estado={atencion.estado} />
       </div>

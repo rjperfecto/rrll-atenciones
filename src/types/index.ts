@@ -3,6 +3,11 @@ import type { Gravedad, Tipo } from '@/data/categorizacion'
 export type Estado = 'ABIERTO' | 'EN_PROCESO' | 'CERRADO'
 export type Rol = 'CAMPO' | 'ADMIN'
 
+// Clasificación del registro, independiente de Tipo/Categoría/Subcategoría.
+// Por ahora las 3 comparten los mismos campos; a futuro cada una tendrá
+// columnas propias (ver migración 0012_tipo_registro.sql).
+export type TipoRegistro = 'GENERAL' | 'COSECHA' | '360 LABORAL'
+
 export interface Profile {
   id: string
   nombre_completo: string
@@ -44,6 +49,7 @@ export interface Involucrado {
 export interface Atencion {
   id: string
   client_uuid: string
+  tipo_registro: TipoRegistro
   fecha: string // YYYY-MM-DD
   fecha_cierre: string | null // YYYY-MM-DD, se llena al cerrar el caso
   zona: string

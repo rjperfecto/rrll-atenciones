@@ -6,8 +6,8 @@ import type { Atencion } from '@/types'
 
 export interface FiltrosAtenciones {
   busqueda?: string
+  tipoRegistro?: string
   estado?: string
-  gravedad?: string
   zona?: string
   desde?: string
   hasta?: string
@@ -20,8 +20,8 @@ export interface FiltrosAtenciones {
 function aplicarFiltros(query: any, responsableId: string, isAdmin: boolean, filtros: FiltrosAtenciones) {
   let q = query
   if (!isAdmin) q = q.eq('responsable_id', responsableId)
+  if (filtros.tipoRegistro) q = q.eq('tipo_registro', filtros.tipoRegistro)
   if (filtros.estado) q = q.eq('estado', filtros.estado)
-  if (filtros.gravedad) q = q.eq('gravedad', filtros.gravedad)
   if (filtros.zona) q = q.eq('zona', filtros.zona)
   if (filtros.desde) q = q.gte('fecha', filtros.desde)
   if (filtros.hasta) q = q.lte('fecha', filtros.hasta)

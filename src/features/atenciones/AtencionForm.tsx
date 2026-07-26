@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ChangeEvent } from 'react'
+import { useCallback, useMemo, useState, type ChangeEvent } from 'react'
 import { useForm, type UseFormRegisterReturn } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
@@ -20,6 +20,7 @@ import { estadoDeCampo, CLASE_INPUT_POR_ESTADO } from '@/lib/campoEstado'
 import { atencionSchema, type AtencionFormValues } from './atencionSchema'
 import { TIPOS, categoriasPorTipo, subcategoriasPorCategoria, gravedadDe } from '@/data/categorizacion'
 import { ZONAS } from '@/data/zonasFundos'
+import { TIPOS_REGISTRO } from '@/data/tipoRegistro'
 import { dniDesdeLegajo, LEGAJO_REGEX } from '@/data/legajo'
 import { supRrllPorZona } from '@/data/supervisoresRrll'
 import { moduloDesdeFundo } from '@/lib/modulo'
@@ -33,18 +34,9 @@ import { CardSection } from '@/components/ui/Card'
 import { Field } from '@/components/ui/Field'
 import { GravedadBadge } from '@/components/ui/Badge'
 import { PageHeader } from '@/components/ui/PageHeader'
-import { Stepper, type PasoStepper } from '@/components/ui/Stepper'
 import type { Atencion } from '@/types'
 
 type EstadoBusqueda = 'idle' | 'buscando' | 'encontrado' | 'no_encontrado' | 'formato_invalido'
-
-const PASOS: PasoStepper[] = [
-  { id: 'seccion-fecha', label: 'Fecha', icon: <CalendarDays className="size-3" /> },
-  { id: 'seccion-trabajador', label: 'Trabajador', icon: <UserSearch className="size-3" /> },
-  { id: 'seccion-ubicacion', label: 'Ubicación', icon: <MapPin className="size-3" /> },
-  { id: 'seccion-tipo', label: 'Tipo', icon: <FileWarning className="size-3" /> },
-  { id: 'seccion-seguimiento', label: 'Seguimiento', icon: <StickyNote className="size-3" /> },
-]
 
 // Convierte a mayúsculas mientras se escribe (no solo visualmente: el valor
 // que guarda react-hook-form también queda en mayúscula), para los campos de
@@ -67,7 +59,6 @@ export function AtencionForm() {
   const [busqueda, setBusqueda] = useState<EstadoBusqueda>('idle')
   const [escaneando, setEscaneando] = useState(false)
   const [esAfiliado, setEsAfiliado] = useState<boolean | null>(null)
-  const [seccionActiva, setSeccionActiva] = useState(PASOS[0].id)
   const {
     register,
     handleSubmit,
@@ -80,12 +71,13 @@ export function AtencionForm() {
     resolver: zodResolver(atencionSchema),
     mode: 'onTouched', // valida al salir de un campo, no solo al enviar
     defaultValues: {
+      tipoRegistro: 'GENERAL',
       fecha: new Date().toISOString().slice(0, 10),
     },
   })
 
   const valores = watch()
-  const { legajo, fecha, tipo, categoria, subcategoria, zona, fundo } = valores
+  const { legajo, fecha, tipo, categoria, subcategoria, zona, fundo, tipoRegistro } = valores
 
   const categorias = useMemo(() => (tipo ? categoriasPorTipo(tipo) : []), [tipo])
   const subcategorias = useMemo(
@@ -99,28 +91,6 @@ export function AtencionForm() {
   const modulo = useMemo(() => (fundo ? moduloDesdeFundo(fundo) : null), [fundo])
   const supRrll = useMemo(() => (zona ? supRrllPorZona(zona) : null), [zona])
   const estadoLegajo = estadoDeCampo(legajo, errors.legajo?.message)
-
-  // Resalta en el Stepper la sección visible en pantalla (scroll-spy): es
-  // solo orientación, ningún campo se bloquea por "no haber llegado" a un paso.
-  useEffect(() => {
-    const secciones = PASOS.map((p) => document.getElementById(p.id)).filter((el): el is HTMLElement => el !== null)
-    if (secciones.length === 0) return
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visibles = entries.filter((e) => e.isIntersecting)
-        if (visibles.length === 0) return
-        const masArriba = visibles.reduce((a, b) => (a.boundingClientRect.top < b.boundingClientRect.top ? a : b))
-        setSeccionActiva(masArriba.target.id)
-      },
-      { rootMargin: '-96px 0px -75% 0px', threshold: [0, 0.25, 0.5, 1] },
-    )
-    secciones.forEach((s) => observer.observe(s))
-    return () => observer.disconnect()
-  }, [])
-
-  function irASeccion(id: string) {
-    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }
 
   const buscarPorLegajo = useCallback(
     async (valorLegajo: string) => {
@@ -176,6 +146,7 @@ export function AtencionForm() {
     // argumentos sí limpia todo, y luego se fija la fecha de hoy aparte.
     reset()
     setValue('fecha', new Date().toISOString().slice(0, 10))
+    setValue('tipoRegistro', 'GENERAL')
     setBusqueda('idle')
     setEsAfiliado(null)
   }
@@ -195,6 +166,7 @@ export function AtencionForm() {
     const atencion: Atencion = {
       id: crypto.randomUUID(),
       client_uuid: crypto.randomUUID(),
+      tipo_registro: values.tipoRegistro,
       fecha: values.fecha,
       fecha_cierre: null,
       zona: values.zona,
@@ -247,8 +219,6 @@ export function AtencionForm() {
     <div className="max-w-xl">
       <PageHeader title="Registrar" description="Registra un caso de RRLL en campo." />
 
-      <Stepper pasos={PASOS} activo={seccionActiva} onIrA={irASeccion} />
-
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         {errorGuardado && (
           <div className="rounded-md bg-red-50 border border-red-200 text-red-800 text-sm px-3 py-2 flex items-center gap-2">
@@ -257,13 +227,34 @@ export function AtencionForm() {
           </div>
         )}
 
-        <CardSection id="seccion-fecha" title="Fecha" icon={<CalendarDays className="size-4 text-brand" />}>
+        <div className="grid grid-cols-3 gap-2" role="tablist" aria-label="Tipo de registro">
+          {TIPOS_REGISTRO.map((t) => (
+            <button
+              key={t}
+              type="button"
+              role="tab"
+              aria-selected={tipoRegistro === t}
+              onClick={() => setValue('tipoRegistro', t, { shouldDirty: true })}
+              className={cn(
+                'rounded-lg border py-2.5 text-sm font-semibold text-center transition-all duration-200',
+                tipoRegistro === t
+                  ? 'bg-brand text-white border-brand shadow-sm'
+                  : 'bg-white text-navy border-neutral-200 hover:border-brand/40',
+              )}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+        {errors.tipoRegistro && <p className="text-xs text-danger -mt-2">{errors.tipoRegistro.message}</p>}
+
+        <CardSection title="Fecha" icon={<CalendarDays className="size-4 text-brand" />}>
           <Field label="Fecha del caso" value={fecha} error={errors.fecha?.message}>
             <input type="date" {...register('fecha')} className="input" />
           </Field>
         </CardSection>
 
-        <CardSection id="seccion-trabajador" title="Trabajador involucrado" icon={<UserSearch className="size-4 text-brand" />}>
+        <CardSection title="Trabajador involucrado" icon={<UserSearch className="size-4 text-brand" />}>
           <div>
             <label htmlFor="campo-legajo" className="block text-[13px] font-medium text-neutral-700 mb-1.5">
               Legajo
@@ -360,7 +351,7 @@ export function AtencionForm() {
           </div>
         </CardSection>
 
-        <CardSection id="seccion-ubicacion" title="Ubicación" icon={<MapPin className="size-4 text-brand" />}>
+        <CardSection title="Ubicación" icon={<MapPin className="size-4 text-brand" />}>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Zona" value={zona} error={errors.zona?.message} hint={supRrll ? `Sup. RRLL: ${supRrll}` : undefined}>
               <select {...register('zona')} className="input">
@@ -394,7 +385,7 @@ export function AtencionForm() {
           </Field>
         </CardSection>
 
-        <CardSection id="seccion-tipo" title="Tipo de atención" icon={<FileWarning className="size-4 text-brand" />}>
+        <CardSection title="Tipo de atención" icon={<FileWarning className="size-4 text-brand" />}>
           <Field label="Tipo" value={tipo} error={errors.tipo?.message}>
             <select
               {...register('tipo')}
@@ -457,7 +448,7 @@ export function AtencionForm() {
           )}
         </CardSection>
 
-        <CardSection id="seccion-seguimiento" title="Seguimiento (opcional)" icon={<StickyNote className="size-4 text-brand" />}>
+        <CardSection title="Seguimiento (opcional)" icon={<StickyNote className="size-4 text-brand" />}>
           <Field label="Reporta" value={valores.reporte}>
             <input type="text" {...conMayusculas(register('reporte'))} className="input" />
           </Field>

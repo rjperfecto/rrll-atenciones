@@ -19,6 +19,7 @@ import { useAuth } from '@/features/auth/AuthContext'
 import { CerrarCasoModal } from './CerrarCasoModal'
 import { DetalleAtencionModal } from './DetalleAtencionModal'
 import { ZONAS } from '@/data/zonasFundos'
+import { TIPOS_REGISTRO } from '@/data/tipoRegistro'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { PageHeader } from '@/components/ui/PageHeader'
@@ -26,12 +27,10 @@ import { GravedadBadge, EstadoBadge } from '@/components/ui/Badge'
 import { cn } from '@/lib/cn'
 import { estadoDeCampo, CLASE_INPUT_POR_ESTADO } from '@/lib/campoEstado'
 import type { Atencion, Estado } from '@/types'
-import type { Gravedad } from '@/data/categorizacion'
 
 const PAGE_SIZE = 10
 
 const ESTADOS: Estado[] = ['ABIERTO', 'EN_PROCESO', 'CERRADO']
-const GRAVEDADES: Gravedad[] = ['BAJO', 'MEDIO', 'ALTO']
 
 export function AtencionList() {
   const { profile } = useAuth()
@@ -39,8 +38,8 @@ export function AtencionList() {
   const [viendoDetalle, setViendoDetalle] = useState<Atencion | null>(null)
   const [busqueda, setBusqueda] = useState('')
   const [busquedaDebounced, setBusquedaDebounced] = useState('')
+  const [filtroTipoRegistro, setFiltroTipoRegistro] = useState('')
   const [filtroEstado, setFiltroEstado] = useState('')
-  const [filtroGravedad, setFiltroGravedad] = useState('')
   const [filtroZona, setFiltroZona] = useState('')
   const [filtroDesde, setFiltroDesde] = useState('')
   const [filtroHasta, setFiltroHasta] = useState('')
@@ -62,8 +61,8 @@ export function AtencionList() {
 
   const filtros: FiltrosAtenciones = {
     busqueda: busquedaDebounced || undefined,
+    tipoRegistro: filtroTipoRegistro || undefined,
     estado: filtroEstado || undefined,
-    gravedad: filtroGravedad || undefined,
     zona: filtroZona || undefined,
     desde: filtroDesde || undefined,
     hasta: filtroHasta || undefined,
@@ -95,11 +94,11 @@ export function AtencionList() {
 
   const totalPaginas = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const hayFiltrosActivos = Boolean(
-    busqueda || filtroEstado || filtroGravedad || filtroZona || filtroDesde || filtroHasta,
+    busqueda || filtroTipoRegistro || filtroEstado || filtroZona || filtroDesde || filtroHasta,
   )
   const estadoBusqueda = estadoDeCampo(busqueda)
+  const estadoFiltroTipoRegistro = estadoDeCampo(filtroTipoRegistro)
   const estadoFiltroEstado = estadoDeCampo(filtroEstado)
-  const estadoFiltroGravedad = estadoDeCampo(filtroGravedad)
   const estadoFiltroZona = estadoDeCampo(filtroZona)
   const estadoDesde = estadoDeCampo(filtroDesde, mensajeRango)
   const estadoHasta = estadoDeCampo(filtroHasta, mensajeRango)
@@ -107,8 +106,8 @@ export function AtencionList() {
   function limpiarFiltros() {
     setBusqueda('')
     setBusquedaDebounced('')
+    setFiltroTipoRegistro('')
     setFiltroEstado('')
-    setFiltroGravedad('')
     setFiltroZona('')
     setFiltroDesde('')
     setFiltroHasta('')
@@ -186,26 +185,14 @@ export function AtencionList() {
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
               <select
-                value={filtroEstado}
-                onChange={(e) => actualizarFiltro(setFiltroEstado)(e.target.value)}
-                className={cn('input', CLASE_INPUT_POR_ESTADO[estadoFiltroEstado])}
+                value={filtroTipoRegistro}
+                onChange={(e) => actualizarFiltro(setFiltroTipoRegistro)(e.target.value)}
+                className={cn('input', CLASE_INPUT_POR_ESTADO[estadoFiltroTipoRegistro])}
               >
-                <option value="">Todos los estados</option>
-                {ESTADOS.map((e) => (
-                  <option key={e} value={e}>
-                    {e.replace('_', ' ')}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={filtroGravedad}
-                onChange={(e) => actualizarFiltro(setFiltroGravedad)(e.target.value)}
-                className={cn('input', CLASE_INPUT_POR_ESTADO[estadoFiltroGravedad])}
-              >
-                <option value="">Toda gravedad</option>
-                {GRAVEDADES.map((g) => (
-                  <option key={g} value={g}>
-                    {g}
+                <option value="">Todo tipo de registro</option>
+                {TIPOS_REGISTRO.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
                   </option>
                 ))}
               </select>
@@ -218,6 +205,18 @@ export function AtencionList() {
                 {ZONAS.map((z) => (
                   <option key={z} value={z}>
                     {z}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={filtroEstado}
+                onChange={(e) => actualizarFiltro(setFiltroEstado)(e.target.value)}
+                className={cn('input', CLASE_INPUT_POR_ESTADO[estadoFiltroEstado])}
+              >
+                <option value="">Todos los estados</option>
+                {ESTADOS.map((e) => (
+                  <option key={e} value={e}>
+                    {e.replace('_', ' ')}
                   </option>
                 ))}
               </select>
@@ -275,6 +274,7 @@ export function AtencionList() {
                     <span className="text-sm font-medium text-neutral-900">{a.fecha}</span>
                     <span className="text-xs text-neutral-500">{a.zona}</span>
                     {a.fundo && <span className="text-xs text-neutral-500">· {a.fundo}</span>}
+                    <span className="text-xs font-medium text-navy bg-navy-soft px-1.5 py-0.5 rounded">{a.tipo_registro}</span>
                     <span className="ml-auto flex items-center gap-2">
                       <GravedadBadge gravedad={a.gravedad} />
                       <EstadoBadge estado={a.estado} />

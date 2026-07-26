@@ -1,9 +1,11 @@
 import { z } from 'zod'
 import { TIPOS } from '@/data/categorizacion'
 import { ZONAS } from '@/data/zonasFundos'
+import { TIPOS_REGISTRO } from '@/data/tipoRegistro'
 import { LEGAJO_REGEX } from '@/data/legajo'
 
 export const atencionSchema = z.object({
+  tipoRegistro: z.enum(TIPOS_REGISTRO, { message: 'Selecciona el tipo de registro' }),
   fecha: z.string().min(1, 'La fecha es obligatoria'),
   zona: z.enum(ZONAS, { message: 'Selecciona una zona' }),
   fundo: z.string().optional(),
