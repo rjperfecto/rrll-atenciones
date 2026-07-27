@@ -6,8 +6,9 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
-  LabelList,
   Legend,
+  Pie,
+  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -35,6 +36,11 @@ import { ClipboardList, Clock, CheckCircle2, TrendingUp, Award } from 'lucide-re
 const GRIS_EJE = '#e5e7eb' // neutral-200: gridlines recesivas, nunca protagonistas
 const PURPLE = '#673ab7' // --color-brand (ver src/index.css)
 const BLUE = '#2196f3' // --color-secondary
+
+// Escala azul/morado (ver src/index.css --color-blue-*/--color-purple-*),
+// alternada para que categorías vecinas en el gráfico no queden en tonos
+// contiguos difíciles de distinguir.
+const PALETA_ZONA = ['#2196f3', '#673ab7', '#64b5f6', '#9575cd', '#1565c0', '#4527a0']
 
 interface Datos {
   porZona: CasosPorZona[]
@@ -147,8 +153,14 @@ export function Dashboard() {
           icon={<Clock className="size-5" />}
           accent={BLUE}
         />
-        <StatTile label="Cerrados" value={conteoEstado.cerrado} icon={<CheckCircle2 className="size-4" />} accent={ESTADO_COLORES.CERRADO} />
-        <StatTile label="Esta semana" value={estaSemana} icon={<TrendingUp className="size-4" />} accent="#fabd49" />
+        <StatTile
+          variant="gradient"
+          label="Cerrados"
+          value={conteoEstado.cerrado}
+          icon={<CheckCircle2 className="size-5" />}
+          accent={ESTADO_COLORES.CERRADO}
+        />
+        <StatTile variant="gradient" label="Esta semana" value={estaSemana} icon={<TrendingUp className="size-5" />} accent="#fabd49" />
       </div>
 
       <div className="grid gap-6 grid-cols-1 xl:grid-cols-3 mb-6">
@@ -157,8 +169,12 @@ export function Dashboard() {
             <AreaChart data={porSemana} margin={{ top: 8, right: 8 }}>
               <defs>
                 <linearGradient id="gradSemana" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={PURPLE} stopOpacity={0.35} />
-                  <stop offset="100%" stopColor={PURPLE} stopOpacity={0.02} />
+                  <stop offset="0%" stopColor={BLUE} stopOpacity={0.4} />
+                  <stop offset="100%" stopColor={PURPLE} stopOpacity={0.03} />
+                </linearGradient>
+                <linearGradient id="lineaSemana" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stopColor={BLUE} />
+                  <stop offset="100%" stopColor={PURPLE} />
                 </linearGradient>
               </defs>
               <CartesianGrid stroke={GRIS_EJE} vertical={false} />
@@ -169,10 +185,10 @@ export function Dashboard() {
                 type="monotone"
                 dataKey="casos"
                 name="Casos"
-                stroke={PURPLE}
+                stroke="url(#lineaSemana)"
                 strokeWidth={2.5}
                 fill="url(#gradSemana)"
-                dot={{ r: 3, fill: PURPLE, strokeWidth: 0 }}
+                dot={{ r: 3, fill: BLUE, strokeWidth: 0 }}
                 activeDot={{ r: 5, fill: PURPLE, stroke: '#fff', strokeWidth: 2 }}
               />
             </AreaChart>
@@ -196,7 +212,10 @@ export function Dashboard() {
                     <span className="text-sm font-semibold text-neutral-900 shrink-0">{r.total}</span>
                   </div>
                   <div className="h-1.5 rounded-full bg-neutral-100 overflow-hidden">
-                    <div className="h-full rounded-full" style={{ width: `${r.pct}%`, backgroundColor: PURPLE }} />
+                    <div
+                      className="h-full rounded-full"
+                      style={{ width: `${r.pct}%`, background: `linear-gradient(90deg, ${BLUE}, ${PURPLE})` }}
+                    />
                   </div>
                 </div>
               ))}
@@ -208,32 +227,29 @@ export function Dashboard() {
       <div className="grid gap-6 grid-cols-1 md:grid-cols-2">
         <CardSection title="Casos por zona">
           <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={porZona} margin={{ top: 16 }}>
-              <CartesianGrid stroke={GRIS_EJE} vertical={false} />
-              <XAxis dataKey="zona" tick={{ fontSize: 12, fill: '#737373' }} axisLine={{ stroke: GRIS_EJE }} tickLine={false} />
-              <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: '#737373' }} axisLine={false} tickLine={false} width={28} />
-              <Tooltip content={ChartTooltip} cursor={{ fill: '#f5f5f5' }} />
-              <Bar dataKey="casos" name="Casos" fill={PURPLE} radius={[4, 4, 0, 0]} maxBarSize={40}>
-                <LabelList dataKey="casos" position="top" style={{ fontSize: 11, fill: '#525252' }} />
-              </Bar>
-            </BarChart>
+            <PieChart>
+              <Tooltip content={ChartTooltip} />
+              <Legend wrapperStyle={{ fontSize: 12 }} iconType="circle" />
+              <Pie data={porZona} dataKey="casos" nameKey="zona" innerRadius={55} outerRadius={85} paddingAngle={2} strokeWidth={2} stroke="#fff">
+                {porZona.map((entry, i) => (
+                  <Cell key={entry.zona} fill={PALETA_ZONA[i % PALETA_ZONA.length]} />
+                ))}
+              </Pie>
+            </PieChart>
           </ResponsiveContainer>
         </CardSection>
 
         <CardSection title="Casos por gravedad">
           <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={porGravedad} layout="vertical" margin={{ left: 8, right: 24 }}>
-              <CartesianGrid stroke={GRIS_EJE} horizontal={false} />
-              <XAxis type="number" allowDecimals={false} tick={{ fontSize: 12, fill: '#737373' }} axisLine={{ stroke: GRIS_EJE }} tickLine={false} />
-              <YAxis type="category" dataKey="gravedad" tick={{ fontSize: 12, fill: '#737373' }} axisLine={false} tickLine={false} width={60} />
-              <Tooltip content={ChartTooltip} cursor={{ fill: '#f5f5f5' }} />
-              <Bar dataKey="casos" name="Casos" radius={[0, 4, 4, 0]} maxBarSize={28}>
+            <PieChart>
+              <Tooltip content={ChartTooltip} />
+              <Legend wrapperStyle={{ fontSize: 12 }} iconType="circle" />
+              <Pie data={porGravedad} dataKey="casos" nameKey="gravedad" innerRadius={55} outerRadius={85} paddingAngle={2} strokeWidth={2} stroke="#fff">
                 {porGravedad.map((entry) => (
                   <Cell key={entry.gravedad} fill={GRAVEDAD_COLORES[entry.gravedad as keyof typeof GRAVEDAD_COLORES]} />
                 ))}
-                <LabelList dataKey="casos" position="right" style={{ fontSize: 11, fill: '#525252' }} />
-              </Bar>
-            </BarChart>
+              </Pie>
+            </PieChart>
           </ResponsiveContainer>
         </CardSection>
 

@@ -146,10 +146,7 @@ function AppLayout() {
         )}
       >
         <div className="flex items-center justify-between px-5 py-5">
-          <div className="flex items-center gap-2">
-            <span className="flex items-center justify-center size-9 rounded-xl bg-brand text-white font-bold text-sm shrink-0">RR</span>
-            <span className="text-base font-bold text-neutral-800 tracking-tight">RRLL Atenciones</span>
-          </div>
+          <img src="/logo.png" alt="RRLL Atenciones" className="h-9 w-auto" />
           <button onClick={cerrarMenu} aria-label="Cerrar menú" className="p-1.5 rounded-md text-neutral-400 hover:bg-neutral-100 md:hidden">
             <X className="size-4" />
           </button>
