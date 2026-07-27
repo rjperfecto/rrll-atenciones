@@ -26,14 +26,15 @@ import { CardSection } from '@/components/ui/Card'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { StatTile } from '@/components/ui/StatTile'
 import { GRAVEDAD_COLORES, ESTADO_COLORES } from '@/components/ui/Badge'
-import { ClipboardList, Clock, CheckCircle2 } from 'lucide-react'
+import { ClipboardList, Clock, CheckCircle2, TrendingUp, Award } from 'lucide-react'
 
 // Reemplaza la hoja "INDICADOR" del Excel: casos por zona, por gravedad, y
 // cruce responsable x gravedad. Los totales se calculan en Supabase (vistas
 // v_casos_por_*), no trayendo todas las atenciones al navegador.
 
 const GRIS_EJE = '#e5e7eb' // neutral-200: gridlines recesivas, nunca protagonistas
-const BRAND = '#0c8d50' // verde institucional (ver src/index.css --color-brand)
+const PURPLE = '#673ab7' // --color-brand (ver src/index.css)
+const BLUE = '#2196f3' // --color-secondary
 
 interface Datos {
   porZona: CasosPorZona[]
@@ -94,6 +95,19 @@ export function Dashboard() {
     return [...map.values()]
   }, [datos])
 
+  // Ranking de responsables por total de casos: reemplaza al panel de
+  // "acciones populares" del template de referencia con el dato real
+  // equivalente que sí existe en esta app (no hay cotizaciones de bolsa
+  // en un sistema de relaciones laborales).
+  const topResponsables = useMemo(() => {
+    const conTotal = porResponsable.map((r) => ({ ...r, total: r.BAJO + r.MEDIO + r.ALTO }))
+    const max = Math.max(1, ...conTotal.map((r) => r.total))
+    return conTotal
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 5)
+      .map((r) => ({ ...r, pct: Math.round((r.total / max) * 100) }))
+  }, [porResponsable])
+
   const porSemana = useMemo(() => {
     if (!datos) return []
     // Últimas 12 semanas con datos, para que el sparkline no se vea abarrotado.
@@ -108,6 +122,7 @@ export function Dashboard() {
     }
   }, [datos])
 
+  const estaSemana = porSemana.at(-1)?.casos ?? 0
   const total = useMemo(() => porGravedad.reduce((acc, g) => acc + g.casos, 0), [porGravedad])
 
   if (!datos) return <p className="text-sm text-neutral-500">Cargando...</p>
@@ -116,22 +131,36 @@ export function Dashboard() {
     <div>
       <PageHeader title="Dashboard" description={`${total} atenciones registradas en total`} />
 
-      <div className="grid gap-4 grid-cols-3 mb-6">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 mb-6">
         <StatTile
+          variant="gradient"
           label="Total de casos"
           value={total}
-          icon={<ClipboardList className="size-4" />}
-          accent={BRAND}
+          icon={<ClipboardList className="size-5" />}
+          accent={PURPLE}
           sparkline={porSemana.map((s) => ({ valor: s.casos }))}
         />
-        <StatTile label="Pendientes" value={conteoEstado.abierto} icon={<Clock className="size-4" />} accent={ESTADO_COLORES.ABIERTO} />
+        <StatTile
+          variant="gradient"
+          label="Pendientes"
+          value={conteoEstado.abierto}
+          icon={<Clock className="size-5" />}
+          accent={BLUE}
+        />
         <StatTile label="Cerrados" value={conteoEstado.cerrado} icon={<CheckCircle2 className="size-4" />} accent={ESTADO_COLORES.CERRADO} />
+        <StatTile label="Esta semana" value={estaSemana} icon={<TrendingUp className="size-4" />} accent="#fabd49" />
       </div>
 
-      <div className="grid gap-6 grid-cols-1 md:grid-cols-2">
-        <CardSection title="Casos por semana" className="md:col-span-2">
-          <ResponsiveContainer width="100%" height={200}>
+      <div className="grid gap-6 grid-cols-1 xl:grid-cols-3 mb-6">
+        <CardSection title="Total de casos por semana" className="xl:col-span-2">
+          <ResponsiveContainer width="100%" height={260}>
             <AreaChart data={porSemana} margin={{ top: 8, right: 8 }}>
+              <defs>
+                <linearGradient id="gradSemana" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={PURPLE} stopOpacity={0.35} />
+                  <stop offset="100%" stopColor={PURPLE} stopOpacity={0.02} />
+                </linearGradient>
+              </defs>
               <CartesianGrid stroke={GRIS_EJE} vertical={false} />
               <XAxis dataKey="etiqueta" tick={{ fontSize: 11, fill: '#737373' }} axisLine={{ stroke: GRIS_EJE }} tickLine={false} />
               <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#737373' }} axisLine={false} tickLine={false} width={32} />
@@ -140,17 +169,43 @@ export function Dashboard() {
                 type="monotone"
                 dataKey="casos"
                 name="Casos"
-                stroke={BRAND}
-                strokeWidth={2}
-                fill={BRAND}
-                fillOpacity={0.1}
-                dot={{ r: 3, fill: BRAND, strokeWidth: 0 }}
-                activeDot={{ r: 5, fill: BRAND, stroke: '#fff', strokeWidth: 2 }}
+                stroke={PURPLE}
+                strokeWidth={2.5}
+                fill="url(#gradSemana)"
+                dot={{ r: 3, fill: PURPLE, strokeWidth: 0 }}
+                activeDot={{ r: 5, fill: PURPLE, stroke: '#fff', strokeWidth: 2 }}
               />
             </AreaChart>
           </ResponsiveContainer>
         </CardSection>
 
+        <CardSection title="Top responsables" icon={<Award className="size-4 text-brand" />}>
+          {topResponsables.length === 0 ? (
+            <p className="text-sm text-neutral-400">Sin datos todavía</p>
+          ) : (
+            <div className="space-y-4">
+              {topResponsables.map((r, i) => (
+                <div key={r.responsable}>
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <span className="flex items-center gap-2 min-w-0">
+                      <span className="flex items-center justify-center size-5 rounded-full bg-navy-soft text-navy text-[11px] font-bold shrink-0">
+                        {i + 1}
+                      </span>
+                      <span className="text-sm text-neutral-700 truncate">{r.responsable}</span>
+                    </span>
+                    <span className="text-sm font-semibold text-neutral-900 shrink-0">{r.total}</span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-neutral-100 overflow-hidden">
+                    <div className="h-full rounded-full" style={{ width: `${r.pct}%`, backgroundColor: PURPLE }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardSection>
+      </div>
+
+      <div className="grid gap-6 grid-cols-1 md:grid-cols-2">
         <CardSection title="Casos por zona">
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={porZona} margin={{ top: 16 }}>
@@ -158,7 +213,7 @@ export function Dashboard() {
               <XAxis dataKey="zona" tick={{ fontSize: 12, fill: '#737373' }} axisLine={{ stroke: GRIS_EJE }} tickLine={false} />
               <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: '#737373' }} axisLine={false} tickLine={false} width={28} />
               <Tooltip content={ChartTooltip} cursor={{ fill: '#f5f5f5' }} />
-              <Bar dataKey="casos" name="Casos" fill={BRAND} radius={[4, 4, 0, 0]} maxBarSize={40}>
+              <Bar dataKey="casos" name="Casos" fill={PURPLE} radius={[4, 4, 0, 0]} maxBarSize={40}>
                 <LabelList dataKey="casos" position="top" style={{ fontSize: 11, fill: '#525252' }} />
               </Bar>
             </BarChart>

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   AlertCircle,
   CheckCircle2,
@@ -34,12 +35,15 @@ const ESTADOS: Estado[] = ['ABIERTO', 'CERRADO']
 
 export function AtencionList() {
   const { profile } = useAuth()
+  // Permite llegar acá con filtros ya aplicados (buscador y campanita de
+  // notificaciones del encabezado, ver App.tsx), solo como valor inicial.
+  const [searchParams] = useSearchParams()
   const [cerrando, setCerrando] = useState<Atencion | null>(null)
   const [viendoDetalle, setViendoDetalle] = useState<Atencion | null>(null)
-  const [busqueda, setBusqueda] = useState('')
-  const [busquedaDebounced, setBusquedaDebounced] = useState('')
+  const [busqueda, setBusqueda] = useState(() => searchParams.get('q') ?? '')
+  const [busquedaDebounced, setBusquedaDebounced] = useState(() => searchParams.get('q') ?? '')
   const [filtroTipoRegistro, setFiltroTipoRegistro] = useState('')
-  const [filtroEstado, setFiltroEstado] = useState('')
+  const [filtroEstado, setFiltroEstado] = useState(() => searchParams.get('estado') ?? '')
   const [filtroZona, setFiltroZona] = useState('')
   const [filtroDesde, setFiltroDesde] = useState('')
   const [filtroHasta, setFiltroHasta] = useState('')

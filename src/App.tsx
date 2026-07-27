@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
-import { BrowserRouter, Navigate, NavLink, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Navigate, NavLink, Route, Routes, useNavigate } from 'react-router-dom'
 import {
+  Bell,
   ClipboardPlus,
   History,
   LayoutDashboard,
   LogOut,
   Menu,
+  Search,
   UserCheck,
   Users,
   Wifi,
@@ -19,12 +21,17 @@ import { AtencionList } from '@/features/atenciones/AtencionList'
 import { Dashboard } from '@/features/dashboard/Dashboard'
 import { ImportarPersonal } from '@/features/admin/ImportarPersonal'
 import { ImportarAfiliados } from '@/features/admin/ImportarAfiliados'
+import { contarPendientes } from '@/lib/atencionesApi'
 import { cn } from '@/lib/cn'
 
+// Ítem de menú lateral estilo panel admin: activo = píldora lavanda con
+// borde izquierdo morado y texto/ícono morado; inactivo = gris, hover sutil.
 function navClass({ isActive }: { isActive: boolean }) {
   return cn(
-    'flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors',
-    isActive ? 'bg-white text-sidebar' : 'text-emerald-100/80 hover:bg-sidebar-hover hover:text-white',
+    'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors border-l-[3px]',
+    isActive
+      ? 'bg-sidebar-active text-brand border-brand'
+      : 'text-neutral-500 border-transparent hover:bg-sidebar-hover hover:text-neutral-800',
   )
 }
 
@@ -33,10 +40,22 @@ function iniciales(nombre: string) {
   return ((partes[0]?.[0] ?? '') + (partes[1]?.[0] ?? '')).toUpperCase()
 }
 
+function GrupoNav({ titulo, children }: { titulo: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1">
+      <p className="px-3 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">{titulo}</p>
+      {children}
+    </div>
+  )
+}
+
 function AppLayout() {
   const { profile, signOut } = useAuth()
+  const navigate = useNavigate()
   const [online, setOnline] = useState(navigator.onLine)
   const [menuAbierto, setMenuAbierto] = useState(false)
+  const [busqueda, setBusqueda] = useState('')
+  const [pendientes, setPendientes] = useState(0)
 
   useEffect(() => {
     const on = () => setOnline(true)
@@ -59,124 +78,173 @@ function AppLayout() {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [menuAbierto])
 
+  // La campanita muestra un conteo real de pendientes (no un adorno): mismo
+  // dato que la tarjeta "Pendientes" del Dashboard, consultado liviano
+  // (count exacto sin traer filas) para no pesar en cada pantalla.
+  useEffect(() => {
+    if (!profile) return
+    void contarPendientes(profile.id, profile.rol === 'ADMIN').then(setPendientes)
+  }, [profile])
+
   if (!profile) return <LoginPage />
 
   const cerrarMenu = () => setMenuAbierto(false)
 
-  return (
-    <div className="min-h-full flex flex-col">
-      <header className="sticky top-0 z-20 border-b border-neutral-200 bg-white/95 backdrop-blur">
-        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 min-w-0">
-            <button
-              onClick={() => setMenuAbierto(true)}
-              aria-label="Abrir menú"
-              className="flex items-center justify-center size-10 -ml-1 rounded-md border border-neutral-200 text-navy hover:bg-navy-soft hover:border-navy/30 transition-colors duration-200 shrink-0"
-            >
-              <Menu className="size-5" />
-            </button>
-            <div className="min-w-0">
-              <h1 className="text-base sm:text-lg font-semibold text-brand truncate">RRLL Atenciones</h1>
-              <p className="text-xs text-neutral-500 truncate">{profile.nombre_completo}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            <span
-              className={cn(
-                'inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full font-semibold transition-colors duration-200',
-                online ? 'bg-brand text-white' : 'bg-danger-soft text-red-700',
-              )}
-            >
-              {online ? <Wifi className="size-3" /> : <WifiOff className="size-3" />}
-              <span className="hidden sm:inline">{online ? 'En línea' : 'Sin conexión'}</span>
-            </span>
-            <span className="hidden sm:flex items-center justify-center size-8 rounded-full bg-brand text-white text-xs font-semibold shrink-0">
-              {iniciales(profile.nombre_completo)}
-            </span>
-            <button
-              onClick={signOut}
-              className="flex items-center gap-1 text-sm text-neutral-500 hover:text-neutral-800"
-            >
-              <LogOut className="size-4" />
-              <span className="hidden sm:inline">Salir</span>
-            </button>
-          </div>
-        </div>
-      </header>
+  function buscar(e: React.FormEvent) {
+    e.preventDefault()
+    const texto = busqueda.trim()
+    if (!texto) return
+    navigate(`/historial?q=${encodeURIComponent(texto)}`)
+    cerrarMenu()
+  }
 
-      {menuAbierto && (
-        <div
-          className="fixed inset-0 bg-black/40 z-30"
-          onClick={cerrarMenu}
-          aria-hidden="true"
-        />
+  const nav = (
+    <>
+      <GrupoNav titulo="Principal">
+        <NavLink to="/" end className={navClass} onClick={cerrarMenu}>
+          <ClipboardPlus className="size-4" />
+          Registrar
+        </NavLink>
+        <NavLink to="/historial" className={navClass} onClick={cerrarMenu}>
+          <History className="size-4" />
+          Atenciones
+        </NavLink>
+        {profile.rol === 'ADMIN' && (
+          <NavLink to="/dashboard" className={navClass} onClick={cerrarMenu}>
+            <LayoutDashboard className="size-4" />
+            Dashboard
+          </NavLink>
+        )}
+      </GrupoNav>
+      {profile.rol === 'ADMIN' && (
+        <GrupoNav titulo="Administración">
+          <NavLink to="/admin/personal" className={navClass} onClick={cerrarMenu}>
+            <Users className="size-4" />
+            Importar personal
+          </NavLink>
+          <NavLink to="/admin/afiliados" className={navClass} onClick={cerrarMenu}>
+            <UserCheck className="size-4" />
+            Importar afiliados
+          </NavLink>
+        </GrupoNav>
       )}
+    </>
+  )
+
+  return (
+    <div className="min-h-full flex bg-cream">
+      {menuAbierto && (
+        <div className="fixed inset-0 bg-black/40 z-30 md:hidden" onClick={cerrarMenu} aria-hidden="true" />
+      )}
+
+      {/* Menú lateral: permanente en escritorio (md+), drawer deslizante en móvil. */}
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-40 w-72 max-w-[80vw] bg-sidebar shadow-xl transition-transform duration-200 flex flex-col',
+          'fixed inset-y-0 left-0 z-40 w-72 bg-sidebar border-r border-neutral-100 shadow-xl md:shadow-none transition-transform duration-200 flex flex-col',
+          'md:sticky md:top-0 md:h-screen md:translate-x-0',
           menuAbierto ? 'translate-x-0' : '-translate-x-full',
         )}
       >
-        <div className="flex items-center justify-between px-4 py-4">
-          <span className="text-sm font-semibold text-white">RRLL Atenciones</span>
-          <button onClick={cerrarMenu} aria-label="Cerrar menú" className="p-1.5 rounded-md text-emerald-100/70 hover:bg-sidebar-hover hover:text-white">
+        <div className="flex items-center justify-between px-5 py-5">
+          <div className="flex items-center gap-2">
+            <span className="flex items-center justify-center size-9 rounded-xl bg-brand text-white font-bold text-sm shrink-0">RR</span>
+            <span className="text-base font-bold text-neutral-800 tracking-tight">RRLL Atenciones</span>
+          </div>
+          <button onClick={cerrarMenu} aria-label="Cerrar menú" className="p-1.5 rounded-md text-neutral-400 hover:bg-neutral-100 md:hidden">
             <X className="size-4" />
           </button>
         </div>
-        <div className="flex items-center gap-3 px-4 pb-4">
-          <span className="flex items-center justify-center size-10 rounded-full bg-brand-light text-white text-sm font-semibold shrink-0">
-            {iniciales(profile.nombre_completo)}
-          </span>
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-white truncate">{profile.nombre_completo}</p>
-            <p className="text-xs text-emerald-100/70 truncate">{profile.email}</p>
+
+        <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-5">{nav}</nav>
+
+        <div className="border-t border-neutral-100 p-3">
+          <div className="flex items-center gap-3 rounded-lg px-2 py-2">
+            <span className="flex items-center justify-center size-9 rounded-full bg-brand text-white text-xs font-semibold shrink-0">
+              {iniciales(profile.nombre_completo)}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-neutral-800 truncate">{profile.nombre_completo}</p>
+              <p className="text-xs text-neutral-400 truncate">{profile.email}</p>
+            </div>
+            <button onClick={signOut} aria-label="Salir" className="p-2 rounded-md text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 shrink-0">
+              <LogOut className="size-4" />
+            </button>
           </div>
         </div>
-        <div className="border-t border-white/10" />
-        <nav className="flex-1 overflow-y-auto p-3 space-y-1">
-          <NavLink to="/" end className={navClass} onClick={cerrarMenu}>
-            <ClipboardPlus className="size-4" />
-            Registrar
-          </NavLink>
-          <NavLink to="/historial" className={navClass} onClick={cerrarMenu}>
-            <History className="size-4" />
-            Atenciones
-          </NavLink>
-          {profile.rol === 'ADMIN' && (
-            <>
-              <NavLink to="/dashboard" className={navClass} onClick={cerrarMenu}>
-                <LayoutDashboard className="size-4" />
-                Dashboard
-              </NavLink>
-              <NavLink to="/admin/personal" className={navClass} onClick={cerrarMenu}>
-                <Users className="size-4" />
-                Importar personal
-              </NavLink>
-              <NavLink to="/admin/afiliados" className={navClass} onClick={cerrarMenu}>
-                <UserCheck className="size-4" />
-                Importar afiliados
-              </NavLink>
-            </>
-          )}
-        </nav>
       </aside>
 
-      <main className="flex-1 max-w-4xl w-full mx-auto px-4 py-6">
-        <Routes>
-          <Route path="/" element={<AtencionForm />} />
-          <Route path="/historial" element={<AtencionList />} />
-          <Route path="/dashboard" element={profile.rol === 'ADMIN' ? <Dashboard /> : <Navigate to="/" />} />
-          <Route
-            path="/admin/personal"
-            element={profile.rol === 'ADMIN' ? <ImportarPersonal /> : <Navigate to="/" />}
-          />
-          <Route
-            path="/admin/afiliados"
-            element={profile.rol === 'ADMIN' ? <ImportarAfiliados /> : <Navigate to="/" />}
-          />
-          <Route path="*" element={<Navigate to="/" />} />
-        </Routes>
-      </main>
+      <div className="flex-1 min-w-0 flex flex-col">
+        <header className="sticky top-0 z-20 border-b border-neutral-100 bg-white">
+          <div className="px-4 sm:px-6 py-3 flex items-center gap-3">
+            <button
+              onClick={() => setMenuAbierto(true)}
+              aria-label="Abrir menú"
+              className="flex items-center justify-center size-10 rounded-md text-neutral-500 hover:bg-neutral-100 shrink-0 md:hidden"
+            >
+              <Menu className="size-5" />
+            </button>
+
+            <form onSubmit={buscar} className="flex-1 max-w-md">
+              <div className="relative">
+                <Search className="size-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={busqueda}
+                  onChange={(e) => setBusqueda(e.target.value)}
+                  placeholder="Buscar por nombre, legajo, DNI..."
+                  className="w-full rounded-lg border border-neutral-200 bg-neutral-50 pl-9 pr-3 py-2 text-sm text-neutral-800 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand focus:bg-white transition-colors"
+                />
+              </div>
+            </form>
+
+            <div className="flex items-center gap-1.5 sm:gap-2 ml-auto shrink-0">
+              <span
+                className={cn(
+                  'hidden sm:inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full font-semibold',
+                  online ? 'bg-success-soft text-emerald-700' : 'bg-danger-soft text-red-700',
+                )}
+              >
+                {online ? <Wifi className="size-3" /> : <WifiOff className="size-3" />}
+                {online ? 'En línea' : 'Sin conexión'}
+              </span>
+
+              <button
+                onClick={() => navigate('/historial?estado=ABIERTO')}
+                aria-label={`${pendientes} casos pendientes`}
+                className="relative flex items-center justify-center size-10 rounded-full text-neutral-500 hover:bg-neutral-100"
+              >
+                <Bell className="size-5" />
+                {pendientes > 0 && (
+                  <span className="absolute top-1.5 right-1.5 flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-secondary text-white text-[10px] font-bold">
+                    {pendientes > 99 ? '99+' : pendientes}
+                  </span>
+                )}
+              </button>
+
+              <span className="flex items-center justify-center size-9 rounded-full bg-brand text-white text-xs font-semibold shrink-0">
+                {iniciales(profile.nombre_completo)}
+              </span>
+            </div>
+          </div>
+        </header>
+
+        <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 py-6">
+          <Routes>
+            <Route path="/" element={<AtencionForm />} />
+            <Route path="/historial" element={<AtencionList />} />
+            <Route path="/dashboard" element={profile.rol === 'ADMIN' ? <Dashboard /> : <Navigate to="/" />} />
+            <Route
+              path="/admin/personal"
+              element={profile.rol === 'ADMIN' ? <ImportarPersonal /> : <Navigate to="/" />}
+            />
+            <Route
+              path="/admin/afiliados"
+              element={profile.rol === 'ADMIN' ? <ImportarAfiliados /> : <Navigate to="/" />}
+            />
+            <Route path="*" element={<Navigate to="/" />} />
+          </Routes>
+        </main>
+      </div>
     </div>
   )
 }

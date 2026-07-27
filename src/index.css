@@ -1,23 +1,25 @@
 @import "tailwindcss";
 
 @theme {
-  /* Identidad de marca. Verde institucional = color primario (botones,
-     enlaces activos, focus rings); azul marino = texto fuerte/secciones;
-     dorado = acento, reservado para insignias/resaltes puntuales, nunca
-     como color de fondo grande (se ve "alerta" si se usa de más); crema =
-     fondo general de la app en vez de un gris genérico "tech". */
-  --color-brand: #0c8d50;
-  --color-brand-light: #15a868;
-  --color-navy: #192689;
-  --color-navy-soft: #e6e8f7;
+  /* Paleta tipo panel admin (referencia visual "Berry"): morado como color
+     primario (botones, enlaces activos, focus rings, degradados de KPI) +
+     azul como acento secundario; fondo general gris claro en vez de blanco
+     puro, para dar la profundidad de tarjeta flotante del dashboard. */
+  --color-brand: #673ab7;
+  --color-brand-light: #7c4dff;
+  --color-secondary: #2196f3;
+  --color-secondary-light: #64b5f6;
+  --color-navy: #1a2138;
+  --color-navy-soft: #ece7f8;
   --color-gold: #fabd49;
   --color-gold-soft: #fdf1da;
-  --color-cream: #fbf9f1;
+  --color-cream: #f4f6fb;
 
-  /* Menú lateral oscuro (verde muy oscuro) para que combine con
-     --color-brand en vez de ser un color arbitrario. */
-  --color-sidebar: #0b2015;
-  --color-sidebar-hover: #163826;
+  /* Menú lateral claro (estilo "Berry"): fondo blanco, ítem activo en
+     lavanda suave con texto/ícono morado. */
+  --color-sidebar: #ffffff;
+  --color-sidebar-hover: #f4f0fb;
+  --color-sidebar-active: #ece1fc;
 
   /* Tokens semánticos: acentos de estado de CAMPO (validación de
      formulario), no colores principales del diseño. Se mantienen como

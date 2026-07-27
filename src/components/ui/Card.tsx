@@ -1,10 +1,24 @@
-import type { ReactNode } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import { cn } from '@/lib/cn'
 
 // Contenedor visual único (borde + sombra + radio) usado en toda la app
 // (listas, gráficos, modales) para que la jerarquía visual sea consistente.
-export function Card({ className, children, id }: { className?: string; children: ReactNode; id?: string }) {
-  return <div id={id} className={cn('rounded-xl border border-neutral-100 bg-white shadow-sm', className)}>{children}</div>
+export function Card({
+  className,
+  children,
+  id,
+  style,
+}: {
+  className?: string
+  children: ReactNode
+  id?: string
+  style?: CSSProperties
+}) {
+  return (
+    <div id={id} style={style} className={cn('rounded-xl border border-neutral-100 bg-white shadow-sm', className)}>
+      {children}
+    </div>
+  )
 }
 
 export function CardSection({

@@ -73,6 +73,15 @@ export async function listarAtencionesParaExportar(
   return { data: (data as Atencion[]) ?? [], error: error?.message ?? null }
 }
 
+// Conteo liviano (sin traer filas) para la campanita de notificaciones del
+// encabezado: cuántos casos siguen pendientes de cierre.
+export async function contarPendientes(responsableId: string, isAdmin: boolean): Promise<number> {
+  let query = supabase.from('atenciones').select('*', { count: 'exact', head: true }).eq('estado', 'ABIERTO')
+  if (!isAdmin) query = query.eq('responsable_id', responsableId)
+  const { count } = await query
+  return count ?? 0
+}
+
 export async function crearAtencion(atencion: Atencion): Promise<{ error: string | null }> {
   const { error } = await supabase.from('atenciones').insert(atencion)
   return { error: error?.message ?? null }
