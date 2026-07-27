@@ -33,7 +33,7 @@ import { ClipboardList, Clock, CheckCircle2 } from 'lucide-react'
 // v_casos_por_*), no trayendo todas las atenciones al navegador.
 
 const GRIS_EJE = '#e5e7eb' // neutral-200: gridlines recesivas, nunca protagonistas
-const BRAND = '#166534'
+const BRAND = '#0c8d50' // verde institucional (ver src/index.css --color-brand)
 
 interface Datos {
   porZona: CasosPorZona[]
@@ -117,7 +117,13 @@ export function Dashboard() {
       <PageHeader title="Dashboard" description={`${total} atenciones registradas en total`} />
 
       <div className="grid gap-4 grid-cols-3 mb-6">
-        <StatTile label="Total de casos" value={total} icon={<ClipboardList className="size-4" />} accent={BRAND} />
+        <StatTile
+          label="Total de casos"
+          value={total}
+          icon={<ClipboardList className="size-4" />}
+          accent={BRAND}
+          sparkline={porSemana.map((s) => ({ valor: s.casos }))}
+        />
         <StatTile label="Pendientes" value={conteoEstado.abierto} icon={<Clock className="size-4" />} accent={ESTADO_COLORES.ABIERTO} />
         <StatTile label="Cerrados" value={conteoEstado.cerrado} icon={<CheckCircle2 className="size-4" />} accent={ESTADO_COLORES.CERRADO} />
       </div>
