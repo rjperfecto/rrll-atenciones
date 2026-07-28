@@ -15,7 +15,7 @@ import {
   X,
 } from 'lucide-react'
 import { listarAtencionesPaginado, listarAtencionesParaExportar, type FiltrosAtenciones } from '@/lib/atencionesApi'
-import { exportarAtencionesCsv } from '@/lib/exportCsv'
+import { exportarAtencionesCsv, exportar360LaboralCsv } from '@/lib/exportCsv'
 import { useAuth } from '@/features/auth/AuthContext'
 import { CerrarCasoModal } from './CerrarCasoModal'
 import { DetalleAtencionModal } from './DetalleAtencionModal'
@@ -129,7 +129,13 @@ export function AtencionList() {
     if (!profile) return
     setExportando(true)
     const { data, error } = await listarAtencionesParaExportar(profile.id, profile.rol === 'ADMIN', filtros)
-    if (!error) exportarAtencionesCsv(data)
+    if (!error) {
+      if (filtros.tipoRegistro === '360 LABORAL') {
+        exportar360LaboralCsv(data)
+      } else {
+        exportarAtencionesCsv(data)
+      }
+    }
     setExportando(false)
   }
 
@@ -284,8 +290,19 @@ export function AtencionList() {
                       <EstadoBadge estado={a.estado} />
                     </span>
                   </div>
-                  <p className="text-sm text-neutral-600">Falta: {a.falta ?? a.subcategoria}</p>
-                  <p className="text-sm font-medium text-neutral-900 mt-1">{a.involucrados[0]?.nombre_completo}</p>
+                  {a.tipo_registro === '360 LABORAL' ? (
+                    <>
+                      <p className="text-sm text-neutral-600">
+                        {a.sede === 'PACKING' ? `Packing: ${a.fundo ?? ''} · Turno ${a.turno ?? ''}` : `Líder de cosecha: ${a.lider_cosecha ?? ''}`}
+                      </p>
+                      <p className="text-sm font-medium text-neutral-900 mt-1">{a.area}</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm text-neutral-600">Falta: {a.falta ?? a.subcategoria}</p>
+                      <p className="text-sm font-medium text-neutral-900 mt-1">{a.involucrados[0]?.nombre_completo}</p>
+                    </>
+                  )}
 
                   <div className="flex items-center gap-2 mt-3">
                     <Button variant="secondary" onClick={() => setViendoDetalle(a)}>

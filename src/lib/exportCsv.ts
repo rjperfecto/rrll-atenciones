@@ -54,9 +54,9 @@ export function exportarAtencionesCsv(atenciones: Atencion[]) {
       FECHA: a.fecha,
       SEMANA: String(semanaIso(a.fecha)),
       GRUPO: a.grupo ?? '',
-      TIPO: a.tipo,
-      CATEGORIA: a.categoria,
-      SUBCATEGORIA: a.subcategoria,
+      TIPO: a.tipo ?? '',
+      CATEGORIA: a.categoria ?? '',
+      SUBCATEGORIA: a.subcategoria ?? '',
       GRAVEDAD: a.gravedad,
       LEGAJO: involucrado?.legajo ?? '',
       DNI: involucrado?.dni ?? '',
@@ -66,7 +66,7 @@ export function exportarAtencionesCsv(atenciones: Atencion[]) {
       FUNDO: a.fundo ?? '',
       MODULO: a.modulo ?? '',
       'SUP. CUADRILLA': a.sup_cuadrilla ?? '',
-      FALTA: a.falta ?? a.subcategoria,
+      FALTA: a.falta ?? a.subcategoria ?? '',
       'ACCION CORRECTIVA': a.accion_correctiva ?? '',
       ANTECEDENTE: a.antecedente ?? '',
       COMENTARIO: a.comentarios ?? '',
@@ -85,13 +85,83 @@ export function exportarAtencionesCsv(atenciones: Atencion[]) {
     .map((fila) => COLUMNAS.map((col) => csvEscape(fila[col])).join(','))
     .join('\n')
   const csv = '﻿' + encabezado + '\n' + cuerpo
+  descargarCsv(csv, 'atenciones_rrll')
+}
 
+// Columnas propias de 360 Laboral: es un registro de sesión/grupo (no un
+// trabajador individual), así que no comparte columnas con el export de
+// arriba (Tipo/Categoría/Legajo/etc. no aplican acá).
+const COLUMNAS_360 = [
+  'FECHA',
+  'SEMANA',
+  'NIVEL DE CONFLICTIVIDAD',
+  'SEDE',
+  'PACKING',
+  'TURNO',
+  'LIDER DE COSECHA',
+  'GRUPO',
+  'ALCANCE',
+  'ZONA',
+  'FUNDO',
+  'MODULO',
+  'ACTIVIDAD',
+  'TIPO DE ATENCION',
+  'ALERTAS',
+  'DETALLE DE LA ALERTA',
+  'COMPROMISO',
+  'DETALLE COMPROMISO',
+  'FECHA FIN COMPROMISO',
+  'EVIDENCIA',
+  'OBSERVACIONES',
+  'RESPONSABLE RRLL',
+  'SUP. RRLL',
+] as const
+
+export function exportar360LaboralCsv(atenciones: Atencion[]) {
+  const filas = atenciones.map((a) => {
+    const fila: Record<(typeof COLUMNAS_360)[number], string> = {
+      FECHA: a.fecha,
+      SEMANA: String(semanaIso(a.fecha)),
+      'NIVEL DE CONFLICTIVIDAD': a.gravedad,
+      SEDE: a.sede ?? '',
+      PACKING: a.sede === 'PACKING' ? (a.fundo ?? '') : '',
+      TURNO: a.turno ?? '',
+      'LIDER DE COSECHA': a.lider_cosecha ?? '',
+      GRUPO: a.grupo ?? '',
+      ALCANCE: a.alcance !== null && a.alcance !== undefined ? String(a.alcance) : '',
+      ZONA: a.zona,
+      FUNDO: a.sede === 'FUNDO' ? (a.fundo ?? '') : '',
+      MODULO: a.modulo ?? '',
+      ACTIVIDAD: a.area ?? '',
+      'TIPO DE ATENCION': (a.tipo_atencion_360 ?? []).join(' / '),
+      ALERTAS: (a.alertas_360 ?? []).join(' / '),
+      'DETALLE DE LA ALERTA': a.detalle_alerta ?? '',
+      COMPROMISO: a.compromiso_generado === true ? 'SI' : a.compromiso_generado === false ? 'NO' : '',
+      'DETALLE COMPROMISO': a.detalle_compromiso ?? '',
+      'FECHA FIN COMPROMISO': a.fecha_fin_compromiso ?? '',
+      EVIDENCIA: a.evidencia_360 ?? '',
+      OBSERVACIONES: a.comentarios ?? '',
+      'RESPONSABLE RRLL': a.responsable_nombre,
+      'SUP. RRLL': a.sup_rrll ?? '',
+    }
+    return fila
+  })
+
+  const encabezado = COLUMNAS_360.join(',')
+  const cuerpo = filas
+    .map((fila) => COLUMNAS_360.map((col) => csvEscape(fila[col])).join(','))
+    .join('\n')
+  const csv = '﻿' + encabezado + '\n' + cuerpo
+  descargarCsv(csv, '360_laboral_rrll')
+}
+
+function descargarCsv(csv: string, nombreBase: string) {
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   const fecha = new Date().toISOString().slice(0, 10)
   link.href = url
-  link.download = `atenciones_rrll_${fecha}.csv`
+  link.download = `${nombreBase}_${fecha}.csv`
   link.click()
   URL.revokeObjectURL(url)
 }

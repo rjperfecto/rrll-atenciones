@@ -1,206 +1,206 @@
-import { useCallback, useMemo, useState, type ChangeEvent } from 'react'
-import { useForm, type UseFormRegisterReturn } from 'react-hook-form'
+import { useState } from 'react'
+import { FormProvider, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import {
-  AlertCircle,
-  AlertTriangle,
-  CalendarDays,
-  CheckCircle2,
-  FileWarning,
-  Loader2,
-  Lock,
-  MapPin,
-  ScanLine,
-  Search,
-  StickyNote,
-  UserSearch,
-} from 'lucide-react'
-import { BarcodeScannerModal } from '@/components/ui/BarcodeScannerModal'
-import { estadoDeCampo, CLASE_INPUT_POR_ESTADO } from '@/lib/campoEstado'
+import { AlertCircle, CalendarDays, CheckCircle2, Loader2 } from 'lucide-react'
 import { atencionSchema, type AtencionFormValues } from './atencionSchema'
-import { TIPOS, categoriasPorTipo, subcategoriasPorCategoria, gravedadDe } from '@/data/categorizacion'
-import { ZONAS } from '@/data/zonasFundos'
+import { gravedadDe } from '@/data/categorizacion'
 import { TIPOS_REGISTRO } from '@/data/tipoRegistro'
-import { dniDesdeLegajo, LEGAJO_REGEX } from '@/data/legajo'
 import { supRrllPorZona } from '@/data/supervisoresRrll'
 import { moduloDesdeFundo } from '@/lib/modulo'
-import { zonaDesdeFundo } from '@/lib/zonaFundo'
-import { buscarTrabajadorPorLegajo, buscarAfiliadoPorLegajo } from '@/lib/trabajadoresApi'
+import { dniDesdeLegajo } from '@/data/legajo'
+import { buscarAfiliadoPorLegajo } from '@/lib/trabajadoresApi'
 import { crearAtencion } from '@/lib/atencionesApi'
 import { useAuth } from '@/features/auth/AuthContext'
 import { cn } from '@/lib/cn'
 import { Button } from '@/components/ui/Button'
 import { CardSection } from '@/components/ui/Card'
 import { Field } from '@/components/ui/Field'
-import { GravedadBadge } from '@/components/ui/Badge'
 import { PageHeader } from '@/components/ui/PageHeader'
-import type { Atencion } from '@/types'
+import { FormularioGeneral } from './FormularioGeneral'
+import { Formulario360Laboral } from './Formulario360Laboral'
+import type { Atencion, TipoRegistro } from '@/types'
 
-type EstadoBusqueda = 'idle' | 'buscando' | 'encontrado' | 'no_encontrado' | 'formato_invalido'
+function hoy() {
+  return new Date().toISOString().slice(0, 10)
+}
 
-// Convierte a mayúsculas mientras se escribe (no solo visualmente: el valor
-// que guarda react-hook-form también queda en mayúscula), para los campos de
-// texto libre del negocio (nombre, fundo, grupo, área, etc.). Legajo/fecha/
-// selects quedan afuera porque no aplica (numérico, catálogos ya en mayúscula).
-function conMayusculas(campo: UseFormRegisterReturn) {
+function defaultValues(): Partial<AtencionFormValues> {
   return {
-    ...campo,
-    onChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-      e.target.value = e.target.value.toUpperCase()
-      return campo.onChange(e)
-    },
-  }
+    tipoRegistro: 'GENERAL',
+    fecha: hoy(),
+    // Arrays de checkboxes de 360 Laboral: sin esto, watch() los devuelve
+    // undefined y .includes() explota antes de que el usuario toque nada.
+    tipoAtencion360: [],
+    alertas360: [],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } as any
 }
 
 export function AtencionForm() {
   const { profile } = useAuth()
   const [estadoGuardado, setEstadoGuardado] = useState<'idle' | 'guardando' | 'guardado'>('idle')
   const [errorGuardado, setErrorGuardado] = useState<string | null>(null)
-  const [busqueda, setBusqueda] = useState<EstadoBusqueda>('idle')
-  const [escaneando, setEscaneando] = useState(false)
-  const [esAfiliado, setEsAfiliado] = useState<boolean | null>(null)
+  // Fuerza un remount del cuerpo del formulario tras cada envío exitoso:
+  // limpia también el estado local propio de cada sub-formulario (búsqueda
+  // de legajo, etc.), no solo los valores de react-hook-form.
+  const [formKey, setFormKey] = useState(0)
+
+  const metodos = useForm<AtencionFormValues>({
+    // El resolver de zod ya discrimina por tipoRegistro en tiempo de
+    // ejecución; el cast evita fricción de tipos entre el union estricto y
+    // los valores flexibles que necesitan los dos sub-formularios.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(atencionSchema as any),
+    mode: 'onTouched',
+    defaultValues: defaultValues(),
+  })
+
   const {
     register,
     handleSubmit,
     watch,
     reset,
     setValue,
-    trigger,
     formState: { errors, isSubmitting, isDirty },
-  } = useForm<AtencionFormValues>({
-    resolver: zodResolver(atencionSchema),
-    mode: 'onTouched', // valida al salir de un campo, no solo al enviar
-    defaultValues: {
-      tipoRegistro: 'GENERAL',
-      fecha: new Date().toISOString().slice(0, 10),
-    },
-  })
+  } = metodos
 
   const valores = watch()
-  const { legajo, fecha, tipo, categoria, subcategoria, zona, fundo, tipoRegistro } = valores
-
-  const categorias = useMemo(() => (tipo ? categoriasPorTipo(tipo) : []), [tipo])
-  const subcategorias = useMemo(
-    () => (tipo && categoria ? subcategoriasPorCategoria(tipo, categoria) : []),
-    [tipo, categoria],
-  )
-  const gravedad = useMemo(
-    () => (tipo && categoria && subcategoria ? gravedadDe(tipo, categoria, subcategoria) : undefined),
-    [tipo, categoria, subcategoria],
-  )
-  const modulo = useMemo(() => (fundo ? moduloDesdeFundo(fundo) : null), [fundo])
-  const supRrll = useMemo(() => (zona ? supRrllPorZona(zona) : null), [zona])
-  const estadoLegajo = estadoDeCampo(legajo, errors.legajo?.message)
-
-  const buscarPorLegajo = useCallback(
-    async (valorLegajo: string) => {
-      const legajoLimpio = valorLegajo.trim()
-      if (legajoLimpio !== valorLegajo) setValue('legajo', legajoLimpio)
-      if (!LEGAJO_REGEX.test(legajoLimpio)) {
-        setBusqueda('formato_invalido')
-        setEsAfiliado(null)
-        void trigger('legajo') // fuerza a mostrar el error aunque el usuario no haya salido del campo
-        return
-      }
-      setBusqueda('buscando')
-      // La afiliación no depende de la fecha del caso, solo del legajo: se
-      // resuelve aparte del historial de TAREO (que sí es por Legajo+Fecha).
-      const [esAfiliadoEncontrado, trabajador] = await Promise.all([
-        buscarAfiliadoPorLegajo(legajoLimpio),
-        // Busca el registro de TAREO de ese legajo tal como estaba EN la fecha
-        // del caso: si no hay marcación exacta ese día, usa la más cercana
-        // anterior (nunca una posterior a la fecha de la atención).
-        buscarTrabajadorPorLegajo(legajoLimpio, fecha),
-      ])
-      setEsAfiliado(esAfiliadoEncontrado)
-      if (!trabajador) {
-        setBusqueda('no_encontrado')
-        return
-      }
-      setValue('nombreInvolucrado', trabajador.nombre_completo.toUpperCase())
-      if (trabajador.fundo) {
-        setValue('fundo', trabajador.fundo.toUpperCase())
-        const zonaDetectada = zonaDesdeFundo(trabajador.fundo)
-        if (zonaDetectada) setValue('zona', zonaDetectada)
-      }
-      if (trabajador.grupo) setValue('grupo', trabajador.grupo.toUpperCase())
-      if (trabajador.sup_cuadrilla) setValue('supCuadrilla', trabajador.sup_cuadrilla.toUpperCase())
-      if (trabajador.area) setValue('area', trabajador.area.toUpperCase())
-      setBusqueda('encontrado')
-    },
-    [fecha, setValue, trigger],
-  )
-
-  const onCodigoEscaneado = useCallback(
-    (texto: string) => {
-      setEscaneando(false)
-      setValue('legajo', texto)
-      void buscarPorLegajo(texto)
-    },
-    [buscarPorLegajo, setValue],
-  )
+  const tipoRegistro = valores.tipoRegistro as TipoRegistro
+  const fecha = valores.fecha
 
   function limpiarFormulario() {
-    // reset(valoresParciales) no limpia los campos no incluidos en esta
-    // version de react-hook-form (se probó y confirmó); reset() sin
-    // argumentos sí limpia todo, y luego se fija la fecha de hoy aparte.
+    // reset(valoresParciales) no limpia los campos no incluidos (se probó y
+    // confirmó en su momento); reset() sin argumentos sí limpia todo.
     reset()
-    setValue('fecha', new Date().toISOString().slice(0, 10))
+    setValue('fecha', hoy())
     setValue('tipoRegistro', 'GENERAL')
-    setBusqueda('idle')
-    setEsAfiliado(null)
+    setValue('tipoAtencion360', [])
+    setValue('alertas360', [])
+    setFormKey((k) => k + 1)
   }
 
   async function onSubmit(values: AtencionFormValues) {
     if (!profile) return
     setErrorGuardado(null)
-    const gravedadFinal = gravedadDe(values.tipo, values.categoria, values.subcategoria)
-    if (!gravedadFinal) return
     setEstadoGuardado('guardando')
-
-    // Se recalcula aquí (no se confía solo en el estado de "Buscar") por si
-    // el usuario escribió el legajo y envió el formulario sin buscar antes.
-    const esAfiliadoFinal = await buscarAfiliadoPorLegajo(values.legajo)
-
     const now = new Date().toISOString()
-    const atencion: Atencion = {
-      id: crypto.randomUUID(),
-      client_uuid: crypto.randomUUID(),
-      tipo_registro: values.tipoRegistro,
-      fecha: values.fecha,
-      fecha_cierre: null,
-      zona: values.zona,
-      fundo: values.fundo || null,
-      modulo: values.fundo ? moduloDesdeFundo(values.fundo) : null,
-      grupo: values.grupo || null,
-      area: values.area || null,
-      tipo: values.tipo,
-      categoria: values.categoria,
-      subcategoria: values.subcategoria,
-      falta: null,
-      gravedad: gravedadFinal,
-      comentarios: values.comentarios || null,
-      involucrados: [
-        {
-          legajo: values.legajo,
-          dni: dniDesdeLegajo(values.legajo),
-          nombre_completo: values.nombreInvolucrado,
-          es_afiliado: esAfiliadoFinal,
-        },
-      ],
-      estado: 'ABIERTO',
-      accion_correctiva: null,
-      dias_suspension: null,
-      detalle_cierre: null,
-      sup_cuadrilla: values.supCuadrilla || null,
-      responsable_id: profile.id,
-      responsable_nombre: profile.nombre_completo,
-      sup_rrll: supRrllPorZona(values.zona),
-      reporte: values.reporte || null,
-      antecedente: null,
-      notas_seguimiento: null,
-      created_at: now,
-      updated_at: now,
+
+    let atencion: Atencion
+
+    if (values.tipoRegistro === '360 LABORAL') {
+      const zona = values.sede === 'PACKING' ? 'PACKING' : values.zona || ''
+      const tipoAtencion = values.tipoAtencion360.includes('OTRAS')
+        ? [...values.tipoAtencion360.filter((v) => v !== 'OTRAS'), values.otroTipoAtencion || '']
+        : values.tipoAtencion360
+      const alertas = values.alertas360.includes('OTRAS')
+        ? [...values.alertas360.filter((v) => v !== 'OTRAS'), values.otraAlerta || '']
+        : values.alertas360
+
+      atencion = {
+        id: crypto.randomUUID(),
+        client_uuid: crypto.randomUUID(),
+        tipo_registro: '360 LABORAL',
+        fecha: values.fecha,
+        fecha_cierre: values.fecha,
+        zona,
+        fundo: values.sede === 'PACKING' ? values.packingSede || null : values.fundo || null,
+        modulo: values.sede === 'FUNDO' ? values.modulo || null : null,
+        grupo: values.sede === 'FUNDO' ? values.grupo || null : null,
+        area: values.actividad,
+        tipo: null,
+        categoria: null,
+        subcategoria: null,
+        falta: null,
+        gravedad: values.nivelConflictividad,
+        comentarios: values.observaciones,
+        involucrados: [],
+        estado: 'CERRADO',
+        accion_correctiva: null,
+        dias_suspension: null,
+        detalle_cierre: null,
+        sup_cuadrilla: null,
+        responsable_id: profile.id,
+        responsable_nombre: profile.nombre_completo,
+        sup_rrll: supRrllPorZona(zona),
+        reporte: null,
+        antecedente: null,
+        notas_seguimiento: null,
+        sede: values.sede,
+        packing_sede: values.sede === 'PACKING' ? values.packingSede || null : null,
+        turno: values.sede === 'PACKING' ? values.turno || null : null,
+        lider_cosecha: values.sede === 'FUNDO' ? values.liderCosecha || null : null,
+        alcance: values.sede === 'FUNDO' ? values.alcance ?? null : null,
+        tipo_atencion_360: tipoAtencion,
+        alertas_360: alertas,
+        detalle_alerta: values.detalleAlerta,
+        compromiso_generado: values.compromisoGenerado === 'SI',
+        detalle_compromiso: values.compromisoGenerado === 'SI' ? values.detalleCompromiso || null : null,
+        fecha_fin_compromiso: values.compromisoGenerado === 'SI' ? values.fechaFinCompromiso || null : null,
+        evidencia_360: values.evidencia360,
+        created_at: now,
+        updated_at: now,
+      }
+    } else {
+      // Se recalcula acá (no se confía solo en el estado de "Buscar") por si
+      // el usuario escribió el legajo y envió el formulario sin buscar antes.
+      const gravedadFinal = gravedadDe(values.tipo, values.categoria, values.subcategoria)
+      if (!gravedadFinal) {
+        setEstadoGuardado('idle')
+        return
+      }
+      const esAfiliadoFinal = await buscarAfiliadoPorLegajo(values.legajo)
+
+      atencion = {
+        id: crypto.randomUUID(),
+        client_uuid: crypto.randomUUID(),
+        tipo_registro: values.tipoRegistro,
+        fecha: values.fecha,
+        fecha_cierre: null,
+        zona: values.zona,
+        fundo: values.fundo || null,
+        modulo: values.fundo ? moduloDesdeFundo(values.fundo) : null,
+        grupo: values.grupo || null,
+        area: values.area || null,
+        tipo: values.tipo,
+        categoria: values.categoria,
+        subcategoria: values.subcategoria,
+        falta: null,
+        gravedad: gravedadFinal,
+        comentarios: values.comentarios || null,
+        involucrados: [
+          {
+            legajo: values.legajo,
+            dni: dniDesdeLegajo(values.legajo),
+            nombre_completo: values.nombreInvolucrado,
+            es_afiliado: esAfiliadoFinal,
+          },
+        ],
+        estado: 'ABIERTO',
+        accion_correctiva: null,
+        dias_suspension: null,
+        detalle_cierre: null,
+        sup_cuadrilla: values.supCuadrilla || null,
+        responsable_id: profile.id,
+        responsable_nombre: profile.nombre_completo,
+        sup_rrll: supRrllPorZona(values.zona),
+        reporte: values.reporte || null,
+        antecedente: null,
+        notas_seguimiento: null,
+        sede: null,
+        packing_sede: null,
+        turno: null,
+        lider_cosecha: null,
+        alcance: null,
+        tipo_atencion_360: null,
+        alertas_360: null,
+        detalle_alerta: null,
+        compromiso_generado: null,
+        detalle_compromiso: null,
+        fecha_fin_compromiso: null,
+        evidencia_360: null,
+        created_at: now,
+        updated_at: now,
+      }
     }
 
     const { error } = await crearAtencion(atencion)
@@ -219,270 +219,64 @@ export function AtencionForm() {
     <div className="max-w-xl">
       <PageHeader title="Registrar" description="Registra un caso de RRLL en campo." />
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-        {errorGuardado && (
-          <div className="rounded-md bg-red-50 border border-red-200 text-red-800 text-sm px-3 py-2 flex items-center gap-2">
-            <AlertCircle className="size-4 shrink-0" />
-            {errorGuardado}
-          </div>
-        )}
-
-        <div className="grid grid-cols-3 gap-2" role="tablist" aria-label="Tipo de registro">
-          {TIPOS_REGISTRO.map((t) => (
-            <button
-              key={t}
-              type="button"
-              role="tab"
-              aria-selected={tipoRegistro === t}
-              onClick={() => setValue('tipoRegistro', t, { shouldDirty: true })}
-              className={cn(
-                'rounded-lg border py-2.5 text-sm font-semibold text-center transition-all duration-200',
-                tipoRegistro === t
-                  ? 'bg-brand text-white border-brand shadow-sm'
-                  : 'bg-white text-navy border-neutral-200 hover:border-brand/40',
-              )}
-            >
-              {t}
-            </button>
-          ))}
-        </div>
-        {errors.tipoRegistro && <p className="text-xs text-danger -mt-2">{errors.tipoRegistro.message}</p>}
-
-        <CardSection title="Fecha" icon={<CalendarDays className="size-4 text-brand" />}>
-          <Field label="Fecha del caso" value={fecha} error={errors.fecha?.message}>
-            <input type="date" {...register('fecha')} className="input" />
-          </Field>
-        </CardSection>
-
-        <CardSection title="Trabajador involucrado" icon={<UserSearch className="size-4 text-brand" />}>
-          <div>
-            <label htmlFor="campo-legajo" className="block text-[13px] font-medium text-neutral-700 mb-1.5">
-              Legajo
-            </label>
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <input
-                  id="campo-legajo"
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={10}
-                  placeholder="ej. 1012345678"
-                  {...register('legajo', {
-                    onChange: () => {
-                      setBusqueda('idle')
-                      setEsAfiliado(null)
-                    },
-                  })}
-                  className={cn('input', CLASE_INPUT_POR_ESTADO[estadoLegajo], estadoLegajo !== 'neutral' && 'pl-9')}
-                />
-                {estadoLegajo !== 'neutral' && (
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                    {estadoLegajo === 'success' && <CheckCircle2 className="size-4 text-success" />}
-                    {estadoLegajo === 'warning' && <AlertTriangle className="size-4 text-warning" />}
-                    {estadoLegajo === 'error' && <AlertCircle className="size-4 text-danger" />}
-                  </span>
-                )}
-              </div>
-              <Button
-                type="button"
-                variant="primary"
-                onClick={() => buscarPorLegajo(legajo || '')}
-                loading={busqueda === 'buscando'}
-                className="shrink-0"
-              >
-                <Search className="size-4" />
-                Buscar
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => setEscaneando(true)}
-                className="shrink-0"
-                title="Escanear carnet"
-              >
-                <ScanLine className="size-4" />
-                <span className="hidden sm:inline">Escanear</span>
-              </Button>
-            </div>
-            {estadoLegajo === 'warning' && errors.legajo && (
-              <p className="text-xs text-warning mt-1">{errors.legajo.message}</p>
-            )}
-            {estadoLegajo === 'error' && errors.legajo && (
-              <p className="text-xs text-danger mt-1">{errors.legajo.message}</p>
-            )}
-            {busqueda === 'encontrado' && (
-              <p className="text-xs text-emerald-600 mt-1 flex items-center gap-1">
-                <CheckCircle2 className="size-3.5 shrink-0" />
-                Datos autocompletados desde TAREO — revisa si aplican a este caso.
-              </p>
-            )}
-            {busqueda === 'no_encontrado' && (
-              <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
-                <AlertCircle className="size-3.5 shrink-0" />
-                No encontramos ese legajo en el tareo de esa fecha. Verifica el número o completa los datos a mano.
-              </p>
-            )}
-          </div>
-
-          <Field label="Nombre completo" value={valores.nombreInvolucrado} error={errors.nombreInvolucrado?.message}>
-            <input
-              type="text"
-              placeholder="EJ. JUAN PÉREZ LÓPEZ"
-              {...conMayusculas(register('nombreInvolucrado'))}
-              className="input"
-            />
-          </Field>
-
-          <div>
-            <label htmlFor="campo-afiliado" className="flex items-center gap-1.5 text-[13px] font-medium text-neutral-700 mb-1.5">
-              ¿Afiliado?
-              <Lock className="size-3 text-neutral-400" aria-hidden="true" />
-            </label>
-            <input
-              id="campo-afiliado"
-              type="text"
-              readOnly
-              disabled
-              value={esAfiliado === null ? '' : esAfiliado ? 'SI' : 'NO'}
-              placeholder="Se completa al buscar el legajo"
-              className="input bg-neutral-100 text-neutral-500 cursor-not-allowed"
-            />
-            <p className="text-xs text-neutral-400 mt-1">Solo lectura: se toma de la lista de afiliados, no se edita aquí.</p>
-          </div>
-        </CardSection>
-
-        <CardSection title="Ubicación" icon={<MapPin className="size-4 text-brand" />}>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="Zona" value={zona} error={errors.zona?.message} hint={supRrll ? `Sup. RRLL: ${supRrll}` : undefined}>
-              <select {...register('zona')} className="input">
-                <option value="">Selecciona...</option>
-                {ZONAS.map((z) => (
-                  <option key={z} value={z}>
-                    {z}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Fundo" value={fundo} hint={modulo ? `Módulo detectado: ${modulo}` : undefined}>
-              <input type="text" placeholder="ej. REM 2-W" {...conMayusculas(register('fundo'))} className="input" />
-            </Field>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="Grupo / cuadrilla" value={valores.grupo}>
-              <input type="text" placeholder="ej. CH12" {...conMayusculas(register('grupo'))} className="input" />
-            </Field>
-            <Field label="Área / actividad" value={valores.area}>
-              <input
-                type="text"
-                placeholder="ej. Cosecha ARA Granel 3.0 kg"
-                {...conMayusculas(register('area'))}
-                className="input"
-              />
-            </Field>
-          </div>
-          <Field label="Sup. cuadrilla" value={valores.supCuadrilla}>
-            <input type="text" {...conMayusculas(register('supCuadrilla'))} className="input" />
-          </Field>
-        </CardSection>
-
-        <CardSection title="Tipo de atención" icon={<FileWarning className="size-4 text-brand" />}>
-          <Field label="Tipo" value={tipo} error={errors.tipo?.message}>
-            <select
-              {...register('tipo')}
-              className="input"
-              onChange={(e) => {
-                setValue('tipo', e.target.value as AtencionFormValues['tipo'])
-                setValue('categoria', '')
-                setValue('subcategoria', '')
-              }}
-            >
-              <option value="">Selecciona...</option>
-              {TIPOS.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
-          </Field>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="Categoría" value={categoria} error={errors.categoria?.message}>
-              <select
-                {...register('categoria')}
-                disabled={!tipo}
-                className="input"
-                onChange={(e) => {
-                  setValue('categoria', e.target.value)
-                  setValue('subcategoria', '')
-                }}
-              >
-                <option value="">Selecciona...</option>
-                {categorias.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Subcategoría" value={subcategoria} error={errors.subcategoria?.message}>
-              <select
-                {...register('subcategoria')}
-                disabled={!categoria}
-                className="input"
-              >
-                <option value="">Selecciona...</option>
-                {subcategorias.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
-            </Field>
-          </div>
-
-          {gravedad && (
-            <div className="flex items-center gap-2 text-sm">
-              <span className="text-neutral-500">Gravedad (automática):</span>
-              <GravedadBadge gravedad={gravedad} />
+      <FormProvider {...metodos}>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+          {errorGuardado && (
+            <div className="rounded-md bg-red-50 border border-red-200 text-red-800 text-sm px-3 py-2 flex items-center gap-2">
+              <AlertCircle className="size-4 shrink-0" />
+              {errorGuardado}
             </div>
           )}
-        </CardSection>
 
-        <CardSection title="Seguimiento (opcional)" icon={<StickyNote className="size-4 text-brand" />}>
-          <Field label="Reporta" value={valores.reporte}>
-            <input type="text" {...conMayusculas(register('reporte'))} className="input" />
-          </Field>
-          <Field label="Comentarios" value={valores.comentarios}>
-            <textarea
-              rows={3}
-              placeholder="Detalle narrativo del caso..."
-              {...conMayusculas(register('comentarios'))}
-              className="input"
-            />
-          </Field>
-        </CardSection>
-
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <span
-            className={cn(
-              'text-xs font-medium transition-opacity duration-200 text-amber-700',
-              isDirty && estadoGuardado === 'idle' ? 'opacity-100' : 'opacity-0',
-            )}
-          >
-            ● Cambios sin guardar
-          </span>
-          <div className="flex flex-col-reverse sm:flex-row gap-3">
-            <Button type="button" variant="secondary" onClick={limpiarFormulario} disabled={isSubmitting}>
-              Limpiar formulario
-            </Button>
-            <Button type="submit" loading={isSubmitting}>
-              {isSubmitting ? 'Guardando...' : 'Registrar atención'}
-            </Button>
+          <div className="grid grid-cols-3 gap-2" role="tablist" aria-label="Tipo de registro">
+            {TIPOS_REGISTRO.map((t) => (
+              <button
+                key={t}
+                type="button"
+                role="tab"
+                aria-selected={tipoRegistro === t}
+                onClick={() => setValue('tipoRegistro', t)}
+                className={cn(
+                  'rounded-lg border py-2.5 text-sm font-semibold text-center transition-all duration-200',
+                  tipoRegistro === t
+                    ? 'bg-brand text-white border-brand shadow-sm'
+                    : 'bg-white text-navy border-neutral-200 hover:border-brand/40',
+                )}
+              >
+                {t}
+              </button>
+            ))}
           </div>
-        </div>
-      </form>
+          {errors.tipoRegistro && <p className="text-xs text-danger -mt-2">{String(errors.tipoRegistro.message)}</p>}
 
-      {escaneando && <BarcodeScannerModal onDetected={onCodigoEscaneado} onClose={() => setEscaneando(false)} />}
+          <CardSection title={tipoRegistro === '360 LABORAL' ? 'Fecha 360 Laboral' : 'Fecha'} icon={<CalendarDays className="size-4 text-brand" />}>
+            <Field label="Fecha del caso" value={fecha} error={errors.fecha?.message}>
+              <input type="date" {...register('fecha')} className="input" />
+            </Field>
+          </CardSection>
+
+          <div key={formKey}>{tipoRegistro === '360 LABORAL' ? <Formulario360Laboral /> : <FormularioGeneral />}</div>
+
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <span
+              className={cn(
+                'text-xs font-medium transition-opacity duration-200 text-amber-700',
+                isDirty && estadoGuardado === 'idle' ? 'opacity-100' : 'opacity-0',
+              )}
+            >
+              ● Cambios sin guardar
+            </span>
+            <div className="flex flex-col-reverse sm:flex-row gap-3">
+              <Button type="button" variant="secondary" onClick={limpiarFormulario} disabled={isSubmitting}>
+                Limpiar formulario
+              </Button>
+              <Button type="submit" loading={isSubmitting}>
+                {isSubmitting ? 'Guardando...' : 'Registrar atención'}
+              </Button>
+            </div>
+          </div>
+        </form>
+      </FormProvider>
 
       {estadoGuardado !== 'idle' && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">

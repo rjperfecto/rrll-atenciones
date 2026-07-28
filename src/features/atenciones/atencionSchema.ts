@@ -1,11 +1,15 @@
 import { z } from 'zod'
 import { TIPOS } from '@/data/categorizacion'
 import { ZONAS } from '@/data/zonasFundos'
-import { TIPOS_REGISTRO } from '@/data/tipoRegistro'
 import { LEGAJO_REGEX } from '@/data/legajo'
+import { atencion360Schema } from './atencion360Schema'
 
-export const atencionSchema = z.object({
-  tipoRegistro: z.enum(TIPOS_REGISTRO, { message: 'Selecciona el tipo de registro' }),
+// GENERAL y COSECHA comparten el mismo formulario (Tipo → Categoría →
+// Subcategoría → Gravedad, trabajador involucrado por legajo); 360 LABORAL
+// es un formulario completamente distinto (ver atencion360Schema.ts), por
+// eso el schema final es un discriminated union por tipoRegistro.
+export const atencionGeneralSchema = z.object({
+  tipoRegistro: z.enum(['GENERAL', 'COSECHA']),
   fecha: z.string().min(1, 'La fecha es obligatoria'),
   zona: z.enum(ZONAS, { message: 'Selecciona una zona' }),
   fundo: z.string().optional(),
@@ -20,5 +24,9 @@ export const atencionSchema = z.object({
   reporte: z.string().optional(),
   comentarios: z.string().optional(),
 })
+
+export type AtencionGeneralFormValues = z.infer<typeof atencionGeneralSchema>
+
+export const atencionSchema = z.discriminatedUnion('tipoRegistro', [atencionGeneralSchema, atencion360Schema])
 
 export type AtencionFormValues = z.infer<typeof atencionSchema>

@@ -57,9 +57,9 @@ export interface Atencion {
   modulo: string | null
   grupo: string | null
   area: string | null
-  tipo: Tipo
-  categoria: string
-  subcategoria: string
+  tipo: Tipo | null
+  categoria: string | null
+  subcategoria: string | null
   gravedad: Gravedad
   falta: string | null
   comentarios: string | null
@@ -75,6 +75,20 @@ export interface Atencion {
   reporte: string | null
   antecedente: string | null
   notas_seguimiento: string | null
+  // Específicos de "360 Laboral" (ver supabase/migrations/0014_form_360_laboral.sql):
+  // registro de sesión/grupo, no de un trabajador individual.
+  sede: 'PACKING' | 'FUNDO' | null
+  packing_sede: string | null
+  turno: 'DIA' | 'NOCHE' | null
+  lider_cosecha: string | null
+  alcance: number | null
+  tipo_atencion_360: string[] | null
+  alertas_360: string[] | null
+  detalle_alerta: string | null
+  compromiso_generado: boolean | null
+  detalle_compromiso: string | null
+  fecha_fin_compromiso: string | null
+  evidencia_360: string | null
   created_at: string
   updated_at: string
 }
