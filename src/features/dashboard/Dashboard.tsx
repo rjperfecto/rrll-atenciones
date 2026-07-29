@@ -28,6 +28,7 @@ import { PageHeader } from '@/components/ui/PageHeader'
 import { StatTile } from '@/components/ui/StatTile'
 import { GRAVEDAD_COLORES, ESTADO_COLORES } from '@/components/ui/Badge'
 import { ClipboardList, Clock, CheckCircle2, TrendingUp, Award } from 'lucide-react'
+import type { TipoRegistro } from '@/types'
 
 // Reemplaza la hoja "INDICADOR" del Excel: casos por zona, por gravedad, y
 // cruce responsable x gravedad. Los totales se calculan en Supabase (vistas
@@ -71,14 +72,18 @@ function ChartTooltip({ active, payload, label }: TooltipContentProps) {
   )
 }
 
-export function Dashboard() {
+// Un solo componente reusado por las 3 rutas de Dashboard (Atenciones/
+// Cosecha/360 Laboral, ver App.tsx): cada una pasa su propio tipoRegistro,
+// las vistas de reportes ya filtran en el servidor por esa columna.
+export function Dashboard({ tipoRegistro, titulo }: { tipoRegistro: TipoRegistro; titulo: string }) {
   const [datos, setDatos] = useState<Datos | null>(null)
 
   useEffect(() => {
-    void obtenerReportesDashboard().then(({ porZona, porGravedad, porResponsableGravedad, porEstado, porSemana }) => {
+    setDatos(null)
+    void obtenerReportesDashboard(tipoRegistro).then(({ porZona, porGravedad, porResponsableGravedad, porEstado, porSemana }) => {
       setDatos({ porZona, porGravedad, porResponsableGravedad, porEstado, porSemana })
     })
-  }, [])
+  }, [tipoRegistro])
 
   const porZona = useMemo(
     () => (datos ? datos.porZona.map((z) => ({ zona: z.zona, casos: z.casos })) : []),
@@ -135,7 +140,7 @@ export function Dashboard() {
 
   return (
     <div>
-      <PageHeader title="Dashboard" description={`${total} atenciones registradas en total`} />
+      <PageHeader title={titulo} description={`${total} registros en total`} />
 
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 mb-6">
         <StatTile

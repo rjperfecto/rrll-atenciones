@@ -120,7 +120,7 @@ export function ImportarAfiliados() {
   return (
     <div className="max-w-xl">
       <PageHeader
-        title="Importar afiliados"
+        title="Importar personal afiliado"
         description='Sube el Excel de AFILIADOS (columnas LEGAJO y CONTINGENCIA). Se actualiza el estado de afiliación por legajo: "AFILIADO" queda como SI, cualquier otro valor (EXAFILIADO, DESAFILIADO, etc.) queda como NO.'
       />
 

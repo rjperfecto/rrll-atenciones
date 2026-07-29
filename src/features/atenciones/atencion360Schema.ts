@@ -1,28 +1,25 @@
 import { z } from 'zod'
 import { ZONAS } from '@/data/zonasFundos'
-import { SEDES_360, PACKING_SEDES, TURNOS_360, FUNDOS_POR_ZONA_360 } from '@/data/formulario360'
+import { LEGAJO_REGEX } from '@/data/legajo'
+import { PACKING_FUNDOS, TURNOS_360 } from '@/data/formulario360'
 
 // "360 Laboral" es un registro de sesión/grupo (conversatorio/seguimiento/
 // compromiso), no de un trabajador individual — por eso es un schema aparte
-// de atencionSchema.ts en vez de una variación con más campos opcionales.
-// La ramificación replica el formulario de Microsoft Forms usado en campo:
-// Sede (Packing -> Packing/Turno; Fundo -> Líder de Cosecha/Grupo/Alcance/
-// Zona/Fundo de zona/Módulo) y Compromiso (sí -> Detalle + Fecha fin).
-
+// del de Registrar/Atenciones. Zona/Fundo/Módulo se capturan exactamente
+// igual que en Atenciones, salvo cuando Zona=PACKING (Fundo y Módulo pasan
+// a ser listas cerradas: el módulo ahí representa el turno).
 export const atencion360Schema = z
   .object({
     tipoRegistro: z.literal('360 LABORAL'),
     fecha: z.string().min(1, 'La fecha es obligatoria'),
     nivelConflictividad: z.enum(['BAJO', 'MEDIO', 'ALTO'], { message: 'Selecciona el nivel de conflictividad' }),
-    sede: z.enum(SEDES_360, { message: 'Selecciona la sede' }),
-    packingSede: z.enum(PACKING_SEDES).optional().or(z.literal('')),
-    turno: z.enum(TURNOS_360).optional().or(z.literal('')),
-    liderCosecha: z.string().optional(),
-    grupo: z.string().optional(),
-    alcance: z.union([z.number(), z.nan()]).optional(),
-    zona: z.enum(ZONAS).optional().or(z.literal('')),
-    fundo: z.string().optional(),
+    zona: z.enum(ZONAS, { message: 'Selecciona una zona' }),
+    fundo: z.string().min(1, 'El fundo es obligatorio'),
     modulo: z.string().optional(),
+    legajoSupervisor: z.string().regex(LEGAJO_REGEX, 'El legajo debe empezar con "10" seguido del DNI (8 dígitos)'),
+    liderCosecha: z.string().min(1, 'El líder de cosecha es obligatorio'),
+    grupo: z.string().min(1, 'El grupo es obligatorio'),
+    alcance: z.union([z.number(), z.nan()]).optional(),
     actividad: z.string().min(1, 'La actividad es obligatoria'),
     tipoAtencion360: z.array(z.string()).min(1, 'Selecciona al menos un tipo de atención'),
     otroTipoAtencion: z.string().optional(),
@@ -36,34 +33,17 @@ export const atencion360Schema = z
     observaciones: z.string().min(1, 'Las observaciones son obligatorias'),
   })
   .superRefine((valores, ctx) => {
-    if (valores.sede === 'PACKING') {
-      if (!valores.packingSede) {
-        ctx.addIssue({ code: 'custom', message: 'Selecciona el packing', path: ['packingSede'] })
+    if (valores.zona === 'PACKING') {
+      if (!PACKING_FUNDOS.includes(valores.fundo as never)) {
+        ctx.addIssue({ code: 'custom', message: 'Selecciona Packing Salaverry o Packing Chao', path: ['fundo'] })
       }
-      if (!valores.turno) {
-        ctx.addIssue({ code: 'custom', message: 'Selecciona el turno', path: ['turno'] })
+      if (!TURNOS_360.includes(valores.modulo as never)) {
+        ctx.addIssue({ code: 'custom', message: 'Selecciona el turno', path: ['modulo'] })
       }
     }
 
-    if (valores.sede === 'FUNDO') {
-      if (!valores.liderCosecha) {
-        ctx.addIssue({ code: 'custom', message: 'El líder de cosecha es obligatorio', path: ['liderCosecha'] })
-      }
-      if (!valores.grupo) {
-        ctx.addIssue({ code: 'custom', message: 'El grupo es obligatorio', path: ['grupo'] })
-      }
-      if (valores.alcance === undefined || Number.isNaN(valores.alcance)) {
-        ctx.addIssue({ code: 'custom', message: 'El alcance es obligatorio', path: ['alcance'] })
-      }
-      if (!valores.zona) {
-        ctx.addIssue({ code: 'custom', message: 'Selecciona la zona', path: ['zona'] })
-      }
-      if (valores.zona && FUNDOS_POR_ZONA_360[valores.zona] && !valores.fundo) {
-        ctx.addIssue({ code: 'custom', message: 'Selecciona el fundo', path: ['fundo'] })
-      }
-      if (!valores.modulo) {
-        ctx.addIssue({ code: 'custom', message: 'El módulo es obligatorio', path: ['modulo'] })
-      }
+    if (valores.alcance === undefined || Number.isNaN(valores.alcance)) {
+      ctx.addIssue({ code: 'custom', message: 'El alcance es obligatorio', path: ['alcance'] })
     }
 
     if (valores.tipoAtencion360.includes('OTRAS') && !valores.otroTipoAtencion) {

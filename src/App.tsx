@@ -2,12 +2,15 @@ import { useEffect, useState } from 'react'
 import { BrowserRouter, Navigate, NavLink, Route, Routes, useNavigate } from 'react-router-dom'
 import {
   Bell,
+  Briefcase,
   ClipboardPlus,
+  Handshake,
   History,
   LayoutDashboard,
   LogOut,
   Menu,
   Search,
+  Sprout,
   UserCheck,
   Users,
   Wifi,
@@ -18,6 +21,8 @@ import { AuthProvider, useAuth } from '@/features/auth/AuthContext'
 import { LoginPage } from '@/features/auth/LoginPage'
 import { AtencionForm } from '@/features/atenciones/AtencionForm'
 import { AtencionList } from '@/features/atenciones/AtencionList'
+import { RegistrarCaminata } from '@/features/f360/RegistrarCaminata'
+import { CompromisosList } from '@/features/f360/CompromisosList'
 import { Dashboard } from '@/features/dashboard/Dashboard'
 import { ImportarPersonal } from '@/features/admin/ImportarPersonal'
 import { ImportarAfiliados } from '@/features/admin/ImportarAfiliados'
@@ -79,8 +84,8 @@ function AppLayout() {
   }, [menuAbierto])
 
   // La campanita muestra un conteo real de pendientes (no un adorno): mismo
-  // dato que la tarjeta "Pendientes" del Dashboard, consultado liviano
-  // (count exacto sin traer filas) para no pesar en cada pantalla.
+  // dato que la tarjeta "Pendientes" del Dashboard de Atenciones, consultado
+  // liviano (count exacto sin traer filas) para no pesar en cada pantalla.
   useEffect(() => {
     if (!profile) return
     void contarPendientes(profile.id, profile.rol === 'ADMIN').then(setPendientes)
@@ -109,24 +114,51 @@ function AppLayout() {
           <History className="size-4" />
           Atenciones
         </NavLink>
-        {profile.rol === 'ADMIN' && (
-          <NavLink to="/dashboard" className={navClass} onClick={cerrarMenu}>
-            <LayoutDashboard className="size-4" />
-            Dashboard
-          </NavLink>
-        )}
       </GrupoNav>
+
+      <GrupoNav titulo="360 Laboral">
+        <NavLink to="/360/registrar" className={navClass} onClick={cerrarMenu}>
+          <Sprout className="size-4" />
+          Registrar caminata
+        </NavLink>
+        <NavLink to="/360/compromisos" className={navClass} onClick={cerrarMenu}>
+          <Handshake className="size-4" />
+          Compromisos
+        </NavLink>
+      </GrupoNav>
+
       {profile.rol === 'ADMIN' && (
-        <GrupoNav titulo="Administración">
-          <NavLink to="/admin/personal" className={navClass} onClick={cerrarMenu}>
-            <Users className="size-4" />
-            Importar personal
-          </NavLink>
-          <NavLink to="/admin/afiliados" className={navClass} onClick={cerrarMenu}>
-            <UserCheck className="size-4" />
-            Importar afiliados
-          </NavLink>
-        </GrupoNav>
+        <>
+          <GrupoNav titulo="Dashboards">
+            <NavLink to="/dashboard/atenciones" className={navClass} onClick={cerrarMenu}>
+              <LayoutDashboard className="size-4" />
+              Atenciones
+            </NavLink>
+            <NavLink to="/dashboard/cosecha" className={navClass} onClick={cerrarMenu}>
+              <LayoutDashboard className="size-4" />
+              Cosecha
+            </NavLink>
+            <NavLink to="/dashboard/360-laboral" className={navClass} onClick={cerrarMenu}>
+              <LayoutDashboard className="size-4" />
+              360 Laboral
+            </NavLink>
+          </GrupoNav>
+
+          <GrupoNav titulo="Administración">
+            <NavLink to="/admin/personal-fundo" className={navClass} onClick={cerrarMenu}>
+              <Users className="size-4" />
+              Importar personal fundo
+            </NavLink>
+            <NavLink to="/admin/personal-packing" className={navClass} onClick={cerrarMenu}>
+              <Briefcase className="size-4" />
+              Importar personal packing
+            </NavLink>
+            <NavLink to="/admin/afiliados" className={navClass} onClick={cerrarMenu}>
+              <UserCheck className="size-4" />
+              Importar personal afiliado
+            </NavLink>
+          </GrupoNav>
+        </>
       )}
     </>
   )
@@ -229,10 +261,28 @@ function AppLayout() {
           <Routes>
             <Route path="/" element={<AtencionForm />} />
             <Route path="/historial" element={<AtencionList />} />
-            <Route path="/dashboard" element={profile.rol === 'ADMIN' ? <Dashboard /> : <Navigate to="/" />} />
+            <Route path="/360/registrar" element={<RegistrarCaminata />} />
+            <Route path="/360/compromisos" element={<CompromisosList />} />
             <Route
-              path="/admin/personal"
-              element={profile.rol === 'ADMIN' ? <ImportarPersonal /> : <Navigate to="/" />}
+              path="/dashboard/atenciones"
+              element={profile.rol === 'ADMIN' ? <Dashboard tipoRegistro="GENERAL" titulo="Dashboard · Atenciones" /> : <Navigate to="/" />}
+            />
+            <Route
+              path="/dashboard/cosecha"
+              element={profile.rol === 'ADMIN' ? <Dashboard tipoRegistro="COSECHA" titulo="Dashboard · Cosecha" /> : <Navigate to="/" />}
+            />
+            <Route
+              path="/dashboard/360-laboral"
+              element={profile.rol === 'ADMIN' ? <Dashboard tipoRegistro="360 LABORAL" titulo="Dashboard · 360 Laboral" /> : <Navigate to="/" />}
+            />
+            <Route path="/dashboard" element={<Navigate to="/dashboard/atenciones" />} />
+            <Route
+              path="/admin/personal-fundo"
+              element={profile.rol === 'ADMIN' ? <ImportarPersonal sede="FUNDO" /> : <Navigate to="/" />}
+            />
+            <Route
+              path="/admin/personal-packing"
+              element={profile.rol === 'ADMIN' ? <ImportarPersonal sede="PACKING" /> : <Navigate to="/" />}
             />
             <Route
               path="/admin/afiliados"

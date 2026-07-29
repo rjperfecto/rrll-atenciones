@@ -20,7 +20,10 @@ type Resultado = {
 
 const OBLIGATORIAS: CampoTrabajador[] = ['legajo', 'nombre_completo']
 
-export function ImportarPersonal() {
+// Fundo y Packing son archivos distintos, subidos por responsables
+// distintos: cada carga reemplaza solo las filas de su propia sede en
+// trabajadores_historial, sin borrar las de la otra (ver migración 0015).
+export function ImportarPersonal({ sede }: { sede: 'FUNDO' | 'PACKING' }) {
   const [resultado, setResultado] = useState<Resultado | null>(null)
   const [procesando, setProcesando] = useState(false)
   const [cargando, setCargando] = useState(false)
@@ -100,6 +103,7 @@ export function ImportarPersonal() {
           fundo: idxFundo >= 0 ? String(fila[idxFundo] ?? '').trim() || null : null,
           grupo: idxGrupo >= 0 ? String(fila[idxGrupo] ?? '').trim() || null : null,
           sup_cuadrilla: idxSupCuadrilla >= 0 ? String(fila[idxSupCuadrilla] ?? '').trim() || null : null,
+          sede,
           updated_at: new Date().toISOString(),
         }
       })
@@ -122,15 +126,15 @@ export function ImportarPersonal() {
   async function confirmarCarga() {
     if (!resultado || resultado.validos.length === 0) return
     const confirmado = window.confirm(
-      'Esto va a borrar TODO el historial de personal anterior y lo reemplaza solo con los datos de este archivo. ¿Continuar?',
+      `Esto va a borrar el historial de personal de ${sede} anterior y lo reemplaza solo con los datos de este archivo (no toca los de ${sede === 'FUNDO' ? 'PACKING' : 'FUNDO'}). ¿Continuar?`,
     )
     if (!confirmado) return
     setCargando(true)
     setError(null)
     try {
-      // Reemplazo total: ya no se conserva historial de cargas anteriores,
-      // cada archivo subido sustituye por completo a la tabla.
-      const { error: deleteError } = await supabase.from('trabajadores_historial').delete().neq('legajo', '')
+      // Reemplazo scoped a la sede: no se conserva historial de cargas
+      // anteriores DE ESA SEDE, pero no toca las filas de la otra sede.
+      const { error: deleteError } = await supabase.from('trabajadores_historial').delete().eq('sede', sede)
       if (deleteError) throw new Error(deleteError.message)
 
       const lote = 500
@@ -140,7 +144,7 @@ export function ImportarPersonal() {
           .upsert(resultado.validos.slice(i, i + lote), { onConflict: 'legajo,fecha' })
         if (upsertError) throw new Error(upsertError.message)
       }
-      setMensaje(`Reemplazado: la tabla ahora tiene solo estos ${resultado.validos.length} registros (legajo + día).`)
+      setMensaje(`Reemplazado: ${sede} ahora tiene solo estos ${resultado.validos.length} registros (legajo + día).`)
       setResultado(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo subir a la base de datos.')
@@ -152,8 +156,8 @@ export function ImportarPersonal() {
   return (
     <div className="max-w-xl">
       <PageHeader
-        title="Importar personal"
-        description="Sube el Excel de TAREO (reporte de auditoría móvil). Cada carga reemplaza por completo los datos anteriores: la tabla queda solo con lo que traiga este archivo."
+        title={`Importar personal ${sede === 'FUNDO' ? 'fundo' : 'packing'}`}
+        description={`Sube el Excel de TAREO (reporte de auditoría móvil) de ${sede === 'FUNDO' ? 'Fundo' : 'Packing'}. Cada carga reemplaza por completo los datos anteriores de esta sede, sin tocar los de ${sede === 'FUNDO' ? 'Packing' : 'Fundo'}.`}
       />
 
       <div className="space-y-4">

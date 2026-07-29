@@ -1,5 +1,5 @@
 import type { TipoRegistro } from '@/types'
 
-// Por ahora las 3 secciones comparten los mismos campos del formulario; a
-// futuro cada una tendrá columnas propias (ver migración 0012).
-export const TIPOS_REGISTRO: TipoRegistro[] = ['GENERAL', 'COSECHA', '360 LABORAL']
+// "360 Laboral" tiene su propio módulo (Registrar caminata/Compromisos, ver
+// src/features/f360): no comparte formulario ni filtros con Registrar/Atenciones.
+export const TIPOS_REGISTRO_PRINCIPAL: Extract<TipoRegistro, 'GENERAL' | 'COSECHA'>[] = ['GENERAL', 'COSECHA']

@@ -34,42 +34,32 @@ export function FormularioGeneral() {
     setValue,
     trigger,
     formState: { errors },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } = useFormContext<any>() as ReturnType<typeof useFormContext<AtencionFormValues>>
+  } = useFormContext<AtencionFormValues>()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const valores = watch() as any
-  const { legajo, fecha, tipo, categoria, subcategoria, zona, fundo } = valores as {
-    legajo?: string
-    fecha?: string
-    tipo?: string
-    categoria?: string
-    subcategoria?: string
-    zona?: string
-    fundo?: string
-  }
+  const valores = watch()
+  const { legajo, fecha, tipo, categoria, subcategoria, zona, fundo } = valores
 
-  const categorias = useMemo(() => (tipo ? categoriasPorTipo(tipo as never) : []), [tipo])
+  const categorias = useMemo(() => (tipo ? categoriasPorTipo(tipo) : []), [tipo])
   const subcategorias = useMemo(
-    () => (tipo && categoria ? subcategoriasPorCategoria(tipo as never, categoria) : []),
+    () => (tipo && categoria ? subcategoriasPorCategoria(tipo, categoria) : []),
     [tipo, categoria],
   )
   const gravedad = useMemo(
-    () => (tipo && categoria && subcategoria ? gravedadDe(tipo as never, categoria, subcategoria) : undefined),
+    () => (tipo && categoria && subcategoria ? gravedadDe(tipo, categoria, subcategoria) : undefined),
     [tipo, categoria, subcategoria],
   )
   const modulo = useMemo(() => (fundo ? moduloDesdeFundo(fundo) : null), [fundo])
-  const supRrll = useMemo(() => (zona ? supRrllPorZona(zona as never) : null), [zona])
-  const estadoLegajo = estadoDeCampo(legajo, (errors as Record<string, { message?: string }>).legajo?.message)
+  const supRrll = useMemo(() => (zona ? supRrllPorZona(zona) : null), [zona])
+  const estadoLegajo = estadoDeCampo(legajo, errors.legajo?.message)
 
   const buscarPorLegajo = useCallback(
     async (valorLegajo: string) => {
       const legajoLimpio = valorLegajo.trim()
-      if (legajoLimpio !== valorLegajo) setValue('legajo' as never, legajoLimpio as never)
+      if (legajoLimpio !== valorLegajo) setValue('legajo', legajoLimpio)
       if (!LEGAJO_REGEX.test(legajoLimpio)) {
         setBusqueda('formato_invalido')
         setEsAfiliado(null)
-        void trigger('legajo' as never)
+        void trigger('legajo')
         return
       }
       setBusqueda('buscando')
@@ -82,15 +72,15 @@ export function FormularioGeneral() {
         setBusqueda('no_encontrado')
         return
       }
-      setValue('nombreInvolucrado' as never, trabajador.nombre_completo.toUpperCase() as never)
+      setValue('nombreInvolucrado', trabajador.nombre_completo.toUpperCase())
       if (trabajador.fundo) {
-        setValue('fundo' as never, trabajador.fundo.toUpperCase() as never)
+        setValue('fundo', trabajador.fundo.toUpperCase())
         const zonaDetectada = zonaDesdeFundo(trabajador.fundo)
-        if (zonaDetectada) setValue('zona' as never, zonaDetectada as never)
+        if (zonaDetectada) setValue('zona', zonaDetectada)
       }
-      if (trabajador.grupo) setValue('grupo' as never, trabajador.grupo.toUpperCase() as never)
-      if (trabajador.sup_cuadrilla) setValue('supCuadrilla' as never, trabajador.sup_cuadrilla.toUpperCase() as never)
-      if (trabajador.area) setValue('area' as never, trabajador.area.toUpperCase() as never)
+      if (trabajador.grupo) setValue('grupo', trabajador.grupo.toUpperCase())
+      if (trabajador.sup_cuadrilla) setValue('supCuadrilla', trabajador.sup_cuadrilla.toUpperCase())
+      if (trabajador.area) setValue('area', trabajador.area.toUpperCase())
       setBusqueda('encontrado')
     },
     [fecha, setValue, trigger],
@@ -99,7 +89,7 @@ export function FormularioGeneral() {
   const onCodigoEscaneado = useCallback(
     (texto: string) => {
       setEscaneando(false)
-      setValue('legajo' as never, texto as never)
+      setValue('legajo', texto)
       void buscarPorLegajo(texto)
     },
     [buscarPorLegajo, setValue],
@@ -120,7 +110,7 @@ export function FormularioGeneral() {
                 inputMode="numeric"
                 maxLength={10}
                 placeholder="ej. 1012345678"
-                {...register('legajo' as never, {
+                {...register('legajo', {
                   onChange: () => {
                     setBusqueda('idle')
                     setEsAfiliado(null)
@@ -145,12 +135,8 @@ export function FormularioGeneral() {
               <span className="hidden sm:inline">Escanear</span>
             </Button>
           </div>
-          {estadoLegajo === 'warning' && (errors as Record<string, { message?: string }>).legajo && (
-            <p className="text-xs text-warning mt-1">{(errors as Record<string, { message?: string }>).legajo?.message}</p>
-          )}
-          {estadoLegajo === 'error' && (errors as Record<string, { message?: string }>).legajo && (
-            <p className="text-xs text-danger mt-1">{(errors as Record<string, { message?: string }>).legajo?.message}</p>
-          )}
+          {estadoLegajo === 'warning' && errors.legajo && <p className="text-xs text-warning mt-1">{errors.legajo.message}</p>}
+          {estadoLegajo === 'error' && errors.legajo && <p className="text-xs text-danger mt-1">{errors.legajo.message}</p>}
           {busqueda === 'encontrado' && (
             <p className="text-xs text-emerald-600 mt-1 flex items-center gap-1">
               <CheckCircle2 className="size-3.5 shrink-0" />
@@ -165,8 +151,8 @@ export function FormularioGeneral() {
           )}
         </div>
 
-        <Field label="Nombre completo" value={valores.nombreInvolucrado} error={(errors as Record<string, { message?: string }>).nombreInvolucrado?.message}>
-          <input type="text" placeholder="EJ. JUAN PÉREZ LÓPEZ" {...conMayusculas(register('nombreInvolucrado' as never))} className="input" />
+        <Field label="Nombre completo" value={valores.nombreInvolucrado} error={errors.nombreInvolucrado?.message}>
+          <input type="text" placeholder="EJ. JUAN PÉREZ LÓPEZ" {...conMayusculas(register('nombreInvolucrado'))} className="input" />
         </Field>
 
         <div>
@@ -189,8 +175,8 @@ export function FormularioGeneral() {
 
       <CardSection title="Ubicación" icon={<MapPin className="size-4 text-brand" />}>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Field label="Zona" value={zona} error={(errors as Record<string, { message?: string }>).zona?.message} hint={supRrll ? `Sup. RRLL: ${supRrll}` : undefined}>
-            <select {...register('zona' as never)} className="input">
+          <Field label="Zona" value={zona} error={errors.zona?.message} hint={supRrll ? `Sup. RRLL: ${supRrll}` : undefined}>
+            <select {...register('zona')} className="input">
               <option value="">Selecciona...</option>
               {ZONAS.map((z) => (
                 <option key={z} value={z}>
@@ -200,31 +186,31 @@ export function FormularioGeneral() {
             </select>
           </Field>
           <Field label="Fundo" value={fundo} hint={modulo ? `Módulo detectado: ${modulo}` : undefined}>
-            <input type="text" placeholder="ej. REM 2-W" {...conMayusculas(register('fundo' as never))} className="input" />
+            <input type="text" placeholder="ej. REM 2-W" {...conMayusculas(register('fundo'))} className="input" />
           </Field>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Field label="Grupo / cuadrilla" value={valores.grupo}>
-            <input type="text" placeholder="ej. CH12" {...conMayusculas(register('grupo' as never))} className="input" />
+            <input type="text" placeholder="ej. CH12" {...conMayusculas(register('grupo'))} className="input" />
           </Field>
           <Field label="Área / actividad" value={valores.area}>
-            <input type="text" placeholder="ej. Cosecha ARA Granel 3.0 kg" {...conMayusculas(register('area' as never))} className="input" />
+            <input type="text" placeholder="ej. Cosecha ARA Granel 3.0 kg" {...conMayusculas(register('area'))} className="input" />
           </Field>
         </div>
         <Field label="Sup. cuadrilla" value={valores.supCuadrilla}>
-          <input type="text" {...conMayusculas(register('supCuadrilla' as never))} className="input" />
+          <input type="text" {...conMayusculas(register('supCuadrilla'))} className="input" />
         </Field>
       </CardSection>
 
       <CardSection title="Tipo de atención" icon={<FileWarning className="size-4 text-brand" />}>
-        <Field label="Tipo" value={tipo} error={(errors as Record<string, { message?: string }>).tipo?.message}>
+        <Field label="Tipo" value={tipo} error={errors.tipo?.message}>
           <select
-            {...register('tipo' as never)}
+            {...register('tipo')}
             className="input"
             onChange={(e) => {
-              setValue('tipo' as never, e.target.value as never)
-              setValue('categoria' as never, '' as never)
-              setValue('subcategoria' as never, '' as never)
+              setValue('tipo', e.target.value as AtencionFormValues['tipo'])
+              setValue('categoria', '')
+              setValue('subcategoria', '')
             }}
           >
             <option value="">Selecciona...</option>
@@ -237,14 +223,14 @@ export function FormularioGeneral() {
         </Field>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Field label="Categoría" value={categoria} error={(errors as Record<string, { message?: string }>).categoria?.message}>
+          <Field label="Categoría" value={categoria} error={errors.categoria?.message}>
             <select
-              {...register('categoria' as never)}
+              {...register('categoria')}
               disabled={!tipo}
               className="input"
               onChange={(e) => {
-                setValue('categoria' as never, e.target.value as never)
-                setValue('subcategoria' as never, '' as never)
+                setValue('categoria', e.target.value)
+                setValue('subcategoria', '')
               }}
             >
               <option value="">Selecciona...</option>
@@ -255,8 +241,8 @@ export function FormularioGeneral() {
               ))}
             </select>
           </Field>
-          <Field label="Subcategoría" value={subcategoria} error={(errors as Record<string, { message?: string }>).subcategoria?.message}>
-            <select {...register('subcategoria' as never)} disabled={!categoria} className="input">
+          <Field label="Subcategoría" value={subcategoria} error={errors.subcategoria?.message}>
+            <select {...register('subcategoria')} disabled={!categoria} className="input">
               <option value="">Selecciona...</option>
               {subcategorias.map((s) => (
                 <option key={s} value={s}>
@@ -277,10 +263,10 @@ export function FormularioGeneral() {
 
       <CardSection title="Seguimiento (opcional)" icon={<StickyNote className="size-4 text-brand" />}>
         <Field label="Reporta" value={valores.reporte}>
-          <input type="text" {...conMayusculas(register('reporte' as never))} className="input" />
+          <input type="text" {...conMayusculas(register('reporte'))} className="input" />
         </Field>
         <Field label="Comentarios" value={valores.comentarios}>
-          <textarea rows={3} placeholder="Detalle narrativo del caso..." {...conMayusculas(register('comentarios' as never))} className="input" />
+          <textarea rows={3} placeholder="Detalle narrativo del caso..." {...conMayusculas(register('comentarios'))} className="input" />
         </Field>
       </CardSection>
 

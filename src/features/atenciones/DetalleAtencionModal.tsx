@@ -30,15 +30,14 @@ export function DetalleAtencionModal({ atencion, onClose }: { atencion: Atencion
 
       {atencion.tipo_registro === '360 LABORAL' ? (
         <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
-          <Dato label="Sede" value={atencion.sede} />
-          <Dato label="Packing" value={atencion.sede === 'PACKING' ? atencion.fundo : undefined} />
-          <Dato label="Turno" value={atencion.turno} />
+          <Dato label="Zona" value={atencion.zona} />
+          <Dato label="Fundo" value={atencion.zona === 'PACKING' ? undefined : atencion.fundo} />
+          <Dato label="Packing" value={atencion.zona === 'PACKING' ? atencion.fundo : undefined} />
+          <Dato label="Turno" value={atencion.zona === 'PACKING' ? atencion.modulo : undefined} />
+          <Dato label="Módulo" value={atencion.zona === 'PACKING' ? undefined : atencion.modulo} />
           <Dato label="Líder de cosecha" value={atencion.lider_cosecha} />
           <Dato label="Grupo" value={atencion.grupo} />
           <Dato label="Alcance" value={atencion.alcance} />
-          <Dato label="Zona" value={atencion.zona} />
-          <Dato label="Fundo" value={atencion.sede === 'FUNDO' ? atencion.fundo : undefined} />
-          <Dato label="Módulo" value={atencion.modulo} />
           <Dato label="Actividad" value={atencion.area} />
           <Dato label="Tipo de atención" value={atencion.tipo_atencion_360?.join(' / ')} />
           <Dato label="Alertas" value={atencion.alertas_360?.join(' / ')} />
@@ -91,6 +90,16 @@ export function DetalleAtencionModal({ atencion, onClose }: { atencion: Atencion
             <Dato label="Acción correctiva" value={atencion.accion_correctiva} />
             <Dato label="Días de suspensión" value={atencion.dias_suspension} />
             <Dato label="Detalle" value={atencion.detalle_cierre} />
+          </dl>
+        </div>
+      )}
+
+      {atencion.estado === 'CERRADO' && atencion.compromiso_generado === true && (
+        <div className="mt-4 pt-4 border-t border-neutral-200">
+          <p className="text-xs font-medium text-neutral-500 mb-2">Cierre del compromiso</p>
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
+            <Dato label="Fecha de cierre" value={atencion.fecha_cierre} />
+            <Dato label="Cómo se cerró" value={atencion.resultado_compromiso} />
           </dl>
         </div>
       )}

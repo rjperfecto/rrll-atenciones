@@ -5,8 +5,10 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  Clock,
   Download,
   Eye,
+  Handshake,
   Inbox,
   Loader2,
   RefreshCw,
@@ -15,12 +17,11 @@ import {
   X,
 } from 'lucide-react'
 import { listarAtencionesPaginado, listarAtencionesParaExportar, type FiltrosAtenciones } from '@/lib/atencionesApi'
-import { exportarAtencionesCsv } from '@/lib/exportCsv'
+import { exportar360LaboralCsv } from '@/lib/exportCsv'
 import { useAuth } from '@/features/auth/AuthContext'
-import { CerrarCasoModal } from './CerrarCasoModal'
-import { DetalleAtencionModal } from './DetalleAtencionModal'
+import { CerrarCompromisoModal } from './CerrarCompromisoModal'
+import { DetalleAtencionModal } from '@/features/atenciones/DetalleAtencionModal'
 import { ZONAS } from '@/data/zonasFundos'
-import { TIPOS_REGISTRO_PRINCIPAL } from '@/data/tipoRegistro'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { PageHeader } from '@/components/ui/PageHeader'
@@ -30,19 +31,16 @@ import { estadoDeCampo, CLASE_INPUT_POR_ESTADO } from '@/lib/campoEstado'
 import type { Atencion, Estado } from '@/types'
 
 const PAGE_SIZE = 10
-
 const ESTADOS: Estado[] = ['ABIERTO', 'CERRADO']
+const TIPOS_BASE = ['360 LABORAL']
 
-export function AtencionList() {
+export function CompromisosList() {
   const { profile } = useAuth()
-  // Permite llegar acá con filtros ya aplicados (buscador y campanita de
-  // notificaciones del encabezado, ver App.tsx), solo como valor inicial.
   const [searchParams] = useSearchParams()
   const [cerrando, setCerrando] = useState<Atencion | null>(null)
   const [viendoDetalle, setViendoDetalle] = useState<Atencion | null>(null)
   const [busqueda, setBusqueda] = useState(() => searchParams.get('q') ?? '')
   const [busquedaDebounced, setBusquedaDebounced] = useState(() => searchParams.get('q') ?? '')
-  const [filtroTipoRegistro, setFiltroTipoRegistro] = useState('')
   const [filtroEstado, setFiltroEstado] = useState(() => searchParams.get('estado') ?? '')
   const [filtroZona, setFiltroZona] = useState('')
   const [filtroDesde, setFiltroDesde] = useState('')
@@ -54,7 +52,6 @@ export function AtencionList() {
   const [exportando, setExportando] = useState(false)
   const [errorCarga, setErrorCarga] = useState<string | null>(null)
 
-  // Debounce del texto libre: evita disparar una consulta por cada tecla.
   useEffect(() => {
     const t = setTimeout(() => setBusquedaDebounced(busqueda), 400)
     return () => clearTimeout(t)
@@ -65,7 +62,6 @@ export function AtencionList() {
 
   const filtros: FiltrosAtenciones = {
     busqueda: busquedaDebounced || undefined,
-    tipoRegistro: filtroTipoRegistro || undefined,
     estado: filtroEstado || undefined,
     zona: filtroZona || undefined,
     desde: filtroDesde || undefined,
@@ -73,7 +69,7 @@ export function AtencionList() {
   }
   const filtrosClave = JSON.stringify(filtros)
 
-  const cargarAtenciones = useCallback(async () => {
+  const cargar = useCallback(async () => {
     if (!profile || rangoFechaInvalido) return
     setCargando(true)
     const { data, total: totalNuevo, error } = await listarAtencionesPaginado(
@@ -82,27 +78,23 @@ export function AtencionList() {
       JSON.parse(filtrosClave),
       pagina,
       PAGE_SIZE,
-      TIPOS_REGISTRO_PRINCIPAL,
+      TIPOS_BASE,
     )
     setAtenciones(data)
     setTotal(totalNuevo)
     setErrorCarga(error)
     setCargando(false)
-    // Si la pagina pedida quedo fuera de rango (ej. tras un filtro nuevo), vuelve a la 1.
     if (data.length === 0 && totalNuevo > 0 && pagina > 1) setPagina(1)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile, rangoFechaInvalido, filtrosClave, pagina])
 
   useEffect(() => {
-    void cargarAtenciones()
-  }, [cargarAtenciones])
+    void cargar()
+  }, [cargar])
 
   const totalPaginas = Math.max(1, Math.ceil(total / PAGE_SIZE))
-  const hayFiltrosActivos = Boolean(
-    busqueda || filtroTipoRegistro || filtroEstado || filtroZona || filtroDesde || filtroHasta,
-  )
+  const hayFiltrosActivos = Boolean(busqueda || filtroEstado || filtroZona || filtroDesde || filtroHasta)
   const estadoBusqueda = estadoDeCampo(busqueda)
-  const estadoFiltroTipoRegistro = estadoDeCampo(filtroTipoRegistro)
   const estadoFiltroEstado = estadoDeCampo(filtroEstado)
   const estadoFiltroZona = estadoDeCampo(filtroZona)
   const estadoDesde = estadoDeCampo(filtroDesde, mensajeRango)
@@ -111,7 +103,6 @@ export function AtencionList() {
   function limpiarFiltros() {
     setBusqueda('')
     setBusquedaDebounced('')
-    setFiltroTipoRegistro('')
     setFiltroEstado('')
     setFiltroZona('')
     setFiltroDesde('')
@@ -129,8 +120,8 @@ export function AtencionList() {
   async function exportar() {
     if (!profile) return
     setExportando(true)
-    const { data, error } = await listarAtencionesParaExportar(profile.id, profile.rol === 'ADMIN', filtros, TIPOS_REGISTRO_PRINCIPAL)
-    if (!error) exportarAtencionesCsv(data)
+    const { data, error } = await listarAtencionesParaExportar(profile.id, profile.rol === 'ADMIN', filtros, TIPOS_BASE)
+    if (!error) exportar360LaboralCsv(data)
     setExportando(false)
   }
 
@@ -138,9 +129,9 @@ export function AtencionList() {
     return (
       <Card className="p-10 flex flex-col items-center text-center gap-2">
         <AlertCircle className="size-10 text-red-300" />
-        <p className="text-sm font-medium text-neutral-700">No se pudo cargar el historial</p>
+        <p className="text-sm font-medium text-neutral-700">No se pudo cargar Compromisos</p>
         <p className="text-sm text-neutral-500">{errorCarga}</p>
-        <Button variant="secondary" onClick={cargarAtenciones}>
+        <Button variant="secondary" onClick={cargar}>
           <RefreshCw className="size-4" />
           Reintentar
         </Button>
@@ -153,7 +144,7 @@ export function AtencionList() {
   return (
     <div>
       <div className="flex items-start justify-between gap-3 flex-wrap mb-4">
-        <PageHeader title="Atenciones" description={`${total} atencion${total === 1 ? '' : 'es'}`} />
+        <PageHeader title="Compromisos" description={`${total} caminata${total === 1 ? '' : 's'} de 360 Laboral`} />
         {total > 0 && (
           <Button variant="secondary" onClick={exportar} loading={exportando}>
             <Download className="size-4" />
@@ -165,8 +156,8 @@ export function AtencionList() {
       {total === 0 && !hayFiltrosActivos ? (
         <Card className="p-10 flex flex-col items-center text-center gap-2">
           <Inbox className="size-10 text-neutral-300" />
-          <p className="text-sm font-medium text-neutral-700">Todavía no hay atenciones registradas</p>
-          <p className="text-sm text-neutral-500">Los casos que registres en "Registrar" van a aparecer aquí.</p>
+          <p className="text-sm font-medium text-neutral-700">Todavía no hay caminatas registradas</p>
+          <p className="text-sm text-neutral-500">Las que registres en "Registrar caminata" van a aparecer aquí.</p>
         </Card>
       ) : (
         <>
@@ -184,23 +175,11 @@ export function AtencionList() {
                   setBusqueda(e.target.value)
                   setPagina(1)
                 }}
-                placeholder="Buscar por nombre, legajo, DNI, fundo o grupo..."
+                placeholder="Buscar por líder de cosecha, fundo o grupo..."
                 className={cn('input pl-9', CLASE_INPUT_POR_ESTADO[estadoBusqueda])}
               />
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-              <select
-                value={filtroTipoRegistro}
-                onChange={(e) => actualizarFiltro(setFiltroTipoRegistro)(e.target.value)}
-                className={cn('input', CLASE_INPUT_POR_ESTADO[estadoFiltroTipoRegistro])}
-              >
-                <option value="">Todo tipo de registro</option>
-                {TIPOS_REGISTRO_PRINCIPAL.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <select
                 value={filtroZona}
                 onChange={(e) => actualizarFiltro(setFiltroZona)(e.target.value)}
@@ -221,7 +200,7 @@ export function AtencionList() {
                 <option value="">Todos los estados</option>
                 {ESTADOS.map((e) => (
                   <option key={e} value={e}>
-                    {e.replace('_', ' ')}
+                    {e}
                   </option>
                 ))}
               </select>
@@ -249,10 +228,7 @@ export function AtencionList() {
               </p>
             )}
             {hayFiltrosActivos && (
-              <button
-                onClick={limpiarFiltros}
-                className="inline-flex items-center gap-1 text-xs text-neutral-500 hover:text-neutral-800"
-              >
+              <button onClick={limpiarFiltros} className="inline-flex items-center gap-1 text-xs text-neutral-500 hover:text-neutral-800">
                 <X className="size-3.5" />
                 Limpiar filtros
               </button>
@@ -266,61 +242,68 @@ export function AtencionList() {
           ) : total === 0 ? (
             <Card className="p-10 flex flex-col items-center text-center gap-2">
               <SearchX className="size-10 text-neutral-300" />
-              <p className="text-sm font-medium text-neutral-700">Ningún caso coincide con los filtros</p>
+              <p className="text-sm font-medium text-neutral-700">Ninguna caminata coincide con los filtros</p>
               <button onClick={limpiarFiltros} className="text-sm text-brand hover:underline">
                 Limpiar filtros
               </button>
             </Card>
           ) : (
             <div className="space-y-3">
-              {atenciones.map((a) => (
-                <div key={a.id} className="rounded-lg border border-neutral-200 bg-white p-4 shadow-sm">
-                  <div className="flex flex-wrap items-center gap-2 mb-2">
-                    <span className="text-sm font-medium text-neutral-900">{a.fecha}</span>
-                    <span className="text-xs text-neutral-500">{a.zona}</span>
-                    {a.fundo && <span className="text-xs text-neutral-500">· {a.fundo}</span>}
-                    <span className="text-xs font-medium text-navy bg-navy-soft px-1.5 py-0.5 rounded">{a.tipo_registro}</span>
-                    <span className="ml-auto flex items-center gap-2">
-                      <GravedadBadge gravedad={a.gravedad} />
-                      <EstadoBadge estado={a.estado} />
-                    </span>
-                  </div>
-                  <p className="text-sm text-neutral-600">Falta: {a.falta ?? a.subcategoria}</p>
-                  <p className="text-sm font-medium text-neutral-900 mt-1">{a.involucrados[0]?.nombre_completo}</p>
+              {atenciones.map((a) => {
+                const compromisoPendiente = a.compromiso_generado && a.estado !== 'CERRADO'
+                return (
+                  <div key={a.id} className="rounded-lg border border-neutral-200 bg-white p-4 shadow-sm">
+                    <div className="flex flex-wrap items-center gap-2 mb-2">
+                      <span className="text-sm font-medium text-neutral-900">{a.fecha}</span>
+                      <span className="text-xs text-neutral-500">{a.zona}</span>
+                      {a.fundo && <span className="text-xs text-neutral-500">· {a.fundo}</span>}
+                      <span className="ml-auto flex items-center gap-2">
+                        <GravedadBadge gravedad={a.gravedad} />
+                        {a.compromiso_generado && (
+                          <span
+                            className={cn(
+                              'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium',
+                              compromisoPendiente ? 'bg-warning-soft text-amber-800' : 'bg-success-soft text-emerald-800',
+                            )}
+                          >
+                            <Handshake className="size-3" />
+                            {compromisoPendiente ? 'Compromiso pendiente' : 'Compromiso cerrado'}
+                          </span>
+                        )}
+                        <EstadoBadge estado={a.estado} />
+                      </span>
+                    </div>
+                    <p className="text-sm text-neutral-600">
+                      {a.zona === 'PACKING' ? `Packing: ${a.fundo ?? ''} · Turno ${a.modulo ?? ''}` : `Líder de cosecha: ${a.lider_cosecha ?? ''}`}
+                    </p>
+                    <p className="text-sm font-medium text-neutral-900 mt-1">{a.area}</p>
 
-                  <div className="flex items-center gap-2 mt-3">
-                    <Button variant="secondary" onClick={() => setViendoDetalle(a)}>
-                      <Eye className="size-4" />
-                      Ver detalles
-                    </Button>
-                    {a.estado !== 'CERRADO' && (
-                      <Button onClick={() => setCerrando(a)}>
-                        <CheckCircle2 className="size-4" />
-                        Cerrar caso
+                    <div className="flex items-center gap-2 mt-3">
+                      <Button variant="secondary" onClick={() => setViendoDetalle(a)}>
+                        <Eye className="size-4" />
+                        Ver detalles
                       </Button>
-                    )}
+                      {compromisoPendiente && (
+                        <Button onClick={() => setCerrando(a)}>
+                          <Clock className="size-4" />
+                          Cerrar compromiso
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
 
               {totalPaginas > 1 && (
                 <div className="flex items-center justify-between pt-2">
-                  <Button
-                    variant="secondary"
-                    onClick={() => setPagina((p) => Math.max(1, p - 1))}
-                    disabled={pagina === 1}
-                  >
+                  <Button variant="secondary" onClick={() => setPagina((p) => Math.max(1, p - 1))} disabled={pagina === 1}>
                     <ChevronLeft className="size-4" />
                     Anterior
                   </Button>
                   <span className="text-sm text-neutral-500">
                     Página {pagina} de {totalPaginas}
                   </span>
-                  <Button
-                    variant="secondary"
-                    onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))}
-                    disabled={pagina === totalPaginas}
-                  >
+                  <Button variant="secondary" onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))} disabled={pagina === totalPaginas}>
                     Siguiente
                     <ChevronRight className="size-4" />
                   </Button>
@@ -332,11 +315,11 @@ export function AtencionList() {
       )}
 
       {cerrando && (
-        <CerrarCasoModal
+        <CerrarCompromisoModal
           atencion={cerrando}
           onClose={() => {
             setCerrando(null)
-            void cargarAtenciones()
+            void cargar()
           }}
         />
       )}

@@ -27,6 +27,10 @@ export interface TrabajadorHistorial {
   fundo: string | null
   grupo: string | null
   sup_cuadrilla: string | null
+  // Fundo y Packing son archivos distintos, subidos por responsables
+  // distintos (ver ImportarPersonal.tsx): cada carga reemplaza solo su
+  // propia sede, sin borrar la otra.
+  sede: 'FUNDO' | 'PACKING'
   updated_at: string
 }
 
@@ -75,11 +79,10 @@ export interface Atencion {
   reporte: string | null
   antecedente: string | null
   notas_seguimiento: string | null
-  // Específicos de "360 Laboral" (ver supabase/migrations/0014_form_360_laboral.sql):
-  // registro de sesión/grupo, no de un trabajador individual.
-  sede: 'PACKING' | 'FUNDO' | null
-  packing_sede: string | null
-  turno: 'DIA' | 'NOCHE' | null
+  // Específicos de "360 Laboral" (ver supabase/migrations/0014_form_360_laboral.sql
+  // y 0015_separar_360_laboral.sql): registro de sesión/grupo, no de un
+  // trabajador individual. Zona/Fundo/Módulo se reutilizan igual que en
+  // Atenciones (ver Formulario360Laboral/RegistrarCaminata).
   lider_cosecha: string | null
   alcance: number | null
   tipo_atencion_360: string[] | null
@@ -89,6 +92,9 @@ export interface Atencion {
   detalle_compromiso: string | null
   fecha_fin_compromiso: string | null
   evidencia_360: string | null
+  // Se llena al cerrar un compromiso pendiente (ver CerrarCompromisoModal),
+  // igual que accion_correctiva/detalle_cierre para Atenciones normales.
+  resultado_compromiso: string | null
   created_at: string
   updated_at: string
 }

@@ -1,6 +1,6 @@
 import { supabase } from './supabaseClient'
 import type { Gravedad } from '@/data/categorizacion'
-import type { Estado } from '@/types'
+import type { Estado, TipoRegistro } from '@/types'
 
 // El Dashboard antes traía TODAS las atenciones y agregaba en el navegador,
 // lo que crecía sin límite igual que le pasaba al Historial. Estas vistas ya
@@ -35,7 +35,11 @@ export interface CasosPorSemana {
   casos: number
 }
 
-export async function obtenerReportesDashboard(): Promise<{
+// Cada Dashboard (Atenciones/Cosecha/360 Laboral, ver App.tsx) es la misma
+// pantalla filtrada por tipo_registro: las 5 vistas ahora incluyen esa
+// columna (migración 0015) para poder filtrar en el servidor sin traer
+// todo al cliente.
+export async function obtenerReportesDashboard(tipoRegistro: TipoRegistro): Promise<{
   porZona: CasosPorZona[]
   porGravedad: CasosPorGravedad[]
   porResponsableGravedad: CasosPorResponsableGravedad[]
@@ -44,14 +48,20 @@ export async function obtenerReportesDashboard(): Promise<{
   error: string | null
 }> {
   const [zona, gravedad, responsable, estado, semana] = await Promise.all([
-    supabase.from('v_casos_por_zona').select('*'),
-    supabase.from('v_casos_por_gravedad').select('*'),
-    supabase.from('v_responsable_x_gravedad').select('*'),
-    supabase.from('v_casos_por_estado').select('*'),
+    supabase.from('v_casos_por_zona').select('*').eq('tipo_registro', tipoRegistro),
+    supabase.from('v_casos_por_gravedad').select('*').eq('tipo_registro', tipoRegistro),
+    supabase.from('v_responsable_x_gravedad').select('*').eq('tipo_registro', tipoRegistro),
+    supabase.from('v_casos_por_estado').select('*').eq('tipo_registro', tipoRegistro),
     // Solo se grafican las últimas 12 semanas (ver Dashboard.tsx), así que se
     // pide en ese orden y con ese límite: no tiene sentido bajar años de
     // historial agregado para descartarlo del lado del cliente.
-    supabase.from('v_casos_por_semana').select('*').order('anio', { ascending: false }).order('semana', { ascending: false }).limit(12),
+    supabase
+      .from('v_casos_por_semana')
+      .select('*')
+      .eq('tipo_registro', tipoRegistro)
+      .order('anio', { ascending: false })
+      .order('semana', { ascending: false })
+      .limit(12),
   ])
   const error =
     zona.error?.message ??
