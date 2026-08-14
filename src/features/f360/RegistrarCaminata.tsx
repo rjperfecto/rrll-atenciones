@@ -29,6 +29,7 @@ import { supRrllPorZona } from '@/data/supervisoresRrll'
 import { moduloDesdeFundo } from '@/lib/modulo'
 import { zonaDesdeFundo } from '@/lib/zonaFundo'
 import { buscarTrabajadorPorLegajo, buscarAfiliadoPorLegajo } from '@/lib/trabajadoresApi'
+import { obtenerZonaAsignada } from '@/lib/personalZonaApi'
 import { crearAtencion, contarTrabajadoresGrupo } from '@/lib/atencionesApi'
 import { useAuth } from '@/features/auth/AuthContext'
 import { cn } from '@/lib/cn'
@@ -111,6 +112,7 @@ export function RegistrarCaminata() {
   const [busqueda, setBusqueda] = useState<EstadoBusqueda>('idle')
   const [escaneando, setEscaneando] = useState(false)
   const [formKey, setFormKey] = useState(0)
+  const [zonaAsignada, setZonaAsignada] = useState<string | null>(null)
 
   const {
     register,
@@ -151,17 +153,22 @@ export function RegistrarCaminata() {
         return
       }
       setBusqueda('buscando')
-      const trabajador = await buscarTrabajadorPorLegajo(legajoLimpio, fecha || hoy())
+      const [trabajador, zonaFija] = await Promise.all([
+        buscarTrabajadorPorLegajo(legajoLimpio, fecha || hoy()),
+        obtenerZonaAsignada(legajoLimpio),
+      ])
+      setZonaAsignada(zonaFija)
       if (!trabajador) {
         setBusqueda('no_encontrado')
+        if (zonaFija) setValue('zona', zonaFija)
         return
       }
       setValue('liderCosecha', trabajador.nombre_completo.toUpperCase())
-      if (trabajador.fundo) {
-        setValue('fundo', trabajador.fundo.toUpperCase())
-        const zonaDetectada = zonaDesdeFundo(trabajador.fundo)
-        if (zonaDetectada) setValue('zona', zonaDetectada)
-      }
+      if (trabajador.fundo) setValue('fundo', trabajador.fundo.toUpperCase())
+      // La zona asignada a la persona manda siempre sobre la zona detectada
+      // por el fundo del día (ver Administración > Personal por zona).
+      const zonaDetectada = zonaFija ?? (trabajador.fundo ? zonaDesdeFundo(trabajador.fundo) : null)
+      if (zonaDetectada) setValue('zona', zonaDetectada)
       if (trabajador.grupo) {
         const grupoDetectado = trabajador.grupo.toUpperCase()
         setValue('grupo', grupoDetectado)
@@ -206,7 +213,14 @@ export function RegistrarCaminata() {
 
     // Se recalcula acá (no se confía solo en el estado de "Buscar") por si
     // el usuario escribió el legajo del supervisor y envió sin buscar antes.
-    void (await buscarAfiliadoPorLegajo(values.legajoSupervisor))
+    // Igual con la zona: si el legajo tiene zona fija asignada
+    // (Administración > Personal por zona), esa gana siempre sobre la que
+    // haya quedado seleccionada en el formulario.
+    const [, zonaFija] = await Promise.all([
+      buscarAfiliadoPorLegajo(values.legajoSupervisor),
+      obtenerZonaAsignada(values.legajoSupervisor),
+    ])
+    const zonaFinal = zonaFija ?? values.zona
     const now = new Date().toISOString()
 
     const atencion: Atencion = {
@@ -215,7 +229,7 @@ export function RegistrarCaminata() {
       tipo_registro: '360 LABORAL',
       fecha: values.fecha,
       fecha_cierre: compromisoSi ? null : values.fecha,
-      zona: values.zona,
+      zona: zonaFinal,
       fundo: values.fundo,
       modulo: esPacking ? values.modulo || null : moduloDesdeFundo(values.fundo),
       grupo: values.grupo,
@@ -234,7 +248,7 @@ export function RegistrarCaminata() {
       sup_cuadrilla: null,
       responsable_id: profile.id,
       responsable_nombre: profile.nombre_completo,
-      sup_rrll: supRrllPorZona(values.zona),
+      sup_rrll: supRrllPorZona(zonaFinal),
       reporte: null,
       antecedente: null,
       notas_seguimiento: null,
@@ -305,7 +319,12 @@ export function RegistrarCaminata() {
                   inputMode="numeric"
                   maxLength={10}
                   placeholder="ej. 1012345678"
-                  {...register('legajoSupervisor', { onChange: () => setBusqueda('idle') })}
+                  {...register('legajoSupervisor', {
+                    onChange: () => {
+                      setBusqueda('idle')
+                      setZonaAsignada(null)
+                    },
+                  })}
                   className={cn('input', CLASE_INPUT_POR_ESTADO[estadoLegajo], estadoLegajo !== 'neutral' && 'pl-9')}
                 />
                 {estadoLegajo !== 'neutral' && (
@@ -357,7 +376,18 @@ export function RegistrarCaminata() {
 
         <CardSection title="Ubicación" icon={<MapPin className="size-4 text-brand" />}>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="Zona" value={zona} error={errors.zona?.message} hint={supRrll ? `Sup. RRLL: ${supRrll}` : undefined}>
+            <Field
+              label="Zona"
+              value={zona}
+              error={errors.zona?.message}
+              hint={
+                zonaAsignada
+                  ? `Fijada por Personal por zona (${zonaAsignada}), aunque aparezca en otra zona hoy.`
+                  : supRrll
+                    ? `Sup. RRLL: ${supRrll}`
+                    : undefined
+              }
+            >
               <select
                 {...register('zona')}
                 className="input"

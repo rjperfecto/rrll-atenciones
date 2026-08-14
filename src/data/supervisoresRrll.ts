@@ -2,9 +2,9 @@
 // la ZONA del caso. Mapeo fijo definido por el equipo de RRLL.
 
 const ZONA_A_SUP_RRLL: Record<string, string> = {
-  'ZONA 1': 'SANTIAGO VILLENA',
+  'ZONA 1': 'GABRIELA URQUIAGA',
   'ZONA 2': 'ROXANA SANCHEZ',
-  'ZONA 3': 'GABRIELA URQUIAGA',
+  'ZONA 3': 'SANTIAGO VILLENA',
   PACKING: 'ANGIE BOBADILLA',
 }
 

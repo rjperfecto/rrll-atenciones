@@ -9,6 +9,7 @@ import { supRrllPorZona } from '@/data/supervisoresRrll'
 import { moduloDesdeFundo } from '@/lib/modulo'
 import { dniDesdeLegajo } from '@/data/legajo'
 import { buscarAfiliadoPorLegajo } from '@/lib/trabajadoresApi'
+import { obtenerZonaAsignada } from '@/lib/personalZonaApi'
 import { crearAtencion } from '@/lib/atencionesApi'
 import { useAuth } from '@/features/auth/AuthContext'
 import { cn } from '@/lib/cn'
@@ -67,7 +68,15 @@ export function AtencionForm() {
     if (!gravedadFinal) return
     setEstadoGuardado('guardando')
 
-    const esAfiliadoFinal = await buscarAfiliadoPorLegajo(values.legajo)
+    const [esAfiliadoFinal, zonaFija] = await Promise.all([
+      buscarAfiliadoPorLegajo(values.legajo),
+      obtenerZonaAsignada(values.legajo),
+    ])
+    // Igual que con la gravedad/afiliación arriba: se recalcula por si el
+    // usuario cambió la zona a mano después de buscar el legajo, o nunca
+    // llegó a buscarlo. Si el trabajador tiene zona fija asignada
+    // (Administración > Personal por zona), esa gana siempre.
+    const zonaFinal = zonaFija ?? values.zona
     const now = new Date().toISOString()
 
     const atencion: Atencion = {
@@ -76,7 +85,7 @@ export function AtencionForm() {
       tipo_registro: values.tipoRegistro,
       fecha: values.fecha,
       fecha_cierre: null,
-      zona: values.zona,
+      zona: zonaFinal,
       fundo: values.fundo || null,
       modulo: values.fundo ? moduloDesdeFundo(values.fundo) : null,
       grupo: values.grupo || null,
@@ -102,7 +111,7 @@ export function AtencionForm() {
       sup_cuadrilla: values.supCuadrilla || null,
       responsable_id: profile.id,
       responsable_nombre: profile.nombre_completo,
-      sup_rrll: supRrllPorZona(values.zona),
+      sup_rrll: supRrllPorZona(zonaFinal),
       reporte: values.reporte || null,
       antecedente: null,
       notas_seguimiento: null,

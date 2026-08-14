@@ -8,6 +8,7 @@ import {
   History,
   LayoutDashboard,
   LogOut,
+  MapPinned,
   Menu,
   Search,
   Sprout,
@@ -27,6 +28,7 @@ import { Busqueda } from '@/features/herramientas/Busqueda'
 import { Dashboard } from '@/features/dashboard/Dashboard'
 import { ImportarPersonal } from '@/features/admin/ImportarPersonal'
 import { ImportarAfiliados } from '@/features/admin/ImportarAfiliados'
+import { PersonalPorZona } from '@/features/admin/PersonalPorZona'
 import { contarPendientes } from '@/lib/atencionesApi'
 import { cn } from '@/lib/cn'
 
@@ -165,6 +167,10 @@ function AppLayout() {
               <UserCheck className="size-4" />
               Importar personal afiliado
             </NavLink>
+            <NavLink to="/admin/personal-zona" className={navClass} onClick={cerrarMenu}>
+              <MapPinned className="size-4" />
+              Personal por zona
+            </NavLink>
           </GrupoNav>
         </>
       )}
@@ -296,6 +302,10 @@ function AppLayout() {
             <Route
               path="/admin/afiliados"
               element={profile.rol === 'ADMIN' ? <ImportarAfiliados /> : <Navigate to="/" />}
+            />
+            <Route
+              path="/admin/personal-zona"
+              element={profile.rol === 'ADMIN' ? <PersonalPorZona /> : <Navigate to="/" />}
             />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
