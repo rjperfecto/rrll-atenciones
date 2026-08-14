@@ -31,3 +31,4 @@ dev-dist
 *.sw?
 .vercel
 .env*
+supabase/.temp
