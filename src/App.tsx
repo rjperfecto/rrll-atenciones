@@ -23,6 +23,7 @@ import { AtencionForm } from '@/features/atenciones/AtencionForm'
 import { AtencionList } from '@/features/atenciones/AtencionList'
 import { RegistrarCaminata } from '@/features/f360/RegistrarCaminata'
 import { CompromisosList } from '@/features/f360/CompromisosList'
+import { Busqueda } from '@/features/herramientas/Busqueda'
 import { Dashboard } from '@/features/dashboard/Dashboard'
 import { ImportarPersonal } from '@/features/admin/ImportarPersonal'
 import { ImportarAfiliados } from '@/features/admin/ImportarAfiliados'
@@ -124,6 +125,13 @@ function AppLayout() {
         <NavLink to="/360/compromisos" className={navClass} onClick={cerrarMenu}>
           <Handshake className="size-4" />
           Compromisos
+        </NavLink>
+      </GrupoNav>
+
+      <GrupoNav titulo="Herramientas">
+        <NavLink to="/herramientas/busqueda" className={navClass} onClick={cerrarMenu}>
+          <Search className="size-4" />
+          Búsqueda
         </NavLink>
       </GrupoNav>
 
@@ -263,6 +271,7 @@ function AppLayout() {
             <Route path="/historial" element={<AtencionList />} />
             <Route path="/360/registrar" element={<RegistrarCaminata />} />
             <Route path="/360/compromisos" element={<CompromisosList />} />
+            <Route path="/herramientas/busqueda" element={<Busqueda />} />
             <Route
               path="/dashboard/atenciones"
               element={profile.rol === 'ADMIN' ? <Dashboard tipoRegistro="GENERAL" titulo="Dashboard · Atenciones" /> : <Navigate to="/" />}

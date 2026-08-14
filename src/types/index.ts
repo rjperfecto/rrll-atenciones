@@ -43,6 +43,18 @@ export interface Afiliado {
   updated_at: string
 }
 
+// Directorio de celulares (Excel TELEFONOS), cruzado por legajo con
+// trabajadores_historial en HERRAMIENTAS > Búsqueda. No tiene fecha: es un
+// solo registro "actual" por legajo, no un historial diario como TAREO.
+export interface Telefono {
+  legajo: string
+  dni: string
+  nombre_completo: string
+  telefono_1: string | null
+  telefono_2: string | null
+  updated_at: string
+}
+
 export interface Involucrado {
   legajo: string
   dni: string // derivado del legajo (ver src/data/legajo.ts), no se ingresa directo
