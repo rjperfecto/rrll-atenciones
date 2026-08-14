@@ -2,10 +2,21 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import { supabase, isSupabaseConfigured } from '@/lib/supabaseClient'
 import type { Profile } from '@/types'
 
+// Los usuarios inician sesión con su usuario corporativo (ej. "rperfecto"),
+// no con el email completo. Puertas adentro Supabase Auth sigue usando email,
+// así que acá completamos el dominio antes de autenticar. Si alguien ya
+// escribe el email completo (con @), se respeta tal cual.
+const DOMINIO_EMAIL = 'hortifrut.com'
+
+function usuarioAEmail(usuario: string): string {
+  const valor = usuario.trim()
+  return valor.includes('@') ? valor : `${valor}@${DOMINIO_EMAIL}`
+}
+
 interface AuthState {
   profile: Profile | null
   loading: boolean
-  signIn: (email: string, password: string) => Promise<string | null>
+  signIn: (usuario: string, password: string) => Promise<string | null>
   signOut: () => Promise<void>
 }
 
@@ -52,8 +63,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(false)
   }
 
-  async function signIn(email: string, password: string) {
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+  async function signIn(usuario: string, password: string) {
+    const { error } = await supabase.auth.signInWithPassword({ email: usuarioAEmail(usuario), password })
     return error?.message ?? null
   }
 

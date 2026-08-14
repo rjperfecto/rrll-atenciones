@@ -9,7 +9,7 @@ import { cn } from '@/lib/cn'
 
 export function LoginPage() {
   const { signIn } = useAuth()
-  const [email, setEmail] = useState('')
+  const [usuario, setUsuario] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -18,7 +18,7 @@ export function LoginPage() {
     e.preventDefault()
     setLoading(true)
     setError(null)
-    const err = await signIn(email, password)
+    const err = await signIn(usuario, password)
     if (err) setError(err)
     setLoading(false)
   }
@@ -46,12 +46,15 @@ export function LoginPage() {
 
         <Card className="p-5">
           <form onSubmit={handleSubmit} className="space-y-4">
-            <Field label="Email">
+            <Field label="Usuario">
               <input
-                type="email"
+                type="text"
+                autoCapitalize="none"
+                autoCorrect="off"
+                placeholder="ej. rperfecto"
                 required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                value={usuario}
+                onChange={(e) => setUsuario(e.target.value)}
                 className="input"
               />
             </Field>
