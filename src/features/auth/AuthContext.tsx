@@ -58,7 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (data) {
       setProfile(data as Profile)
     } else {
-      setProfile({ id: userId, email, nombre_completo: email, rol: 'CAMPO' })
+      setProfile({ id: userId, email, nombre_completo: email, rol: 'CAMPO', zona_asignada: null })
     }
     setLoading(false)
   }

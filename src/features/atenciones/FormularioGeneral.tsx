@@ -11,7 +11,7 @@ import { supRrllPorZona } from '@/data/supervisoresRrll'
 import { moduloDesdeFundo } from '@/lib/modulo'
 import { zonaDesdeFundo } from '@/lib/zonaFundo'
 import { buscarTrabajadorPorLegajo, buscarAfiliadoPorLegajo } from '@/lib/trabajadoresApi'
-import { obtenerZonaAsignada } from '@/lib/personalZonaApi'
+import { useAuth } from '@/features/auth/AuthContext'
 import { CardSection } from '@/components/ui/Card'
 import { Field } from '@/components/ui/Field'
 import { Button } from '@/components/ui/Button'
@@ -28,7 +28,8 @@ export function FormularioGeneral() {
   const [busqueda, setBusqueda] = useState<EstadoBusqueda>('idle')
   const [escaneando, setEscaneando] = useState(false)
   const [esAfiliado, setEsAfiliado] = useState<boolean | null>(null)
-  const [zonaAsignada, setZonaAsignada] = useState<string | null>(null)
+  const { profile } = useAuth()
+  const zonaUsuario = profile?.zona_asignada ?? null
 
   const {
     register,
@@ -65,34 +66,32 @@ export function FormularioGeneral() {
         return
       }
       setBusqueda('buscando')
-      const [esAfiliadoEncontrado, trabajador, zonaFija] = await Promise.all([
+      const [esAfiliadoEncontrado, trabajador] = await Promise.all([
         buscarAfiliadoPorLegajo(legajoLimpio),
         buscarTrabajadorPorLegajo(legajoLimpio, fecha ?? ''),
-        obtenerZonaAsignada(legajoLimpio),
       ])
       setEsAfiliado(esAfiliadoEncontrado)
-      setZonaAsignada(zonaFija)
       if (!trabajador) {
         setBusqueda('no_encontrado')
-        // Aunque no haya dato de TAREO, si el legajo tiene zona fija asignada
-        // (Administración > Personal por zona) igual se aplica.
-        if (zonaFija) setValue('zona', zonaFija)
         return
       }
       setValue('nombreInvolucrado', trabajador.nombre_completo.toUpperCase())
       if (trabajador.fundo) setValue('fundo', trabajador.fundo.toUpperCase())
-      // La zona asignada a la persona manda siempre sobre la zona detectada
-      // por el fundo del día (ver Administración > Personal por zona): un
-      // trabajador de Zona 1 que aparece en un fundo de Zona 3 en TAREO igual
-      // se registra en Zona 1.
-      const zonaDetectada = zonaFija ?? (trabajador.fundo ? zonaDesdeFundo(trabajador.fundo) : null)
-      if (zonaDetectada) setValue('zona', zonaDetectada)
+      // La zona fija del USUARIO logueado (Administración > Personal por
+      // zona) manda siempre sobre la zona detectada por el fundo del
+      // trabajador ese día: si cvalencia tiene Zona 1 asignada, todo lo que
+      // registre queda en Zona 1 aunque el trabajador esté ese día en un
+      // fundo de otra zona.
+      if (!zonaUsuario) {
+        const zonaDetectada = trabajador.fundo ? zonaDesdeFundo(trabajador.fundo) : null
+        if (zonaDetectada) setValue('zona', zonaDetectada)
+      }
       if (trabajador.grupo) setValue('grupo', trabajador.grupo.toUpperCase())
       if (trabajador.sup_cuadrilla) setValue('supCuadrilla', trabajador.sup_cuadrilla.toUpperCase())
       if (trabajador.area) setValue('area', trabajador.area.toUpperCase())
       setBusqueda('encontrado')
     },
-    [fecha, setValue, trigger],
+    [fecha, setValue, trigger, zonaUsuario],
   )
 
   const onCodigoEscaneado = useCallback(
@@ -123,7 +122,6 @@ export function FormularioGeneral() {
                   onChange: () => {
                     setBusqueda('idle')
                     setEsAfiliado(null)
-                    setZonaAsignada(null)
                   },
                 })}
                 className={cn('input', CLASE_INPUT_POR_ESTADO[estadoLegajo], estadoLegajo !== 'neutral' && 'pl-9')}
@@ -190,14 +188,14 @@ export function FormularioGeneral() {
             value={zona}
             error={errors.zona?.message}
             hint={
-              zonaAsignada
-                ? `Fijada por Personal por zona (${zonaAsignada}), aunque el trabajador aparezca en otra zona hoy.`
+              zonaUsuario
+                ? 'Fijada por Personal por zona: todo lo que registras queda siempre en esta zona.'
                 : supRrll
                   ? `Sup. RRLL: ${supRrll}`
                   : undefined
             }
           >
-            <select {...register('zona')} className="input">
+            <select {...register('zona')} disabled={Boolean(zonaUsuario)} className={cn('input', zonaUsuario && 'bg-neutral-100 text-neutral-500 cursor-not-allowed')}>
               <option value="">Selecciona...</option>
               {ZONAS.map((z) => (
                 <option key={z} value={z}>

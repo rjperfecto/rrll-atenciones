@@ -13,6 +13,10 @@ export interface Profile {
   nombre_completo: string
   email: string
   rol: Rol
+  // Administración > Personal por zona: si está asignada, la Zona de todo lo
+  // que este usuario registre en Atenciones/360 Laboral se fuerza a esta,
+  // sin importar el fundo/zona del trabajador involucrado ese día.
+  zona_asignada: string | null
 }
 
 // Un registro por cada combinación Legajo+Fecha (historial diario de TAREO),

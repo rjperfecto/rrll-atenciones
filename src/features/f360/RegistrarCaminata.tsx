@@ -24,12 +24,12 @@ import { estadoDeCampo, CLASE_INPUT_POR_ESTADO } from '@/lib/campoEstado'
 import { conMayusculas } from '@/lib/conMayusculas'
 import { LEGAJO_REGEX } from '@/data/legajo'
 import { ZONAS } from '@/data/zonasFundos'
+import type { Zona } from '@/data/zonasFundos'
 import { PACKING_FUNDOS, TURNOS_360, TIPOS_ATENCION_360, ALERTAS_360 } from '@/data/formulario360'
 import { supRrllPorZona } from '@/data/supervisoresRrll'
 import { moduloDesdeFundo } from '@/lib/modulo'
 import { zonaDesdeFundo } from '@/lib/zonaFundo'
 import { buscarTrabajadorPorLegajo, buscarAfiliadoPorLegajo } from '@/lib/trabajadoresApi'
-import { obtenerZonaAsignada } from '@/lib/personalZonaApi'
 import { crearAtencion, contarTrabajadoresGrupo } from '@/lib/atencionesApi'
 import { useAuth } from '@/features/auth/AuthContext'
 import { cn } from '@/lib/cn'
@@ -112,8 +112,11 @@ export function RegistrarCaminata() {
   const [busqueda, setBusqueda] = useState<EstadoBusqueda>('idle')
   const [escaneando, setEscaneando] = useState(false)
   const [formKey, setFormKey] = useState(0)
-  const [zonaAsignada, setZonaAsignada] = useState<string | null>(null)
+  const zonaUsuario = profile?.zona_asignada ?? null
 
+  // Si el usuario logueado tiene Zona fija (Administración > Personal por
+  // zona), el formulario arranca con esa zona (el campo queda deshabilitado
+  // más abajo).
   const {
     register,
     handleSubmit,
@@ -125,7 +128,13 @@ export function RegistrarCaminata() {
   } = useForm<Atencion360FormValues>({
     resolver: zodResolver(atencion360Schema),
     mode: 'onTouched',
-    defaultValues: { tipoRegistro: '360 LABORAL', fecha: hoy(), tipoAtencion360: [], alertas360: [] },
+    defaultValues: {
+      tipoRegistro: '360 LABORAL',
+      fecha: hoy(),
+      tipoAtencion360: [],
+      alertas360: [],
+      zona: (zonaUsuario as Zona | undefined) ?? undefined,
+    },
   })
 
   const valores = watch()
@@ -153,22 +162,20 @@ export function RegistrarCaminata() {
         return
       }
       setBusqueda('buscando')
-      const [trabajador, zonaFija] = await Promise.all([
-        buscarTrabajadorPorLegajo(legajoLimpio, fecha || hoy()),
-        obtenerZonaAsignada(legajoLimpio),
-      ])
-      setZonaAsignada(zonaFija)
+      const trabajador = await buscarTrabajadorPorLegajo(legajoLimpio, fecha || hoy())
       if (!trabajador) {
         setBusqueda('no_encontrado')
-        if (zonaFija) setValue('zona', zonaFija)
         return
       }
       setValue('liderCosecha', trabajador.nombre_completo.toUpperCase())
       if (trabajador.fundo) setValue('fundo', trabajador.fundo.toUpperCase())
-      // La zona asignada a la persona manda siempre sobre la zona detectada
-      // por el fundo del día (ver Administración > Personal por zona).
-      const zonaDetectada = zonaFija ?? (trabajador.fundo ? zonaDesdeFundo(trabajador.fundo) : null)
-      if (zonaDetectada) setValue('zona', zonaDetectada)
+      // La zona fija del USUARIO logueado (Administración > Personal por
+      // zona) manda siempre sobre la zona detectada por el fundo del
+      // supervisor ese día.
+      if (!zonaUsuario) {
+        const zonaDetectada = trabajador.fundo ? zonaDesdeFundo(trabajador.fundo) : null
+        if (zonaDetectada) setValue('zona', zonaDetectada)
+      }
       if (trabajador.grupo) {
         const grupoDetectado = trabajador.grupo.toUpperCase()
         setValue('grupo', grupoDetectado)
@@ -177,7 +184,7 @@ export function RegistrarCaminata() {
       }
       setBusqueda('encontrado')
     },
-    [fecha, setValue, trigger],
+    [fecha, setValue, trigger, zonaUsuario],
   )
 
   const onCodigoEscaneado = useCallback(
@@ -213,14 +220,10 @@ export function RegistrarCaminata() {
 
     // Se recalcula acá (no se confía solo en el estado de "Buscar") por si
     // el usuario escribió el legajo del supervisor y envió sin buscar antes.
-    // Igual con la zona: si el legajo tiene zona fija asignada
-    // (Administración > Personal por zona), esa gana siempre sobre la que
-    // haya quedado seleccionada en el formulario.
-    const [, zonaFija] = await Promise.all([
-      buscarAfiliadoPorLegajo(values.legajoSupervisor),
-      obtenerZonaAsignada(values.legajoSupervisor),
-    ])
-    const zonaFinal = zonaFija ?? values.zona
+    void (await buscarAfiliadoPorLegajo(values.legajoSupervisor))
+    // La zona fija del usuario logueado (Administración > Personal por
+    // zona) gana siempre sobre lo que haya en el formulario.
+    const zonaFinal = (profile.zona_asignada as Zona | null) ?? values.zona
     const now = new Date().toISOString()
 
     const atencion: Atencion = {
@@ -319,12 +322,7 @@ export function RegistrarCaminata() {
                   inputMode="numeric"
                   maxLength={10}
                   placeholder="ej. 1012345678"
-                  {...register('legajoSupervisor', {
-                    onChange: () => {
-                      setBusqueda('idle')
-                      setZonaAsignada(null)
-                    },
-                  })}
+                  {...register('legajoSupervisor', { onChange: () => setBusqueda('idle') })}
                   className={cn('input', CLASE_INPUT_POR_ESTADO[estadoLegajo], estadoLegajo !== 'neutral' && 'pl-9')}
                 />
                 {estadoLegajo !== 'neutral' && (
@@ -381,8 +379,8 @@ export function RegistrarCaminata() {
               value={zona}
               error={errors.zona?.message}
               hint={
-                zonaAsignada
-                  ? `Fijada por Personal por zona (${zonaAsignada}), aunque aparezca en otra zona hoy.`
+                zonaUsuario
+                  ? 'Fijada por Personal por zona: todo lo que registras queda siempre en esta zona.'
                   : supRrll
                     ? `Sup. RRLL: ${supRrll}`
                     : undefined
@@ -390,7 +388,8 @@ export function RegistrarCaminata() {
             >
               <select
                 {...register('zona')}
-                className="input"
+                disabled={Boolean(zonaUsuario)}
+                className={cn('input', zonaUsuario && 'bg-neutral-100 text-neutral-500 cursor-not-allowed')}
                 onChange={(e) => {
                   setValue('zona', e.target.value as never, { shouldValidate: true })
                   setValue('fundo', '')

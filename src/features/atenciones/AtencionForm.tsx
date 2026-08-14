@@ -9,7 +9,6 @@ import { supRrllPorZona } from '@/data/supervisoresRrll'
 import { moduloDesdeFundo } from '@/lib/modulo'
 import { dniDesdeLegajo } from '@/data/legajo'
 import { buscarAfiliadoPorLegajo } from '@/lib/trabajadoresApi'
-import { obtenerZonaAsignada } from '@/lib/personalZonaApi'
 import { crearAtencion } from '@/lib/atencionesApi'
 import { useAuth } from '@/features/auth/AuthContext'
 import { cn } from '@/lib/cn'
@@ -19,6 +18,7 @@ import { Field } from '@/components/ui/Field'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { FormularioGeneral } from './FormularioGeneral'
 import type { Atencion } from '@/types'
+import type { Zona } from '@/data/zonasFundos'
 
 function hoy() {
   return new Date().toISOString().slice(0, 10)
@@ -32,10 +32,13 @@ export function AtencionForm() {
   // limpia también el estado local propio (búsqueda de legajo, etc.).
   const [formKey, setFormKey] = useState(0)
 
+  // Si el usuario logueado tiene Zona fija (Administración > Personal por
+  // zona), el formulario ya arranca con esa zona (el campo queda deshabilitado
+  // en FormularioGeneral, ver zonaUsuario ahí).
   const metodos = useForm<AtencionFormValues>({
     resolver: zodResolver(atencionSchema),
     mode: 'onTouched',
-    defaultValues: { tipoRegistro: 'GENERAL', fecha: hoy() },
+    defaultValues: { tipoRegistro: 'GENERAL', fecha: hoy(), zona: (profile?.zona_asignada as Zona | undefined) ?? undefined },
   })
 
   const {
@@ -68,15 +71,10 @@ export function AtencionForm() {
     if (!gravedadFinal) return
     setEstadoGuardado('guardando')
 
-    const [esAfiliadoFinal, zonaFija] = await Promise.all([
-      buscarAfiliadoPorLegajo(values.legajo),
-      obtenerZonaAsignada(values.legajo),
-    ])
-    // Igual que con la gravedad/afiliación arriba: se recalcula por si el
-    // usuario cambió la zona a mano después de buscar el legajo, o nunca
-    // llegó a buscarlo. Si el trabajador tiene zona fija asignada
-    // (Administración > Personal por zona), esa gana siempre.
-    const zonaFinal = zonaFija ?? values.zona
+    const esAfiliadoFinal = await buscarAfiliadoPorLegajo(values.legajo)
+    // La zona fija del usuario logueado (Administración > Personal por
+    // zona) gana siempre sobre lo que haya en el formulario.
+    const zonaFinal = (profile.zona_asignada as Zona | null) ?? values.zona
     const now = new Date().toISOString()
 
     const atencion: Atencion = {

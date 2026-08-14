@@ -1,245 +1,91 @@
 import { useEffect, useState } from 'react'
-import { AlertCircle, CheckCircle2, MapPinned, Search, Trash2, Users } from 'lucide-react'
-import { LEGAJO_REGEX } from '@/data/legajo'
+import { AlertCircle, CheckCircle2, MapPinned } from 'lucide-react'
 import { ZONAS, type Zona } from '@/data/zonasFundos'
-import { buscarTrabajadorPorLegajo } from '@/lib/trabajadoresApi'
-import {
-  asignarPersonalZona,
-  listarPersonalZona,
-  quitarPersonalZona,
-  type PersonalZona,
-} from '@/lib/personalZonaApi'
+import { listarUsuarios, asignarZonaUsuario } from '@/lib/personalZonaApi'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { CardSection } from '@/components/ui/Card'
-import { Field } from '@/components/ui/Field'
-import { Button } from '@/components/ui/Button'
-import { cn } from '@/lib/cn'
+import type { Profile } from '@/types'
 
-type EstadoBusqueda = 'idle' | 'buscando' | 'encontrado' | 'no_encontrado' | 'formato_invalido'
-
-function hoy() {
-  return new Date().toISOString().slice(0, 10)
-}
-
-// Administración > Personal por zona: fija la Zona de un legajo sin importar
-// dónde aparezca trabajando ese día en TAREO (ver src/lib/personalZonaApi.ts
-// y su uso en FormularioGeneral/AtencionForm/RegistrarCaminata, que fuerzan
-// la Zona del caso a esta asignación cuando existe).
+// Administración > Personal por zona: fija la Zona de un USUARIO del
+// sistema (cvalencia, jvillena, etc.). Si un usuario tiene zona asignada,
+// todo lo que registre en Atenciones/360 Laboral se guarda con esa zona,
+// sin importar el fundo/zona del trabajador involucrado ese día (ver
+// FormularioGeneral/AtencionForm/RegistrarCaminata).
 export function PersonalPorZona() {
-  const [lista, setLista] = useState<PersonalZona[] | null>(null)
-  const [filtroZona, setFiltroZona] = useState<Zona | ''>('')
-
-  const [legajo, setLegajo] = useState('')
-  const [nombre, setNombre] = useState('')
-  const [zona, setZona] = useState<Zona | ''>('')
-  const [busqueda, setBusqueda] = useState<EstadoBusqueda>('idle')
-  const [guardando, setGuardando] = useState(false)
+  const [usuarios, setUsuarios] = useState<Profile[] | null>(null)
+  const [guardandoId, setGuardandoId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [mensaje, setMensaje] = useState<string | null>(null)
 
-  async function cargarLista() {
-    setLista(await listarPersonalZona())
-  }
-
   useEffect(() => {
-    void cargarLista()
+    void listarUsuarios().then(setUsuarios)
   }, [])
 
-  async function buscarLegajo() {
-    const legajoLimpio = legajo.trim()
-    if (legajoLimpio !== legajo) setLegajo(legajoLimpio)
-    if (!LEGAJO_REGEX.test(legajoLimpio)) {
-      setBusqueda('formato_invalido')
-      return
-    }
-    setBusqueda('buscando')
-    const trabajador = await buscarTrabajadorPorLegajo(legajoLimpio, hoy())
-    if (!trabajador) {
-      setBusqueda('no_encontrado')
-      return
-    }
-    setNombre(trabajador.nombre_completo.toUpperCase())
-    setBusqueda('encontrado')
-  }
-
-  async function agregar() {
-    const legajoLimpio = legajo.trim()
-    const nombreLimpio = nombre.trim()
+  async function cambiarZona(usuario: Profile, zona: string) {
     setError(null)
     setMensaje(null)
-    if (!LEGAJO_REGEX.test(legajoLimpio)) {
-      setError('El legajo debe empezar con "10" seguido del DNI (8 dígitos).')
-      return
-    }
-    if (!nombreLimpio) {
-      setError('Falta el nombre completo (búscalo por legajo o escríbelo a mano).')
-      return
-    }
-    if (!zona) {
-      setError('Selecciona una zona.')
-      return
-    }
-    setGuardando(true)
-    const { error: err } = await asignarPersonalZona(legajoLimpio, nombreLimpio, zona)
-    setGuardando(false)
+    setGuardandoId(usuario.id)
+    const { error: err } = await asignarZonaUsuario(usuario.id, zona || null)
+    setGuardandoId(null)
     if (err) {
       setError(err)
       return
     }
-    setMensaje(`${nombreLimpio} quedó asignado a ${zona}.`)
-    setLegajo('')
-    setNombre('')
-    setZona('')
-    setBusqueda('idle')
-    void cargarLista()
+    setUsuarios((prev) => prev?.map((u) => (u.id === usuario.id ? { ...u, zona_asignada: zona || null } : u)) ?? null)
+    setMensaje(zona ? `${usuario.nombre_completo} ahora registra siempre en ${zona}.` : `${usuario.nombre_completo} ya no tiene zona fija.`)
   }
-
-  async function quitar(legajoAQuitar: string, nombreAQuitar: string) {
-    const confirmado = window.confirm(`¿Quitar la asignación de zona de ${nombreAQuitar}?`)
-    if (!confirmado) return
-    await quitarPersonalZona(legajoAQuitar)
-    void cargarLista()
-  }
-
-  const listaFiltrada = (lista ?? []).filter((p) => !filtroZona || p.zona === filtroZona)
 
   return (
     <div className="max-w-2xl">
       <PageHeader
         title="Personal por zona"
-        description="Fija la Zona de un trabajador específico: si está en esta lista, sus casos siempre se registran en esa zona, sin importar en qué fundo aparezca trabajando ese día."
+        description="Fija la Zona de cada usuario del sistema: si un usuario tiene zona asignada, todo lo que registre en Atenciones y 360 Laboral queda siempre en esa zona, sin importar el fundo donde aparezca trabajando el involucrado ese día."
       />
 
-      <div className="space-y-4">
-        <CardSection title="Asignar" icon={<MapPinned className="size-4 text-brand" />}>
-          <div>
-            <label htmlFor="pz-legajo" className="block text-[13px] font-medium text-neutral-700 mb-1.5">
-              Legajo
-            </label>
-            <div className="flex gap-2">
-              <input
-                id="pz-legajo"
-                type="text"
-                inputMode="numeric"
-                maxLength={10}
-                placeholder="ej. 1012345678"
-                value={legajo}
-                onChange={(e) => {
-                  setLegajo(e.target.value)
-                  setBusqueda('idle')
-                }}
-                className="input flex-1"
-              />
-              <Button type="button" variant="primary" onClick={buscarLegajo} loading={busqueda === 'buscando'} className="shrink-0">
-                <Search className="size-4" />
-                Buscar
-              </Button>
-            </div>
-            {busqueda === 'formato_invalido' && (
-              <p className="text-xs text-danger mt-1">El legajo debe empezar con "10" seguido del DNI (8 dígitos).</p>
-            )}
-            {busqueda === 'encontrado' && (
-              <p className="text-xs text-emerald-600 mt-1 flex items-center gap-1">
-                <CheckCircle2 className="size-3.5 shrink-0" />
-                Encontrado en el personal importado.
-              </p>
-            )}
-            {busqueda === 'no_encontrado' && (
-              <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
-                <AlertCircle className="size-3.5 shrink-0" />
-                No aparece en el personal importado — puedes escribir el nombre a mano igual.
-              </p>
-            )}
+      <CardSection title="Usuarios" icon={<MapPinned className="size-4 text-brand" />}>
+        {error && (
+          <p className="text-sm text-red-600 flex items-center gap-1.5">
+            <AlertCircle className="size-4 shrink-0" />
+            {error}
+          </p>
+        )}
+        {mensaje && (
+          <div className="rounded-md bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm px-3 py-2 flex items-center gap-2">
+            <CheckCircle2 className="size-4 shrink-0" />
+            {mensaje}
           </div>
+        )}
 
-          <Field label="Nombre completo" value={nombre}>
-            <input type="text" placeholder="ej. JUAN PÉREZ LÓPEZ" value={nombre} onChange={(e) => setNombre(e.target.value.toUpperCase())} className="input" />
-          </Field>
-
-          <Field label="Zona" value={zona}>
-            <select value={zona} onChange={(e) => setZona(e.target.value as Zona | '')} className="input">
-              <option value="">Selecciona...</option>
-              {ZONAS.map((z) => (
-                <option key={z} value={z}>
-                  {z}
-                </option>
-              ))}
-            </select>
-          </Field>
-
-          {error && (
-            <p className="text-sm text-red-600 flex items-center gap-1.5">
-              <AlertCircle className="size-4 shrink-0" />
-              {error}
-            </p>
-          )}
-          {mensaje && (
-            <div className="rounded-md bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm px-3 py-2 flex items-center gap-2">
-              <CheckCircle2 className="size-4 shrink-0" />
-              {mensaje}
-            </div>
-          )}
-
-          <Button onClick={agregar} loading={guardando}>
-            {guardando ? 'Guardando...' : 'Asignar zona'}
-          </Button>
-        </CardSection>
-
-        <CardSection title="Personal asignado" icon={<Users className="size-4 text-brand" />}>
-          <div className="flex flex-wrap gap-1.5">
-            <button
-              type="button"
-              onClick={() => setFiltroZona('')}
-              className={cn(
-                'px-2.5 py-1 rounded-full text-xs font-medium border',
-                filtroZona === '' ? 'bg-brand text-white border-brand' : 'text-neutral-500 border-neutral-200 hover:border-brand/40',
-              )}
-            >
-              Todas ({lista?.length ?? 0})
-            </button>
-            {ZONAS.map((z) => (
-              <button
-                key={z}
-                type="button"
-                onClick={() => setFiltroZona(z)}
-                className={cn(
-                  'px-2.5 py-1 rounded-full text-xs font-medium border',
-                  filtroZona === z ? 'bg-brand text-white border-brand' : 'text-neutral-500 border-neutral-200 hover:border-brand/40',
-                )}
-              >
-                {z} ({(lista ?? []).filter((p) => p.zona === z).length})
-              </button>
+        {usuarios === null ? (
+          <p className="text-sm text-neutral-400">Cargando...</p>
+        ) : (
+          <div className="divide-y divide-neutral-100">
+            {usuarios.map((u) => (
+              <div key={u.id} className="flex items-center justify-between gap-3 py-2.5">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-neutral-800 truncate">{u.nombre_completo}</p>
+                  <p className="text-xs text-neutral-400 truncate">
+                    {u.email} · <span className="font-medium">{u.rol}</span>
+                  </p>
+                </div>
+                <select
+                  value={u.zona_asignada ?? ''}
+                  disabled={guardandoId === u.id}
+                  onChange={(e) => cambiarZona(u, e.target.value)}
+                  className="input w-auto min-w-[10rem] shrink-0"
+                >
+                  <option value="">Sin zona fija</option>
+                  {ZONAS.map((z: Zona) => (
+                    <option key={z} value={z}>
+                      {z}
+                    </option>
+                  ))}
+                </select>
+              </div>
             ))}
           </div>
-
-          {lista === null ? (
-            <p className="text-sm text-neutral-400">Cargando...</p>
-          ) : listaFiltrada.length === 0 ? (
-            <p className="text-sm text-neutral-400">Sin asignaciones{filtroZona ? ` en ${filtroZona}` : ''} todavía.</p>
-          ) : (
-            <div className="divide-y divide-neutral-100">
-              {listaFiltrada.map((p) => (
-                <div key={p.legajo} className="flex items-center justify-between gap-3 py-2.5">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-neutral-800 truncate">{p.nombre_completo}</p>
-                    <p className="text-xs text-neutral-400">
-                      {p.legajo} · <span className="font-medium text-brand">{p.zona}</span>
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => quitar(p.legajo, p.nombre_completo)}
-                    aria-label={`Quitar asignación de ${p.nombre_completo}`}
-                    className="p-2 rounded-md text-neutral-400 hover:bg-red-50 hover:text-red-600 shrink-0"
-                  >
-                    <Trash2 className="size-4" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardSection>
-      </div>
+        )}
+      </CardSection>
     </div>
   )
 }
