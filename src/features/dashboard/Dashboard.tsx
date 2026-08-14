@@ -76,6 +76,26 @@ function ChartTooltip({ active, payload, label }: TooltipContentProps) {
   )
 }
 
+// Texto con halo (contorno oscuro grueso detrás del relleno blanco, técnica
+// paint-order: stroke luego fill): se lee fuerte encima de cualquier color de
+// fondo, así que no depende de acertar el contraste exacto de cada segmento.
+function TextoNotorio({ fontSize, ...props }: React.SVGProps<SVGTextElement> & { fontSize: number }) {
+  return (
+    <text
+      {...props}
+      fontSize={fontSize}
+      fontWeight={800}
+      fill="#fff"
+      stroke="rgba(15, 23, 42, 0.55)"
+      strokeWidth={fontSize * 0.28}
+      strokeLinejoin="round"
+      paintOrder="stroke fill"
+    >
+      {props.children}
+    </text>
+  )
+}
+
 // Número del valor, bien visible dentro del propio segmento del pie (no solo
 // en el tooltip al pasar el mouse). Oculto si el valor es 0 para no ensuciar
 // segmentos vacíos.
@@ -86,9 +106,9 @@ function EtiquetaValorPie({ cx, cy, midAngle, innerRadius, outerRadius, value }:
   const x = Number(cx) + radio * Math.cos(-Number(midAngle) * RADIAN)
   const y = Number(cy) + radio * Math.sin(-Number(midAngle) * RADIAN)
   return (
-    <text x={x} y={y} textAnchor="middle" dominantBaseline="central" fontSize={13} fontWeight={700} fill="#fff">
+    <TextoNotorio x={x} y={y} textAnchor="middle" dominantBaseline="central" fontSize={17}>
       {value}
-    </text>
+    </TextoNotorio>
   )
 }
 
@@ -97,17 +117,27 @@ function EtiquetaValorPie({ cx, cy, midAngle, innerRadius, outerRadius, value }:
 function EtiquetaValorBarra({ x, y, width, height, value }: LabelProps) {
   if (!value) return null
   return (
-    <text
+    <TextoNotorio
       x={Number(x ?? 0) + Number(width ?? 0) / 2}
       y={Number(y ?? 0) + Number(height ?? 0) / 2}
       textAnchor="middle"
       dominantBaseline="central"
-      fontSize={12}
-      fontWeight={700}
-      fill="#fff"
+      fontSize={14}
     >
       {value}
-    </text>
+    </TextoNotorio>
+  )
+}
+
+// Encima de cada punto de la tendencia semanal: el área ya está coloreada por
+// dentro, así que el halo es lo que hace legible el número aunque el punto
+// caiga sobre el degradado.
+function EtiquetaValorPunto({ x, y, value }: LabelProps) {
+  if (!value) return null
+  return (
+    <TextoNotorio x={Number(x ?? 0)} y={Number(y ?? 0) - 14} textAnchor="middle" dominantBaseline="central" fontSize={13}>
+      {value}
+    </TextoNotorio>
   )
 }
 
@@ -263,7 +293,7 @@ export function Dashboard({ tipoRegistro, titulo }: { tipoRegistro: TipoRegistro
       <div className="grid gap-6 grid-cols-1 xl:grid-cols-3 mb-6">
         <CardSection title="Total de casos por semana" className="xl:col-span-2">
           <ResponsiveContainer width="100%" height={260}>
-            <AreaChart data={porSemana} margin={{ top: 8, right: 8 }}>
+            <AreaChart data={porSemana} margin={{ top: 24, right: 8 }}>
               <defs>
                 <linearGradient id="gradSemana" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor={BLUE} stopOpacity={0.4} />
@@ -287,6 +317,7 @@ export function Dashboard({ tipoRegistro, titulo }: { tipoRegistro: TipoRegistro
                 fill="url(#gradSemana)"
                 dot={{ r: 3, fill: BLUE, strokeWidth: 0 }}
                 activeDot={{ r: 5, fill: PURPLE, stroke: '#fff', strokeWidth: 2 }}
+                label={EtiquetaValorPunto}
               />
             </AreaChart>
           </ResponsiveContainer>
