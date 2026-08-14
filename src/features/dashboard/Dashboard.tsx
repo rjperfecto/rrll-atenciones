@@ -14,25 +14,28 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import type { TooltipContentProps } from 'recharts'
+import type { LabelProps, PieLabelRenderProps, TooltipContentProps } from 'recharts'
 import {
   obtenerReportesDashboard,
   type CasosPorGravedad,
   type CasosPorResponsableGravedad,
+  type CasosPorZonaGravedad,
   type CasosPorZona,
   type CasosPorEstado,
   type CasosPorSemana,
+  type FiltroSemana,
 } from '@/lib/reportesApi'
 import { CardSection } from '@/components/ui/Card'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { StatTile } from '@/components/ui/StatTile'
 import { GRAVEDAD_COLORES, ESTADO_COLORES } from '@/components/ui/Badge'
-import { ClipboardList, Clock, CheckCircle2, TrendingUp, Award } from 'lucide-react'
+import { ClipboardList, Clock, CheckCircle2, TrendingUp, Award, CalendarRange } from 'lucide-react'
 import type { TipoRegistro } from '@/types'
 
 // Reemplaza la hoja "INDICADOR" del Excel: casos por zona, por gravedad, y
-// cruce responsable x gravedad. Los totales se calculan en Supabase (vistas
-// v_casos_por_*), no trayendo todas las atenciones al navegador.
+// cruce zona x gravedad. Los totales se calculan en Supabase (RPC casos_por_*,
+// migración 0017), no trayendo todas las atenciones al navegador — y esos RPC
+// aceptan filtrar por semana ISO (ver selector "Semana" abajo).
 
 const GRIS_EJE = '#e5e7eb' // neutral-200: gridlines recesivas, nunca protagonistas
 const PURPLE = '#673ab7' // --color-brand (ver src/index.css)
@@ -47,6 +50,7 @@ interface Datos {
   porZona: CasosPorZona[]
   porGravedad: CasosPorGravedad[]
   porResponsableGravedad: CasosPorResponsableGravedad[]
+  porZonaGravedad: CasosPorZonaGravedad[]
   porEstado: CasosPorEstado[]
   porSemana: CasosPorSemana[]
 }
@@ -72,18 +76,62 @@ function ChartTooltip({ active, payload, label }: TooltipContentProps) {
   )
 }
 
+// Número del valor, bien visible dentro del propio segmento del pie (no solo
+// en el tooltip al pasar el mouse). Oculto si el valor es 0 para no ensuciar
+// segmentos vacíos.
+function EtiquetaValorPie({ cx, cy, midAngle, innerRadius, outerRadius, value }: PieLabelRenderProps) {
+  if (!value) return null
+  const RADIAN = Math.PI / 180
+  const radio = Number(innerRadius) + (Number(outerRadius) - Number(innerRadius)) / 2
+  const x = Number(cx) + radio * Math.cos(-Number(midAngle) * RADIAN)
+  const y = Number(cy) + radio * Math.sin(-Number(midAngle) * RADIAN)
+  return (
+    <text x={x} y={y} textAnchor="middle" dominantBaseline="central" fontSize={13} fontWeight={700} fill="#fff">
+      {value}
+    </text>
+  )
+}
+
+// Mismo criterio para las barras apiladas: el número va centrado dentro de
+// cada segmento de color, oculto si el segmento es 0.
+function EtiquetaValorBarra({ x, y, width, height, value }: LabelProps) {
+  if (!value) return null
+  return (
+    <text
+      x={Number(x ?? 0) + Number(width ?? 0) / 2}
+      y={Number(y ?? 0) + Number(height ?? 0) / 2}
+      textAnchor="middle"
+      dominantBaseline="central"
+      fontSize={12}
+      fontWeight={700}
+      fill="#fff"
+    >
+      {value}
+    </text>
+  )
+}
+
 // Un solo componente reusado por las 3 rutas de Dashboard (Atenciones/
 // Cosecha/360 Laboral, ver App.tsx): cada una pasa su propio tipoRegistro,
-// las vistas de reportes ya filtran en el servidor por esa columna.
+// los RPC ya filtran en el servidor por esa columna (y por semana, si hay filtro).
 export function Dashboard({ tipoRegistro, titulo }: { tipoRegistro: TipoRegistro; titulo: string }) {
   const [datos, setDatos] = useState<Datos | null>(null)
+  const [cargando, setCargando] = useState(true)
+  const [filtroSemana, setFiltroSemana] = useState<FiltroSemana | null>(null)
+
+  // Cambiar de Dashboard (Atenciones/Cosecha/360 Laboral) no debe arrastrar
+  // el filtro de semana del anterior.
+  useEffect(() => {
+    setFiltroSemana(null)
+  }, [tipoRegistro])
 
   useEffect(() => {
-    setDatos(null)
-    void obtenerReportesDashboard(tipoRegistro).then(({ porZona, porGravedad, porResponsableGravedad, porEstado, porSemana }) => {
-      setDatos({ porZona, porGravedad, porResponsableGravedad, porEstado, porSemana })
+    setCargando(true)
+    void obtenerReportesDashboard(tipoRegistro, filtroSemana).then((r) => {
+      setDatos(r)
+      setCargando(false)
     })
-  }, [tipoRegistro])
+  }, [tipoRegistro, filtroSemana])
 
   const porZona = useMemo(
     () => (datos ? datos.porZona.map((z) => ({ zona: z.zona, casos: z.casos })) : []),
@@ -106,6 +154,17 @@ export function Dashboard({ tipoRegistro, titulo }: { tipoRegistro: TipoRegistro
     return [...map.values()]
   }, [datos])
 
+  const porZonaGravedad = useMemo(() => {
+    if (!datos) return []
+    const map = new Map<string, { zona: string; BAJO: number; MEDIO: number; ALTO: number }>()
+    for (const z of datos.porZonaGravedad) {
+      const row = map.get(z.zona) ?? { zona: z.zona, BAJO: 0, MEDIO: 0, ALTO: 0 }
+      row[z.gravedad] = z.casos
+      map.set(z.zona, row)
+    }
+    return [...map.values()]
+  }, [datos])
+
   // Ranking de responsables por total de casos: reemplaza al panel de
   // "acciones populares" del template de referencia con el dato real
   // equivalente que sí existe en esta app (no hay cotizaciones de bolsa
@@ -119,11 +178,14 @@ export function Dashboard({ tipoRegistro, titulo }: { tipoRegistro: TipoRegistro
       .map((r) => ({ ...r, pct: Math.round((r.total / max) * 100) }))
   }, [porResponsable])
 
-  const porSemana = useMemo(() => {
-    if (!datos) return []
-    // Últimas 12 semanas con datos, para que el sparkline no se vea abarrotado.
-    return datos.porSemana.slice(-12).map((s) => ({ etiqueta: `S${s.semana}`, casos: s.casos }))
-  }, [datos])
+  // Últimas 12 semanas con datos: sirve de tendencia (no se filtra por
+  // semana, queda como contexto) y de fuente de opciones del selector.
+  const semanasDisponibles = useMemo(() => [...(datos?.porSemana ?? [])].reverse(), [datos])
+
+  const porSemana = useMemo(
+    () => (datos ? datos.porSemana.slice(-12).map((s) => ({ etiqueta: `S${s.semana}`, casos: s.casos })) : []),
+    [datos],
+  )
 
   const conteoEstado = useMemo(() => {
     const map = new Map(datos?.porEstado.map((e) => [e.estado, e.casos]) ?? [])
@@ -133,14 +195,44 @@ export function Dashboard({ tipoRegistro, titulo }: { tipoRegistro: TipoRegistro
     }
   }, [datos])
 
-  const estaSemana = porSemana.at(-1)?.casos ?? 0
+  const estaSemana = datos?.porSemana.at(-1)?.casos ?? 0
   const total = useMemo(() => porGravedad.reduce((acc, g) => acc + g.casos, 0), [porGravedad])
+
+  function cambiarFiltroSemana(valor: string) {
+    if (!valor) {
+      setFiltroSemana(null)
+      return
+    }
+    const [anio, semana] = valor.split('-').map(Number)
+    setFiltroSemana({ anio, semana })
+  }
 
   if (!datos) return <p className="text-sm text-neutral-500">Cargando...</p>
 
   return (
     <div>
-      <PageHeader title={titulo} description={`${total} registros en total`} />
+      <div className="flex flex-wrap items-start justify-between gap-3 mb-6">
+        <PageHeader
+          title={titulo}
+          description={`${total} registros ${filtroSemana ? `en la semana ${filtroSemana.semana} (${filtroSemana.anio})` : 'en total'}`}
+        />
+        <div className="flex items-center gap-2">
+          <CalendarRange className="size-4 text-neutral-400" />
+          <select
+            value={filtroSemana ? `${filtroSemana.anio}-${filtroSemana.semana}` : ''}
+            onChange={(e) => cambiarFiltroSemana(e.target.value)}
+            disabled={cargando}
+            className="input w-auto min-w-[11rem]"
+          >
+            <option value="">Todas las semanas</option>
+            {semanasDisponibles.map((s) => (
+              <option key={`${s.anio}-${s.semana}`} value={`${s.anio}-${s.semana}`}>
+                Semana {s.semana} · {s.anio}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
 
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 mb-6">
         <StatTile
@@ -230,12 +322,23 @@ export function Dashboard({ tipoRegistro, titulo }: { tipoRegistro: TipoRegistro
       </div>
 
       <div className="grid gap-6 grid-cols-1 md:grid-cols-2">
-        <CardSection title="Casos por zona">
+        <CardSection title="Intervenciones por Zona">
           <ResponsiveContainer width="100%" height={260}>
             <PieChart>
               <Tooltip content={ChartTooltip} />
               <Legend wrapperStyle={{ fontSize: 12 }} iconType="circle" />
-              <Pie data={porZona} dataKey="casos" nameKey="zona" innerRadius={55} outerRadius={85} paddingAngle={2} strokeWidth={2} stroke="#fff">
+              <Pie
+                data={porZona}
+                dataKey="casos"
+                nameKey="zona"
+                innerRadius={55}
+                outerRadius={85}
+                paddingAngle={2}
+                strokeWidth={2}
+                stroke="#fff"
+                label={EtiquetaValorPie}
+                labelLine={false}
+              >
                 {porZona.map((entry, i) => (
                   <Cell key={entry.zona} fill={PALETA_ZONA[i % PALETA_ZONA.length]} />
                 ))}
@@ -244,12 +347,23 @@ export function Dashboard({ tipoRegistro, titulo }: { tipoRegistro: TipoRegistro
           </ResponsiveContainer>
         </CardSection>
 
-        <CardSection title="Casos por gravedad">
+        <CardSection title="Intervenciones por gravedad">
           <ResponsiveContainer width="100%" height={260}>
             <PieChart>
               <Tooltip content={ChartTooltip} />
               <Legend wrapperStyle={{ fontSize: 12 }} iconType="circle" />
-              <Pie data={porGravedad} dataKey="casos" nameKey="gravedad" innerRadius={55} outerRadius={85} paddingAngle={2} strokeWidth={2} stroke="#fff">
+              <Pie
+                data={porGravedad}
+                dataKey="casos"
+                nameKey="gravedad"
+                innerRadius={55}
+                outerRadius={85}
+                paddingAngle={2}
+                strokeWidth={2}
+                stroke="#fff"
+                label={EtiquetaValorPie}
+                labelLine={false}
+              >
                 {porGravedad.map((entry) => (
                   <Cell key={entry.gravedad} fill={GRAVEDAD_COLORES[entry.gravedad as keyof typeof GRAVEDAD_COLORES]} />
                 ))}
@@ -258,17 +372,27 @@ export function Dashboard({ tipoRegistro, titulo }: { tipoRegistro: TipoRegistro
           </ResponsiveContainer>
         </CardSection>
 
-        <CardSection title="Responsable × gravedad" className="md:col-span-2">
+        <CardSection title="Gravedad por Zona" className="md:col-span-2">
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={porResponsable} margin={{ top: 8 }}>
+            <BarChart data={porZonaGravedad} margin={{ top: 8 }}>
               <CartesianGrid stroke={GRIS_EJE} vertical={false} />
-              <XAxis dataKey="responsable" tick={{ fontSize: 12, fill: '#737373' }} axisLine={{ stroke: GRIS_EJE }} tickLine={false} />
+              <XAxis dataKey="zona" tick={{ fontSize: 12, fill: '#737373' }} axisLine={{ stroke: GRIS_EJE }} tickLine={false} />
               <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: '#737373' }} axisLine={false} tickLine={false} width={28} />
               <Tooltip content={ChartTooltip} cursor={{ fill: '#f5f5f5' }} />
               <Legend wrapperStyle={{ fontSize: 12 }} iconType="plainline" itemSorter={null} />
-              <Bar dataKey="BAJO" name="Bajo" stackId="g" fill={GRAVEDAD_COLORES.BAJO} stroke="#fff" strokeWidth={2} maxBarSize={40} />
-              <Bar dataKey="MEDIO" name="Medio" stackId="g" fill={GRAVEDAD_COLORES.MEDIO} stroke="#fff" strokeWidth={2} maxBarSize={40} />
-              <Bar dataKey="ALTO" name="Alto" stackId="g" fill={GRAVEDAD_COLORES.ALTO} stroke="#fff" strokeWidth={2} radius={[4, 4, 0, 0]} maxBarSize={40} />
+              <Bar dataKey="BAJO" name="Bajo" stackId="g" fill={GRAVEDAD_COLORES.BAJO} stroke="#fff" strokeWidth={2} maxBarSize={60} label={EtiquetaValorBarra} />
+              <Bar dataKey="MEDIO" name="Medio" stackId="g" fill={GRAVEDAD_COLORES.MEDIO} stroke="#fff" strokeWidth={2} maxBarSize={60} label={EtiquetaValorBarra} />
+              <Bar
+                dataKey="ALTO"
+                name="Alto"
+                stackId="g"
+                fill={GRAVEDAD_COLORES.ALTO}
+                stroke="#fff"
+                strokeWidth={2}
+                radius={[4, 4, 0, 0]}
+                maxBarSize={60}
+                label={EtiquetaValorBarra}
+              />
             </BarChart>
           </ResponsiveContainer>
         </CardSection>
