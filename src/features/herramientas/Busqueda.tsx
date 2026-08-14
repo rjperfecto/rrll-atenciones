@@ -156,6 +156,9 @@ function ResultadoGrupoCard({ resultado }: { resultado: ResultadoGrupo }) {
         </p>
         {resultado.lider ? (
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+            {resultado.lider.legajo && (
+              <span className="font-mono text-xs text-neutral-400">{resultado.lider.legajo}</span>
+            )}
             <span className="text-sm font-medium text-neutral-800">{resultado.lider.nombre_completo}</span>
             <span className="text-sm">
               <TelefonoTexto telefono={resultado.lider.telefono} />
@@ -174,7 +177,10 @@ function ResultadoGrupoCard({ resultado }: { resultado: ResultadoGrupo }) {
         {resultado.soportes.length > 0 ? (
           <ul className="text-sm text-neutral-700 space-y-1">
             {resultado.soportes.map((p) => (
-              <li key={p.legajo}>{p.nombre_completo}</li>
+              <li key={p.legajo}>
+                <span className="font-mono text-xs text-neutral-400 mr-2">{p.legajo}</span>
+                {p.nombre_completo}
+              </li>
             ))}
           </ul>
         ) : (
@@ -188,9 +194,12 @@ function ResultadoGrupoCard({ resultado }: { resultado: ResultadoGrupo }) {
           Cosechadores ({resultado.cosechadores.length})
         </p>
         {resultado.cosechadores.length > 0 ? (
-          <ul className="text-sm text-neutral-700 space-y-1 columns-1 sm:columns-2">
+          <ul className="text-sm text-neutral-700 space-y-1">
             {resultado.cosechadores.map((p) => (
-              <li key={p.legajo}>{p.nombre_completo}</li>
+              <li key={p.legajo}>
+                <span className="font-mono text-xs text-neutral-400 mr-2">{p.legajo}</span>
+                {p.nombre_completo}
+              </li>
             ))}
           </ul>
         ) : (
