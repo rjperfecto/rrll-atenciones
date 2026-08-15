@@ -38,7 +38,7 @@ export function AtencionForm() {
   const metodos = useForm<AtencionFormValues>({
     resolver: zodResolver(atencionSchema),
     mode: 'onTouched',
-    defaultValues: { tipoRegistro: 'GENERAL', fecha: hoy(), zona: (profile?.zona_asignada as Zona | undefined) ?? undefined },
+    defaultValues: { tipoRegistro: 'COSECHA', fecha: hoy(), zona: (profile?.zona_asignada as Zona | undefined) ?? undefined },
   })
 
   const {
@@ -58,7 +58,7 @@ export function AtencionForm() {
     // confirmó en su momento); reset() sin argumentos sí limpia todo.
     reset()
     setValue('fecha', hoy())
-    setValue('tipoRegistro', 'GENERAL')
+    setValue('tipoRegistro', 'COSECHA')
     setFormKey((k) => k + 1)
   }
 
