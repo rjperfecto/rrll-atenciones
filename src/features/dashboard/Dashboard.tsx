@@ -30,7 +30,13 @@ import { PageHeader } from '@/components/ui/PageHeader'
 import { StatTile } from '@/components/ui/StatTile'
 import { GRAVEDAD_COLORES, ESTADO_COLORES } from '@/components/ui/Badge'
 import { ClipboardList, Clock, CheckCircle2, TrendingUp, Award, CalendarRange } from 'lucide-react'
+import { cn } from '@/lib/cn'
 import type { TipoRegistro } from '@/types'
+
+export interface OpcionTipoDashboard {
+  label: string
+  tipos: TipoRegistro[]
+}
 
 // Reemplaza la hoja "INDICADOR" del Excel: casos por zona, por gravedad, y
 // cruce zona x gravedad. Los totales se calculan en Supabase (RPC casos_por_*,
@@ -141,27 +147,34 @@ function EtiquetaValorPunto({ x, y, value }: LabelProps) {
   )
 }
 
-// Un solo componente reusado por las 3 rutas de Dashboard (Atenciones/
-// Cosecha/360 Laboral, ver App.tsx): cada una pasa su propio tipoRegistro,
-// los RPC ya filtran en el servidor por esa columna (y por semana, si hay filtro).
-export function Dashboard({ tipoRegistro, titulo }: { tipoRegistro: TipoRegistro; titulo: string }) {
+// Un solo componente reusado por las 2 rutas de Dashboard (Atenciones —
+// fusiona GENERAL+COSECHA con un selector interno TODOS/COSECHA — y 360
+// Laboral, ver App.tsx): opcionesTipo trae 1 opción fija (360 Laboral) o
+// varias (Atenciones), y solo se muestra el selector si hay más de una. Los
+// RPC filtran en el servidor por esa lista de tipos (y por semana, si hay filtro).
+export function Dashboard({ titulo, opcionesTipo }: { titulo: string; opcionesTipo: OpcionTipoDashboard[] }) {
   const [datos, setDatos] = useState<Datos | null>(null)
   const [cargando, setCargando] = useState(true)
   const [filtroSemana, setFiltroSemana] = useState<FiltroSemana | null>(null)
+  const [indiceTipo, setIndiceTipo] = useState(0)
+  const opcionTipo = opcionesTipo[indiceTipo] ?? opcionesTipo[0]
 
-  // Cambiar de Dashboard (Atenciones/Cosecha/360 Laboral) no debe arrastrar
-  // el filtro de semana del anterior.
+  // Cambiar de Dashboard (Atenciones/360 Laboral) o de opción TODOS/COSECHA
+  // no debe arrastrar el filtro de semana del anterior.
   useEffect(() => {
     setFiltroSemana(null)
-  }, [tipoRegistro])
+    setIndiceTipo(0)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [titulo])
 
   useEffect(() => {
     setCargando(true)
-    void obtenerReportesDashboard(tipoRegistro, filtroSemana).then((r) => {
+    void obtenerReportesDashboard(opcionTipo.tipos, filtroSemana).then((r) => {
       setDatos(r)
       setCargando(false)
     })
-  }, [tipoRegistro, filtroSemana])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [opcionTipo.tipos.join(','), filtroSemana])
 
   const porZona = useMemo(
     () => (datos ? datos.porZona.map((z) => ({ zona: z.zona, casos: z.casos })) : []),
@@ -241,6 +254,24 @@ export function Dashboard({ tipoRegistro, titulo }: { tipoRegistro: TipoRegistro
 
   return (
     <div>
+      {opcionesTipo.length > 1 && (
+        <div className="inline-flex rounded-lg border border-neutral-200 p-1 bg-neutral-50 mb-4">
+          {opcionesTipo.map((op, i) => (
+            <button
+              key={op.label}
+              type="button"
+              onClick={() => setIndiceTipo(i)}
+              className={cn(
+                'px-3 py-1.5 rounded-md text-sm font-medium transition-colors',
+                indiceTipo === i ? 'bg-white text-brand shadow-sm' : 'text-neutral-500',
+              )}
+            >
+              {op.label}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="flex flex-wrap items-start justify-between gap-3 mb-6">
         <PageHeader
           title={titulo}

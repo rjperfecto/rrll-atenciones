@@ -154,10 +154,6 @@ function AppLayout() {
             <LayoutDashboard className="size-4" />
             Atenciones
           </NavLink>
-          <NavLink to="/dashboard/cosecha" className={navClass} onClick={cerrarMenu}>
-            <LayoutDashboard className="size-4" />
-            Cosecha
-          </NavLink>
           <NavLink to="/dashboard/360-laboral" className={navClass} onClick={cerrarMenu}>
             <LayoutDashboard className="size-4" />
             360 Laboral
@@ -297,17 +293,32 @@ function AppLayout() {
             <Route path="/herramientas/busqueda" element={<Busqueda />} />
             <Route
               path="/dashboard/atenciones"
-              element={puedeVerZona ? <Dashboard tipoRegistro="GENERAL" titulo="Dashboard · Atenciones" /> : <Navigate to="/" />}
-            />
-            <Route
-              path="/dashboard/cosecha"
-              element={puedeVerZona ? <Dashboard tipoRegistro="COSECHA" titulo="Dashboard · Cosecha" /> : <Navigate to="/" />}
+              element={
+                puedeVerZona ? (
+                  <Dashboard
+                    titulo="Dashboard · Atenciones"
+                    opcionesTipo={[
+                      { label: 'Todos', tipos: ['GENERAL', 'COSECHA'] },
+                      { label: 'Cosecha', tipos: ['COSECHA'] },
+                    ]}
+                  />
+                ) : (
+                  <Navigate to="/" />
+                )
+              }
             />
             <Route
               path="/dashboard/360-laboral"
-              element={puedeVerZona ? <Dashboard tipoRegistro="360 LABORAL" titulo="Dashboard · 360 Laboral" /> : <Navigate to="/" />}
+              element={
+                puedeVerZona ? (
+                  <Dashboard titulo="Dashboard · 360 Laboral" opcionesTipo={[{ label: '360 Laboral', tipos: ['360 LABORAL'] }]} />
+                ) : (
+                  <Navigate to="/" />
+                )
+              }
             />
             <Route path="/dashboard" element={<Navigate to="/dashboard/atenciones" />} />
+            <Route path="/dashboard/cosecha" element={<Navigate to="/dashboard/atenciones" />} />
             <Route
               path="/admin/personal-fundo"
               element={profile.rol === 'ADMIN' ? <ImportarPersonal sede="FUNDO" /> : <Navigate to="/" />}

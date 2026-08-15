@@ -47,10 +47,13 @@ export interface FiltroSemana {
   semana: number
 }
 
-// Cada Dashboard (Atenciones/Cosecha/360 Laboral, ver App.tsx) es la misma
-// pantalla filtrada por tipo_registro (y opcionalmente por semana ISO).
+// Cada Dashboard (Atenciones+Cosecha fusionados, y 360 Laboral, ver App.tsx)
+// es la misma pantalla filtrada por una lista de tipo_registro (y
+// opcionalmente por semana ISO): el Dashboard de Atenciones tiene un
+// selector interno TODOS (GENERAL+COSECHA) / COSECHA, y pasa la lista
+// correspondiente acá.
 export async function obtenerReportesDashboard(
-  tipoRegistro: TipoRegistro,
+  tiposRegistro: TipoRegistro[],
   filtroSemana?: FiltroSemana | null,
 ): Promise<{
   porZona: CasosPorZona[]
@@ -65,20 +68,16 @@ export async function obtenerReportesDashboard(
   const p_semana = filtroSemana?.semana ?? null
 
   const [zona, gravedad, responsable, zonaGravedad, estado, semana] = await Promise.all([
-    supabase.rpc('casos_por_zona', { p_tipo_registro: tipoRegistro, p_anio, p_semana }),
-    supabase.rpc('casos_por_gravedad', { p_tipo_registro: tipoRegistro, p_anio, p_semana }),
-    supabase.rpc('casos_por_responsable_gravedad', { p_tipo_registro: tipoRegistro, p_anio, p_semana }),
-    supabase.rpc('casos_por_zona_gravedad', { p_tipo_registro: tipoRegistro, p_anio, p_semana }),
-    supabase.rpc('casos_por_estado', { p_tipo_registro: tipoRegistro, p_anio, p_semana }),
+    supabase.rpc('casos_por_zona', { p_tipos_registro: tiposRegistro, p_anio, p_semana }),
+    supabase.rpc('casos_por_gravedad', { p_tipos_registro: tiposRegistro, p_anio, p_semana }),
+    supabase.rpc('casos_por_responsable_gravedad', { p_tipos_registro: tiposRegistro, p_anio, p_semana }),
+    supabase.rpc('casos_por_zona_gravedad', { p_tipos_registro: tiposRegistro, p_anio, p_semana }),
+    supabase.rpc('casos_por_estado', { p_tipos_registro: tiposRegistro, p_anio, p_semana }),
     // La tendencia (últimas 12 semanas) no se filtra por semana: sirve de
-    // contexto y es la fuente de opciones del selector de semana.
-    supabase
-      .from('v_casos_por_semana')
-      .select('*')
-      .eq('tipo_registro', tipoRegistro)
-      .order('anio', { ascending: false })
-      .order('semana', { ascending: false })
-      .limit(12),
+    // contexto y es la fuente de opciones del selector de semana. Suma los
+    // tipos pedidos (no una fila por tipo), así que el corte a 12 semanas se
+    // hace acá (la función ya viene ordenada ascendente por año/semana).
+    supabase.rpc('casos_por_semana', { p_tipos_registro: tiposRegistro }),
   ])
   const error =
     zona.error?.message ??
@@ -94,7 +93,9 @@ export async function obtenerReportesDashboard(
     porResponsableGravedad: (responsable.data as CasosPorResponsableGravedad[]) ?? [],
     porZonaGravedad: (zonaGravedad.data as CasosPorZonaGravedad[]) ?? [],
     porEstado: (estado.data as CasosPorEstado[]) ?? [],
-    porSemana: ((semana.data as CasosPorSemana[]) ?? []).reverse(),
+    // La función devuelve todo el historial ascendente; el recorte a las
+    // últimas 12 semanas se hace acá (antes lo hacía el .limit(12) del view).
+    porSemana: ((semana.data as CasosPorSemana[]) ?? []).slice(-12),
     error,
   }
 }
