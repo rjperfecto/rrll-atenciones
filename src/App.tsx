@@ -88,20 +88,20 @@ function AppLayout() {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [menuAbierto])
 
-  // SUPERVISOR ve todo lo de su zona (no solo lo propio) gracias a RLS
-  // (ver migración 0020), igual que ADMIN ve todo sin restricción de zona:
-  // para las consultas del cliente ambos se tratan como "no acotar a lo
-  // propio". Administración (importar personal, crear usuarios, etc.) sigue
-  // siendo exclusivo de ADMIN.
-  const puedeVerTodo = profile?.rol === 'ADMIN' || profile?.rol === 'SUPERVISOR'
+  // Ver todo lo de tu zona (Atenciones, 360 Laboral, Dashboards) depende de
+  // tener zona_asignada, sin importar el rol — un CAMPO con zona asignada
+  // (ej. fcarmona en ZONA 1) ve todo lo de esa zona, no solo lo propio (ver
+  // migración 0021). ADMIN ve todo sin restricción de zona. Administración
+  // (importar personal, crear usuarios, etc.) sigue siendo exclusivo de ADMIN.
   const esAdmin = profile?.rol === 'ADMIN'
+  const puedeVerZona = esAdmin || profile?.rol === 'SUPERVISOR' || Boolean(profile?.zona_asignada)
 
   // La campanita muestra un conteo real de pendientes (no un adorno): mismo
   // dato que la tarjeta "Pendientes" del Dashboard de Atenciones, consultado
   // liviano (count exacto sin traer filas) para no pesar en cada pantalla.
   useEffect(() => {
     if (!profile) return
-    void contarPendientes(profile.id, puedeVerTodo).then(setPendientes)
+    void contarPendientes(profile.id, puedeVerZona).then(setPendientes)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile])
 
@@ -148,7 +148,7 @@ function AppLayout() {
         </NavLink>
       </GrupoNav>
 
-      {puedeVerTodo && (
+      {puedeVerZona && (
         <GrupoNav titulo="Dashboards">
           <NavLink to="/dashboard/atenciones" className={navClass} onClick={cerrarMenu}>
             <LayoutDashboard className="size-4" />
@@ -297,15 +297,15 @@ function AppLayout() {
             <Route path="/herramientas/busqueda" element={<Busqueda />} />
             <Route
               path="/dashboard/atenciones"
-              element={puedeVerTodo ? <Dashboard tipoRegistro="GENERAL" titulo="Dashboard · Atenciones" /> : <Navigate to="/" />}
+              element={puedeVerZona ? <Dashboard tipoRegistro="GENERAL" titulo="Dashboard · Atenciones" /> : <Navigate to="/" />}
             />
             <Route
               path="/dashboard/cosecha"
-              element={puedeVerTodo ? <Dashboard tipoRegistro="COSECHA" titulo="Dashboard · Cosecha" /> : <Navigate to="/" />}
+              element={puedeVerZona ? <Dashboard tipoRegistro="COSECHA" titulo="Dashboard · Cosecha" /> : <Navigate to="/" />}
             />
             <Route
               path="/dashboard/360-laboral"
-              element={puedeVerTodo ? <Dashboard tipoRegistro="360 LABORAL" titulo="Dashboard · 360 Laboral" /> : <Navigate to="/" />}
+              element={puedeVerZona ? <Dashboard tipoRegistro="360 LABORAL" titulo="Dashboard · 360 Laboral" /> : <Navigate to="/" />}
             />
             <Route path="/dashboard" element={<Navigate to="/dashboard/atenciones" />} />
             <Route

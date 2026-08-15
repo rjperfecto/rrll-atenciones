@@ -54,8 +54,11 @@ export function CompromisosList() {
   const [errorCarga, setErrorCarga] = useState<string | null>(null)
   const [eliminandoId, setEliminandoId] = useState<string | null>(null)
 
-  const puedeVerTodo = profile?.rol === 'ADMIN' || profile?.rol === 'SUPERVISOR'
-  const puedeEliminar = puedeVerTodo
+  // Ver todo lo de tu zona depende de tener zona_asignada, sin importar el
+  // rol (ver migración 0021) — un CAMPO con zona ve todo lo de esa zona, no
+  // solo lo propio. Eliminar sigue siendo solo ADMIN/SUPERVISOR.
+  const puedeVerTodo = profile?.rol === 'ADMIN' || profile?.rol === 'SUPERVISOR' || Boolean(profile?.zona_asignada)
+  const puedeEliminar = profile?.rol === 'ADMIN' || profile?.rol === 'SUPERVISOR'
 
   useEffect(() => {
     const t = setTimeout(() => setBusquedaDebounced(busqueda), 400)

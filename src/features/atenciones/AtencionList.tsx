@@ -56,10 +56,11 @@ export function AtencionList() {
   const [errorCarga, setErrorCarga] = useState<string | null>(null)
   const [eliminandoId, setEliminandoId] = useState<string | null>(null)
 
-  // SUPERVISOR ve/elimina todo lo de su zona (no solo lo propio), gracias a
-  // RLS (migración 0020) — igual que ADMIN ve todo sin restricción de zona.
-  const puedeVerTodo = profile?.rol === 'ADMIN' || profile?.rol === 'SUPERVISOR'
-  const puedeEliminar = puedeVerTodo
+  // Ver todo lo de tu zona depende de tener zona_asignada, sin importar el
+  // rol (ver migración 0021) — un CAMPO con zona ve todo lo de esa zona, no
+  // solo lo propio. Eliminar sigue siendo solo ADMIN/SUPERVISOR.
+  const puedeVerTodo = profile?.rol === 'ADMIN' || profile?.rol === 'SUPERVISOR' || Boolean(profile?.zona_asignada)
+  const puedeEliminar = profile?.rol === 'ADMIN' || profile?.rol === 'SUPERVISOR'
 
   // Debounce del texto libre: evita disparar una consulta por cada tecla.
   useEffect(() => {
