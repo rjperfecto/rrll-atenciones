@@ -13,6 +13,7 @@ import {
   Search,
   Sprout,
   UserCheck,
+  UserPlus,
   Users,
   Wifi,
   WifiOff,
@@ -29,6 +30,7 @@ import { Dashboard } from '@/features/dashboard/Dashboard'
 import { ImportarPersonal } from '@/features/admin/ImportarPersonal'
 import { ImportarAfiliados } from '@/features/admin/ImportarAfiliados'
 import { PersonalPorZona } from '@/features/admin/PersonalPorZona'
+import { CrearUsuario } from '@/features/admin/CrearUsuario'
 import { contarPendientes } from '@/lib/atencionesApi'
 import { cn } from '@/lib/cn'
 
@@ -86,12 +88,21 @@ function AppLayout() {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [menuAbierto])
 
+  // SUPERVISOR ve todo lo de su zona (no solo lo propio) gracias a RLS
+  // (ver migración 0020), igual que ADMIN ve todo sin restricción de zona:
+  // para las consultas del cliente ambos se tratan como "no acotar a lo
+  // propio". Administración (importar personal, crear usuarios, etc.) sigue
+  // siendo exclusivo de ADMIN.
+  const puedeVerTodo = profile?.rol === 'ADMIN' || profile?.rol === 'SUPERVISOR'
+  const esAdmin = profile?.rol === 'ADMIN'
+
   // La campanita muestra un conteo real de pendientes (no un adorno): mismo
   // dato que la tarjeta "Pendientes" del Dashboard de Atenciones, consultado
   // liviano (count exacto sin traer filas) para no pesar en cada pantalla.
   useEffect(() => {
     if (!profile) return
-    void contarPendientes(profile.id, profile.rol === 'ADMIN').then(setPendientes)
+    void contarPendientes(profile.id, puedeVerTodo).then(setPendientes)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile])
 
   if (!profile) return <LoginPage />
@@ -137,23 +148,25 @@ function AppLayout() {
         </NavLink>
       </GrupoNav>
 
-      {profile.rol === 'ADMIN' && (
-        <>
-          <GrupoNav titulo="Dashboards">
-            <NavLink to="/dashboard/atenciones" className={navClass} onClick={cerrarMenu}>
-              <LayoutDashboard className="size-4" />
-              Atenciones
-            </NavLink>
-            <NavLink to="/dashboard/cosecha" className={navClass} onClick={cerrarMenu}>
-              <LayoutDashboard className="size-4" />
-              Cosecha
-            </NavLink>
-            <NavLink to="/dashboard/360-laboral" className={navClass} onClick={cerrarMenu}>
-              <LayoutDashboard className="size-4" />
-              360 Laboral
-            </NavLink>
-          </GrupoNav>
+      {puedeVerTodo && (
+        <GrupoNav titulo="Dashboards">
+          <NavLink to="/dashboard/atenciones" className={navClass} onClick={cerrarMenu}>
+            <LayoutDashboard className="size-4" />
+            Atenciones
+          </NavLink>
+          <NavLink to="/dashboard/cosecha" className={navClass} onClick={cerrarMenu}>
+            <LayoutDashboard className="size-4" />
+            Cosecha
+          </NavLink>
+          <NavLink to="/dashboard/360-laboral" className={navClass} onClick={cerrarMenu}>
+            <LayoutDashboard className="size-4" />
+            360 Laboral
+          </NavLink>
+        </GrupoNav>
+      )}
 
+      {esAdmin && (
+        <>
           <GrupoNav titulo="Administración">
             <NavLink to="/admin/personal-fundo" className={navClass} onClick={cerrarMenu}>
               <Users className="size-4" />
@@ -170,6 +183,10 @@ function AppLayout() {
             <NavLink to="/admin/personal-zona" className={navClass} onClick={cerrarMenu}>
               <MapPinned className="size-4" />
               Personal por zona
+            </NavLink>
+            <NavLink to="/admin/crear-usuario" className={navClass} onClick={cerrarMenu}>
+              <UserPlus className="size-4" />
+              Crear usuario
             </NavLink>
           </GrupoNav>
         </>
@@ -280,15 +297,15 @@ function AppLayout() {
             <Route path="/herramientas/busqueda" element={<Busqueda />} />
             <Route
               path="/dashboard/atenciones"
-              element={profile.rol === 'ADMIN' ? <Dashboard tipoRegistro="GENERAL" titulo="Dashboard · Atenciones" /> : <Navigate to="/" />}
+              element={puedeVerTodo ? <Dashboard tipoRegistro="GENERAL" titulo="Dashboard · Atenciones" /> : <Navigate to="/" />}
             />
             <Route
               path="/dashboard/cosecha"
-              element={profile.rol === 'ADMIN' ? <Dashboard tipoRegistro="COSECHA" titulo="Dashboard · Cosecha" /> : <Navigate to="/" />}
+              element={puedeVerTodo ? <Dashboard tipoRegistro="COSECHA" titulo="Dashboard · Cosecha" /> : <Navigate to="/" />}
             />
             <Route
               path="/dashboard/360-laboral"
-              element={profile.rol === 'ADMIN' ? <Dashboard tipoRegistro="360 LABORAL" titulo="Dashboard · 360 Laboral" /> : <Navigate to="/" />}
+              element={puedeVerTodo ? <Dashboard tipoRegistro="360 LABORAL" titulo="Dashboard · 360 Laboral" /> : <Navigate to="/" />}
             />
             <Route path="/dashboard" element={<Navigate to="/dashboard/atenciones" />} />
             <Route
@@ -306,6 +323,10 @@ function AppLayout() {
             <Route
               path="/admin/personal-zona"
               element={profile.rol === 'ADMIN' ? <PersonalPorZona /> : <Navigate to="/" />}
+            />
+            <Route
+              path="/admin/crear-usuario"
+              element={profile.rol === 'ADMIN' ? <CrearUsuario /> : <Navigate to="/" />}
             />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>

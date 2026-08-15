@@ -12,9 +12,10 @@ import {
   RefreshCw,
   Search,
   SearchX,
+  Trash2,
   X,
 } from 'lucide-react'
-import { listarAtencionesPaginado, listarAtencionesParaExportar, type FiltrosAtenciones } from '@/lib/atencionesApi'
+import { listarAtencionesPaginado, listarAtencionesParaExportar, eliminarAtencion, type FiltrosAtenciones } from '@/lib/atencionesApi'
 import { exportarAtencionesCsv } from '@/lib/exportCsv'
 import { useAuth } from '@/features/auth/AuthContext'
 import { CerrarCasoModal } from './CerrarCasoModal'
@@ -53,6 +54,12 @@ export function AtencionList() {
   const [cargando, setCargando] = useState(false)
   const [exportando, setExportando] = useState(false)
   const [errorCarga, setErrorCarga] = useState<string | null>(null)
+  const [eliminandoId, setEliminandoId] = useState<string | null>(null)
+
+  // SUPERVISOR ve/elimina todo lo de su zona (no solo lo propio), gracias a
+  // RLS (migración 0020) — igual que ADMIN ve todo sin restricción de zona.
+  const puedeVerTodo = profile?.rol === 'ADMIN' || profile?.rol === 'SUPERVISOR'
+  const puedeEliminar = puedeVerTodo
 
   // Debounce del texto libre: evita disparar una consulta por cada tecla.
   useEffect(() => {
@@ -78,7 +85,7 @@ export function AtencionList() {
     setCargando(true)
     const { data, total: totalNuevo, error } = await listarAtencionesPaginado(
       profile.id,
-      profile.rol === 'ADMIN',
+      puedeVerTodo,
       JSON.parse(filtrosClave),
       pagina,
       PAGE_SIZE,
@@ -126,10 +133,25 @@ export function AtencionList() {
     }
   }
 
+  async function eliminar(a: Atencion) {
+    const confirmado = window.confirm(
+      `¿Eliminar esta atención (${a.fecha} · ${a.involucrados[0]?.nombre_completo ?? 'sin nombre'})? Esta acción no se puede deshacer.`,
+    )
+    if (!confirmado) return
+    setEliminandoId(a.id)
+    const { error } = await eliminarAtencion(a.id)
+    setEliminandoId(null)
+    if (error) {
+      window.alert(`No se pudo eliminar: ${error}`)
+      return
+    }
+    void cargarAtenciones()
+  }
+
   async function exportar() {
     if (!profile) return
     setExportando(true)
-    const { data, error } = await listarAtencionesParaExportar(profile.id, profile.rol === 'ADMIN', filtros, TIPOS_REGISTRO_PRINCIPAL)
+    const { data, error } = await listarAtencionesParaExportar(profile.id, puedeVerTodo, filtros, TIPOS_REGISTRO_PRINCIPAL)
     if (!error) exportarAtencionesCsv(data)
     setExportando(false)
   }
@@ -297,6 +319,12 @@ export function AtencionList() {
                       <Button onClick={() => setCerrando(a)}>
                         <CheckCircle2 className="size-4" />
                         Cerrar caso
+                      </Button>
+                    )}
+                    {puedeEliminar && (
+                      <Button variant="danger" onClick={() => eliminar(a)} loading={eliminandoId === a.id} className="ml-auto">
+                        <Trash2 className="size-4" />
+                        Eliminar
                       </Button>
                     )}
                   </div>

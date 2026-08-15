@@ -112,6 +112,15 @@ export async function crearAtencion(atencion: Atencion): Promise<{ error: string
   return { error: error?.message ?? null }
 }
 
+// Elimina un caso (Atención o caminata 360 Laboral) definitivamente. Solo
+// ADMIN (cualquier zona) y SUPERVISOR (su propia zona) tienen permiso vía
+// RLS (migración 0020) — antes no existía policy de delete, nadie podía
+// borrar desde el cliente.
+export async function eliminarAtencion(id: string): Promise<{ error: string | null }> {
+  const { error } = await supabase.from('atenciones').delete().eq('id', id)
+  return { error: error?.message ?? null }
+}
+
 export async function cerrarCasoAtencion(
   id: string,
   cambios: Pick<Atencion, 'estado' | 'accion_correctiva' | 'dias_suspension' | 'detalle_cierre' | 'fecha_cierre' | 'updated_at'>,

@@ -14,9 +14,10 @@ import {
   RefreshCw,
   Search,
   SearchX,
+  Trash2,
   X,
 } from 'lucide-react'
-import { listarAtencionesPaginado, listarAtencionesParaExportar, type FiltrosAtenciones } from '@/lib/atencionesApi'
+import { listarAtencionesPaginado, listarAtencionesParaExportar, eliminarAtencion, type FiltrosAtenciones } from '@/lib/atencionesApi'
 import { exportar360LaboralCsv } from '@/lib/exportCsv'
 import { useAuth } from '@/features/auth/AuthContext'
 import { CerrarCompromisoModal } from './CerrarCompromisoModal'
@@ -51,6 +52,10 @@ export function CompromisosList() {
   const [cargando, setCargando] = useState(false)
   const [exportando, setExportando] = useState(false)
   const [errorCarga, setErrorCarga] = useState<string | null>(null)
+  const [eliminandoId, setEliminandoId] = useState<string | null>(null)
+
+  const puedeVerTodo = profile?.rol === 'ADMIN' || profile?.rol === 'SUPERVISOR'
+  const puedeEliminar = puedeVerTodo
 
   useEffect(() => {
     const t = setTimeout(() => setBusquedaDebounced(busqueda), 400)
@@ -74,7 +79,7 @@ export function CompromisosList() {
     setCargando(true)
     const { data, total: totalNuevo, error } = await listarAtencionesPaginado(
       profile.id,
-      profile.rol === 'ADMIN',
+      puedeVerTodo,
       JSON.parse(filtrosClave),
       pagina,
       PAGE_SIZE,
@@ -117,10 +122,23 @@ export function CompromisosList() {
     }
   }
 
+  async function eliminar(a: Atencion) {
+    const confirmado = window.confirm(`¿Eliminar esta caminata 360 (${a.fecha})? Esta acción no se puede deshacer.`)
+    if (!confirmado) return
+    setEliminandoId(a.id)
+    const { error } = await eliminarAtencion(a.id)
+    setEliminandoId(null)
+    if (error) {
+      window.alert(`No se pudo eliminar: ${error}`)
+      return
+    }
+    void cargar()
+  }
+
   async function exportar() {
     if (!profile) return
     setExportando(true)
-    const { data, error } = await listarAtencionesParaExportar(profile.id, profile.rol === 'ADMIN', filtros, TIPOS_BASE)
+    const { data, error } = await listarAtencionesParaExportar(profile.id, puedeVerTodo, filtros, TIPOS_BASE)
     if (!error) exportar360LaboralCsv(data)
     setExportando(false)
   }
@@ -287,6 +305,12 @@ export function CompromisosList() {
                         <Button onClick={() => setCerrando(a)}>
                           <Clock className="size-4" />
                           Cerrar compromiso
+                        </Button>
+                      )}
+                      {puedeEliminar && (
+                        <Button variant="danger" onClick={() => eliminar(a)} loading={eliminandoId === a.id} className="ml-auto">
+                          <Trash2 className="size-4" />
+                          Eliminar
                         </Button>
                       )}
                     </div>
