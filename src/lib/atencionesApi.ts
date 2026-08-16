@@ -6,7 +6,9 @@ import type { Atencion } from '@/types'
 
 export interface FiltrosAtenciones {
   busqueda?: string
-  tipoRegistro?: string
+  // Ya no se divide Registrar entre GENERAL/COSECHA (ver migración 0025):
+  // Cosecha se filtra por Área, no por tipo_registro.
+  area?: string
   estado?: string
   zona?: string
   desde?: string
@@ -16,15 +18,15 @@ export interface FiltrosAtenciones {
 // El buscador cubre nombre/DNI/legajo (dentro del jsonb involucrados, que
 // siempre tiene un solo elemento), fundo, grupo y subcategoria. Se quitan
 // coma/parentesis del texto porque rompen la sintaxis de .or() de PostgREST.
-// tiposBase acota el módulo que hace la consulta (Atenciones: GENERAL/
-// COSECHA; Compromisos: 360 LABORAL) — no es un filtro que elige el
-// usuario, es el alcance fijo de esa pantalla.
+// tiposBase acota el módulo que hace la consulta (Atenciones: GENERAL;
+// Compromisos: 360 LABORAL) — no es un filtro que elige el usuario, es el
+// alcance fijo de esa pantalla.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function aplicarFiltros(query: any, responsableId: string, isAdmin: boolean, filtros: FiltrosAtenciones, tiposBase?: string[]) {
   let q = query
   if (!isAdmin) q = q.eq('responsable_id', responsableId)
   if (tiposBase) q = q.in('tipo_registro', tiposBase)
-  if (filtros.tipoRegistro) q = q.eq('tipo_registro', filtros.tipoRegistro)
+  if (filtros.area) q = q.ilike('area', `%${filtros.area}%`)
   if (filtros.estado) q = q.eq('estado', filtros.estado)
   if (filtros.zona) q = q.eq('zona', filtros.zona)
   if (filtros.desde) q = q.gte('fecha', filtros.desde)

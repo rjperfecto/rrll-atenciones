@@ -46,7 +46,7 @@ export function AtencionList() {
   const [editando, setEditando] = useState<Atencion | null>(null)
   const [busqueda, setBusqueda] = useState(() => searchParams.get('q') ?? '')
   const [busquedaDebounced, setBusquedaDebounced] = useState(() => searchParams.get('q') ?? '')
-  const [filtroTipoRegistro, setFiltroTipoRegistro] = useState('')
+  const [filtroArea, setFiltroArea] = useState('')
   const [filtroEstado, setFiltroEstado] = useState(() => searchParams.get('estado') ?? '')
   const [filtroZona, setFiltroZona] = useState('')
   const [filtroDesde, setFiltroDesde] = useState('')
@@ -77,7 +77,7 @@ export function AtencionList() {
 
   const filtros: FiltrosAtenciones = {
     busqueda: busquedaDebounced || undefined,
-    tipoRegistro: filtroTipoRegistro || undefined,
+    area: filtroArea || undefined,
     estado: filtroEstado || undefined,
     zona: filtroZona || undefined,
     desde: filtroDesde || undefined,
@@ -111,10 +111,10 @@ export function AtencionList() {
 
   const totalPaginas = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const hayFiltrosActivos = Boolean(
-    busqueda || filtroTipoRegistro || filtroEstado || filtroZona || filtroDesde || filtroHasta,
+    busqueda || filtroArea || filtroEstado || filtroZona || filtroDesde || filtroHasta,
   )
   const estadoBusqueda = estadoDeCampo(busqueda)
-  const estadoFiltroTipoRegistro = estadoDeCampo(filtroTipoRegistro)
+  const estadoFiltroArea = estadoDeCampo(filtroArea)
   const estadoFiltroEstado = estadoDeCampo(filtroEstado)
   const estadoFiltroZona = estadoDeCampo(filtroZona)
   const estadoDesde = estadoDeCampo(filtroDesde, mensajeRango)
@@ -123,7 +123,7 @@ export function AtencionList() {
   function limpiarFiltros() {
     setBusqueda('')
     setBusquedaDebounced('')
-    setFiltroTipoRegistro('')
+    setFiltroArea('')
     setFiltroEstado('')
     setFiltroZona('')
     setFiltroDesde('')
@@ -216,18 +216,13 @@ export function AtencionList() {
               />
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-              <select
-                value={filtroTipoRegistro}
-                onChange={(e) => actualizarFiltro(setFiltroTipoRegistro)(e.target.value)}
-                className={cn('input', CLASE_INPUT_POR_ESTADO[estadoFiltroTipoRegistro])}
-              >
-                <option value="">Todo tipo de registro</option>
-                {TIPOS_REGISTRO_PRINCIPAL.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
+              <input
+                type="text"
+                value={filtroArea}
+                onChange={(e) => actualizarFiltro(setFiltroArea)(e.target.value)}
+                placeholder="Área (ej. Cosecha)"
+                className={cn('input', CLASE_INPUT_POR_ESTADO[estadoFiltroArea])}
+              />
               <select
                 value={filtroZona}
                 onChange={(e) => actualizarFiltro(setFiltroZona)(e.target.value)}
@@ -306,7 +301,7 @@ export function AtencionList() {
                     <span className="text-sm font-medium text-neutral-900">{a.fecha}</span>
                     <span className="text-xs text-neutral-500">{a.zona}</span>
                     {a.fundo && <span className="text-xs text-neutral-500">· {a.fundo}</span>}
-                    <span className="text-xs font-medium text-navy bg-navy-soft px-1.5 py-0.5 rounded">{a.tipo_registro}</span>
+                    {a.area && <span className="text-xs font-medium text-navy bg-navy-soft px-1.5 py-0.5 rounded">{a.area}</span>}
                     <span className="ml-auto flex items-center gap-2">
                       <GravedadBadge gravedad={a.gravedad} />
                       <EstadoBadge estado={a.estado} />

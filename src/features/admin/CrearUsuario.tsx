@@ -66,7 +66,7 @@ export function CrearUsuario() {
               type="text"
               autoCapitalize="none"
               autoCorrect="off"
-              placeholder="ej. jperez"
+              placeholder="jperez"
               required
               value={usuario}
               onChange={(e) => setUsuario(e.target.value)}
@@ -77,7 +77,7 @@ export function CrearUsuario() {
           <Field label="Contraseña">
             <input
               type="text"
-              placeholder="ej. su DNI"
+              placeholder="su DNI"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -88,7 +88,7 @@ export function CrearUsuario() {
           <Field label="Nombre completo">
             <input
               type="text"
-              placeholder="ej. JUAN PÉREZ LÓPEZ"
+              placeholder="JUAN PÉREZ LÓPEZ"
               required
               value={nombreCompleto}
               onChange={(e) => setNombreCompleto(e.target.value)}

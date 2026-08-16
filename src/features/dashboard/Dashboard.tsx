@@ -36,6 +36,9 @@ import type { TipoRegistro } from '@/types'
 export interface OpcionTipoDashboard {
   label: string
   tipos: TipoRegistro[]
+  // Ya no se divide Registrar entre GENERAL/COSECHA (ver migración 0025):
+  // Cosecha se distingue filtrando por Área, no por tipo_registro.
+  area?: string
 }
 
 // Reemplaza la hoja "INDICADOR" del Excel: casos por zona, por gravedad, y
@@ -169,12 +172,12 @@ export function Dashboard({ titulo, opcionesTipo }: { titulo: string; opcionesTi
 
   useEffect(() => {
     setCargando(true)
-    void obtenerReportesDashboard(opcionTipo.tipos, filtroSemana).then((r) => {
+    void obtenerReportesDashboard(opcionTipo.tipos, filtroSemana, opcionTipo.area).then((r) => {
       setDatos(r)
       setCargando(false)
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [opcionTipo.tipos.join(','), filtroSemana])
+  }, [opcionTipo.tipos.join(','), opcionTipo.area, filtroSemana])
 
   const porZona = useMemo(
     () => (datos ? datos.porZona.map((z) => ({ zona: z.zona, casos: z.casos })) : []),

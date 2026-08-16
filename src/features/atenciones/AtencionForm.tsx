@@ -4,7 +4,6 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { AlertCircle, CalendarDays, CheckCircle2, Loader2 } from 'lucide-react'
 import { atencionSchema, type AtencionFormValues } from './atencionSchema'
 import { gravedadDe } from '@/data/categorizacion'
-import { TIPOS_REGISTRO_PRINCIPAL } from '@/data/tipoRegistro'
 import { supRrllPorZona } from '@/data/supervisoresRrll'
 import { moduloDesdeFundo } from '@/lib/modulo'
 import { dniDesdeLegajo } from '@/data/legajo'
@@ -32,13 +31,15 @@ export function AtencionForm() {
   // limpia también el estado local propio (búsqueda de legajo, etc.).
   const [formKey, setFormKey] = useState(0)
 
-  // Si el usuario logueado tiene Zona fija (Administración > Personal por
-  // zona), el formulario ya arranca con esa zona (el campo queda deshabilitado
-  // en FormularioGeneral, ver zonaUsuario ahí).
+  // Ya no se pregunta GENERAL/COSECHA al registrar: tipoRegistro queda fijo
+  // internamente en 'GENERAL' (Cosecha se distingue por el campo Área, ver
+  // Dashboard/AtencionList). Si el usuario logueado tiene Zona fija
+  // (Administración > Personal por zona), el formulario ya arranca con esa
+  // zona (el campo queda deshabilitado en FormularioGeneral, ver zonaUsuario ahí).
   const metodos = useForm<AtencionFormValues>({
     resolver: zodResolver(atencionSchema),
     mode: 'onTouched',
-    defaultValues: { tipoRegistro: 'COSECHA', fecha: hoy(), zona: (profile?.zona_asignada as Zona | undefined) ?? undefined },
+    defaultValues: { tipoRegistro: 'GENERAL', fecha: hoy(), zona: (profile?.zona_asignada as Zona | undefined) ?? undefined },
   })
 
   const {
@@ -51,14 +52,14 @@ export function AtencionForm() {
   } = metodos
 
   const valores = watch()
-  const { tipoRegistro, fecha } = valores
+  const { fecha } = valores
 
   function limpiarFormulario() {
     // reset(valoresParciales) no limpia los campos no incluidos (se probó y
     // confirmó en su momento); reset() sin argumentos sí limpia todo.
     reset()
     setValue('fecha', hoy())
-    setValue('tipoRegistro', 'COSECHA')
+    setValue('tipoRegistro', 'GENERAL')
     setFormKey((k) => k + 1)
   }
 
@@ -151,27 +152,6 @@ export function AtencionForm() {
               {errorGuardado}
             </div>
           )}
-
-          <div className="grid grid-cols-2 gap-2" role="tablist" aria-label="Tipo de registro">
-            {TIPOS_REGISTRO_PRINCIPAL.map((t) => (
-              <button
-                key={t}
-                type="button"
-                role="tab"
-                aria-selected={tipoRegistro === t}
-                onClick={() => setValue('tipoRegistro', t)}
-                className={cn(
-                  'rounded-lg border py-2.5 text-sm font-semibold text-center transition-all duration-200',
-                  tipoRegistro === t
-                    ? 'bg-brand text-white border-brand shadow-sm'
-                    : 'bg-white text-navy border-neutral-200 hover:border-brand/40',
-                )}
-              >
-                {t}
-              </button>
-            ))}
-          </div>
-          {errors.tipoRegistro && <p className="text-xs text-danger -mt-2">{String(errors.tipoRegistro.message)}</p>}
 
           <CardSection title="Fecha" icon={<CalendarDays className="size-4 text-brand" />}>
             <Field label="Fecha del caso" value={fecha} error={errors.fecha?.message}>

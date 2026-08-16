@@ -321,7 +321,7 @@ export function RegistrarCaminata() {
                   type="text"
                   inputMode="numeric"
                   maxLength={10}
-                  placeholder="ej. 1012345678"
+                  placeholder="1012345678"
                   {...register('legajoSupervisor', { onChange: () => setBusqueda('idle') })}
                   className={cn('input', CLASE_INPUT_POR_ESTADO[estadoLegajo], estadoLegajo !== 'neutral' && 'pl-9')}
                 />
@@ -418,7 +418,7 @@ export function RegistrarCaminata() {
               </Field>
             ) : (
               <Field label="Fundo" value={fundo} error={errors.fundo?.message} hint={moduloDetectado ? `Módulo detectado: ${moduloDetectado}` : undefined}>
-                <input type="text" placeholder="ej. REM 2-W" {...conMayusculas(register('fundo'))} className="input" />
+                <input type="text" placeholder="REM 2-W" {...conMayusculas(register('fundo'))} className="input" />
               </Field>
             )}
           </div>

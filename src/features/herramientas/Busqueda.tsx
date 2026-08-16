@@ -112,7 +112,7 @@ export function Busqueda() {
               type="text"
               value={valor}
               onChange={(e) => setValor(e.target.value)}
-              placeholder={modo === 'GRUPO' ? 'ej. CH67, CH01, ZS298' : 'ej. 1076432706'}
+              placeholder={modo === 'GRUPO' ? 'CH67, CH01, ZS298' : '1076432706'}
               className="input flex-1"
               autoCapitalize={modo === 'GRUPO' ? 'characters' : 'none'}
             />

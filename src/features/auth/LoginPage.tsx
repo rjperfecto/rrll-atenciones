@@ -51,7 +51,7 @@ export function LoginPage() {
                 type="text"
                 autoCapitalize="none"
                 autoCorrect="off"
-                placeholder="ej. rperfecto"
+                placeholder="rperfecto"
                 required
                 value={usuario}
                 onChange={(e) => setUsuario(e.target.value)}

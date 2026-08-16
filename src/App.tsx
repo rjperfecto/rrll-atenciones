@@ -298,8 +298,8 @@ function AppLayout() {
                   <Dashboard
                     titulo="Dashboard · Atenciones"
                     opcionesTipo={[
-                      { label: 'Todos', tipos: ['GENERAL', 'COSECHA'] },
-                      { label: 'Cosecha', tipos: ['COSECHA'] },
+                      { label: 'Todos', tipos: ['GENERAL'] },
+                      { label: 'Cosecha', tipos: ['GENERAL'], area: 'COSECHA' },
                     ]}
                   />
                 ) : (

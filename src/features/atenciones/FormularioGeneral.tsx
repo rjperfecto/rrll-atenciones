@@ -125,7 +125,7 @@ export function FormularioGeneral() {
                 type="text"
                 inputMode="numeric"
                 maxLength={10}
-                placeholder="ej. 1012345678"
+                placeholder="1012345678"
                 {...register('legajo', {
                   onChange: () => {
                     setBusqueda('idle')
@@ -168,7 +168,7 @@ export function FormularioGeneral() {
         </div>
 
         <Field label="Nombre completo" value={valores.nombreInvolucrado} error={errors.nombreInvolucrado?.message}>
-          <input type="text" placeholder="EJ. JUAN PÉREZ LÓPEZ" {...conMayusculas(register('nombreInvolucrado'))} className="input" />
+          <input type="text" placeholder="JUAN PÉREZ LÓPEZ" {...conMayusculas(register('nombreInvolucrado'))} className="input" />
         </Field>
 
         <div>
@@ -213,15 +213,15 @@ export function FormularioGeneral() {
             </select>
           </Field>
           <Field label="Fundo" value={fundo} hint={modulo ? `Módulo detectado: ${modulo}` : undefined}>
-            <input type="text" placeholder="ej. REM 2-W" {...conMayusculas(register('fundo'))} className="input" />
+            <input type="text" placeholder="REM 2-W" {...conMayusculas(register('fundo'))} className="input" />
           </Field>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Field label="Grupo / cuadrilla" value={valores.grupo}>
-            <input type="text" placeholder="ej. CH12" {...conMayusculas(register('grupo'))} className="input" />
+            <input type="text" placeholder="CH12" {...conMayusculas(register('grupo'))} className="input" />
           </Field>
           <Field label="Área" value={valores.area}>
-            <input type="text" placeholder="ej. COSECHA" {...conMayusculas(register('area'))} className="input" />
+            <input type="text" placeholder="COSECHA" {...conMayusculas(register('area'))} className="input" />
           </Field>
         </div>
         <Field label="Líder de Cosecha" value={valores.supCuadrilla}>
