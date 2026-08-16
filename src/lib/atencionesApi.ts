@@ -26,7 +26,7 @@ function aplicarFiltros(query: any, responsableId: string, isAdmin: boolean, fil
   let q = query
   if (!isAdmin) q = q.eq('responsable_id', responsableId)
   if (tiposBase) q = q.in('tipo_registro', tiposBase)
-  if (filtros.area) q = q.ilike('area', `%${filtros.area}%`)
+  if (filtros.area) q = q.eq('area', filtros.area)
   if (filtros.estado) q = q.eq('estado', filtros.estado)
   if (filtros.zona) q = q.eq('zona', filtros.zona)
   if (filtros.desde) q = q.gte('fecha', filtros.desde)

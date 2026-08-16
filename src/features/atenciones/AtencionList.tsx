@@ -23,6 +23,7 @@ import { CerrarCasoModal } from './CerrarCasoModal'
 import { DetalleAtencionModal } from './DetalleAtencionModal'
 import { EditarAtencionModal } from './EditarAtencionModal'
 import { ZONAS } from '@/data/zonasFundos'
+import { AREAS } from '@/data/areas'
 import { TIPOS_REGISTRO_PRINCIPAL } from '@/data/tipoRegistro'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -216,13 +217,18 @@ export function AtencionList() {
               />
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-              <input
-                type="text"
+              <select
                 value={filtroArea}
                 onChange={(e) => actualizarFiltro(setFiltroArea)(e.target.value)}
-                placeholder="Área (ej. Cosecha)"
                 className={cn('input', CLASE_INPUT_POR_ESTADO[estadoFiltroArea])}
-              />
+              >
+                <option value="">Toda área</option>
+                {AREAS.map((a) => (
+                  <option key={a} value={a}>
+                    {a}
+                  </option>
+                ))}
+              </select>
               <select
                 value={filtroZona}
                 onChange={(e) => actualizarFiltro(setFiltroZona)(e.target.value)}
