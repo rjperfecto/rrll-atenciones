@@ -1,9 +1,11 @@
+import { utils, writeFile } from 'xlsx'
 import type { Atencion } from '@/types'
 import { semanaIso } from './semana'
 
-// CSV en vez de una librería de .xlsx: evita dependencias con vulnerabilidades
-// sin parche (ver historial del proyecto) y Excel abre .csv sin problema.
-// El BOM al inicio asegura que Excel muestre bien las tildes/ñ.
+// .xlsx (Excel real) en vez de .csv: se abre directo en Excel con las
+// columnas ya tipadas, sin los problemas de acentos/comas que traía el CSV.
+// Usa la misma build de SheetJS (parcheada, ver README) que ya lee los
+// Excel de TAREO/Teléfonos en Administración (src/features/admin/leerXlsx.ts).
 // Orden y nombres de columnas replican exactamente el Excel objetivo
 // "ATENCIONES NUEVO.xlsx" (hoja ZONA 2).
 
@@ -35,19 +37,21 @@ const COLUMNAS = [
   'SUP. RRLL',
 ] as const
 
-function csvEscape(value: string): string {
-  if (/[",\n]/.test(value)) {
-    return `"${value.replace(/"/g, '""')}"`
-  }
-  return value
-}
-
 function afiliadoTexto(esAfiliado: boolean | null): string {
   if (esAfiliado === null) return ''
   return esAfiliado ? 'SI' : 'NO'
 }
 
-export function exportarAtencionesCsv(atenciones: Atencion[]) {
+function descargarXlsx(columnas: readonly string[], filas: Record<string, string>[], nombreHoja: string, nombreBase: string) {
+  const aoa = [columnas as string[], ...filas.map((fila) => columnas.map((c) => fila[c] ?? ''))]
+  const hoja = utils.aoa_to_sheet(aoa)
+  const libro = utils.book_new()
+  utils.book_append_sheet(libro, hoja, nombreHoja)
+  const fecha = new Date().toISOString().slice(0, 10)
+  writeFile(libro, `${nombreBase}_${fecha}.xlsx`)
+}
+
+export function exportarAtencionesXlsx(atenciones: Atencion[]) {
   const filas = atenciones.map((a) => {
     const involucrado = a.involucrados[0]
     const fila: Record<(typeof COLUMNAS)[number], string> = {
@@ -79,13 +83,7 @@ export function exportarAtencionesCsv(atenciones: Atencion[]) {
     }
     return fila
   })
-
-  const encabezado = COLUMNAS.join(',')
-  const cuerpo = filas
-    .map((fila) => COLUMNAS.map((col) => csvEscape(fila[col])).join(','))
-    .join('\n')
-  const csv = '﻿' + encabezado + '\n' + cuerpo
-  descargarCsv(csv, 'atenciones_rrll')
+  descargarXlsx(COLUMNAS, filas, 'Atenciones', 'atenciones_rrll')
 }
 
 // Columnas propias de 360 Laboral: es un registro de sesión/grupo (no un
@@ -116,7 +114,7 @@ const COLUMNAS_360 = [
   'SUP. RRLL',
 ] as const
 
-export function exportar360LaboralCsv(atenciones: Atencion[]) {
+export function exportar360LaboralXlsx(atenciones: Atencion[]) {
   const filas = atenciones.map((a) => {
     const fila: Record<(typeof COLUMNAS_360)[number], string> = {
       FECHA: a.fecha,
@@ -144,22 +142,5 @@ export function exportar360LaboralCsv(atenciones: Atencion[]) {
     }
     return fila
   })
-
-  const encabezado = COLUMNAS_360.join(',')
-  const cuerpo = filas
-    .map((fila) => COLUMNAS_360.map((col) => csvEscape(fila[col])).join(','))
-    .join('\n')
-  const csv = '﻿' + encabezado + '\n' + cuerpo
-  descargarCsv(csv, '360_laboral_rrll')
-}
-
-function descargarCsv(csv: string, nombreBase: string) {
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  const fecha = new Date().toISOString().slice(0, 10)
-  link.href = url
-  link.download = `${nombreBase}_${fecha}.csv`
-  link.click()
-  URL.revokeObjectURL(url)
+  descargarXlsx(COLUMNAS_360, filas, '360 Laboral', '360_laboral_rrll')
 }

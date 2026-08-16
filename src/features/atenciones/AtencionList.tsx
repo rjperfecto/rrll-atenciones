@@ -16,7 +16,7 @@ import {
   X,
 } from 'lucide-react'
 import { listarAtencionesPaginado, listarAtencionesParaExportar, eliminarAtencion, type FiltrosAtenciones } from '@/lib/atencionesApi'
-import { exportarAtencionesCsv } from '@/lib/exportCsv'
+import { exportarAtencionesXlsx } from '@/lib/exportXlsx'
 import { useAuth } from '@/features/auth/AuthContext'
 import { CerrarCasoModal } from './CerrarCasoModal'
 import { DetalleAtencionModal } from './DetalleAtencionModal'
@@ -153,7 +153,7 @@ export function AtencionList() {
     if (!profile) return
     setExportando(true)
     const { data, error } = await listarAtencionesParaExportar(profile.id, puedeVerTodo, filtros, TIPOS_REGISTRO_PRINCIPAL)
-    if (!error) exportarAtencionesCsv(data)
+    if (!error) exportarAtencionesXlsx(data)
     setExportando(false)
   }
 
@@ -180,7 +180,7 @@ export function AtencionList() {
         {total > 0 && (
           <Button variant="secondary" onClick={exportar} loading={exportando}>
             <Download className="size-4" />
-            {exportando ? 'Exportando...' : 'Exportar a Excel (CSV)'}
+            {exportando ? 'Exportando...' : 'Exportar a Excel'}
           </Button>
         )}
       </div>

@@ -17,7 +17,7 @@ import {
   X,
 } from 'lucide-react'
 import { listarAtencionesPaginado, listarAtencionesParaExportar, eliminarAtencion, type FiltrosAtenciones } from '@/lib/atencionesApi'
-import { exportar360LaboralCsv } from '@/lib/exportCsv'
+import { exportar360LaboralXlsx } from '@/lib/exportXlsx'
 import { useAuth } from '@/features/auth/AuthContext'
 import { CerrarCompromisoModal } from './CerrarCompromisoModal'
 import { DetalleAtencionModal } from '@/features/atenciones/DetalleAtencionModal'
@@ -141,7 +141,7 @@ export function CompromisosList() {
     if (!profile) return
     setExportando(true)
     const { data, error } = await listarAtencionesParaExportar(profile.id, puedeVerTodo, filtros, TIPOS_BASE)
-    if (!error) exportar360LaboralCsv(data)
+    if (!error) exportar360LaboralXlsx(data)
     setExportando(false)
   }
 
@@ -168,7 +168,7 @@ export function CompromisosList() {
         {total > 0 && (
           <Button variant="secondary" onClick={exportar} loading={exportando}>
             <Download className="size-4" />
-            {exportando ? 'Exportando...' : 'Exportar a Excel (CSV)'}
+            {exportando ? 'Exportando...' : 'Exportar a Excel'}
           </Button>
         )}
       </div>
