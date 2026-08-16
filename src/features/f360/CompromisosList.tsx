@@ -8,7 +8,6 @@ import {
   Clock,
   Download,
   Eye,
-  Handshake,
   Inbox,
   Loader2,
   RefreshCw,
@@ -280,17 +279,6 @@ export function CompromisosList() {
                       {a.fundo && <span className="text-xs text-neutral-500">· {a.fundo}</span>}
                       <span className="ml-auto flex items-center gap-2">
                         <GravedadBadge gravedad={a.gravedad} />
-                        {a.compromiso_generado && (
-                          <span
-                            className={cn(
-                              'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium',
-                              compromisoPendiente ? 'bg-warning-soft text-amber-800' : 'bg-success-soft text-emerald-800',
-                            )}
-                          >
-                            <Handshake className="size-3" />
-                            {compromisoPendiente ? 'Compromiso pendiente' : 'Compromiso cerrado'}
-                          </span>
-                        )}
                         <EstadoBadge estado={a.estado} />
                       </span>
                     </div>
