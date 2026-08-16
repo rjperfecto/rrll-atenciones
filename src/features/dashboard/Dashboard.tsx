@@ -6,6 +6,7 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  LabelList,
   Legend,
   Pie,
   PieChart,
@@ -445,8 +446,12 @@ export function Dashboard({ titulo, opcionesTipo }: { titulo: string; opcionesTi
               <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: '#737373' }} axisLine={false} tickLine={false} width={28} />
               <Tooltip content={ChartTooltip} cursor={{ fill: '#f5f5f5' }} />
               <Legend wrapperStyle={{ fontSize: 12 }} iconType="plainline" itemSorter={null} />
-              <Bar dataKey="BAJO" name="Bajo" stackId="g" fill={GRAVEDAD_COLORES.BAJO} stroke="#fff" strokeWidth={2} maxBarSize={60} label={EtiquetaValorBarra} />
-              <Bar dataKey="MEDIO" name="Medio" stackId="g" fill={GRAVEDAD_COLORES.MEDIO} stroke="#fff" strokeWidth={2} maxBarSize={60} label={EtiquetaValorBarra} />
+              <Bar dataKey="BAJO" name="Bajo" stackId="g" fill={GRAVEDAD_COLORES.BAJO} stroke="#fff" strokeWidth={2} maxBarSize={60}>
+                <LabelList dataKey="BAJO" content={EtiquetaValorBarra} />
+              </Bar>
+              <Bar dataKey="MEDIO" name="Medio" stackId="g" fill={GRAVEDAD_COLORES.MEDIO} stroke="#fff" strokeWidth={2} maxBarSize={60}>
+                <LabelList dataKey="MEDIO" content={EtiquetaValorBarra} />
+              </Bar>
               <Bar
                 dataKey="ALTO"
                 name="Alto"
@@ -456,8 +461,9 @@ export function Dashboard({ titulo, opcionesTipo }: { titulo: string; opcionesTi
                 strokeWidth={2}
                 radius={[4, 4, 0, 0]}
                 maxBarSize={60}
-                label={EtiquetaValorBarra}
-              />
+              >
+                <LabelList dataKey="ALTO" content={EtiquetaValorBarra} />
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </CardSection>
