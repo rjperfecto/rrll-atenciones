@@ -11,6 +11,7 @@ import { supRrllPorZona } from '@/data/supervisoresRrll'
 import { moduloDesdeFundo } from '@/lib/modulo'
 import { zonaDesdeFundo } from '@/lib/zonaFundo'
 import { buscarTrabajadorPorLegajo, buscarAfiliadoPorLegajo } from '@/lib/trabajadoresApi'
+import { areaDeActividad } from '@/lib/actividadAreaApi'
 import { useAuth } from '@/features/auth/AuthContext'
 import { CardSection } from '@/components/ui/Card'
 import { Field } from '@/components/ui/Field'
@@ -88,7 +89,14 @@ export function FormularioGeneral() {
       }
       if (trabajador.grupo) setValue('grupo', trabajador.grupo.toUpperCase())
       if (trabajador.sup_cuadrilla) setValue('supCuadrilla', trabajador.sup_cuadrilla.toUpperCase())
-      if (trabajador.area) setValue('area', trabajador.area.toUpperCase())
+      if (trabajador.area) {
+        // La actividad cruda de TAREO (ej. "INSPECCION CALIDAD – CAE") se
+        // traduce a Área (ej. "CALIDAD") vía el catálogo Actividad->Área
+        // (Excel ACTIVIDADES-AREA). Si la actividad no está en el catálogo
+        // todavía (casos ambiguos sin clasificar), se usa el texto crudo.
+        const areaMapeada = await areaDeActividad(trabajador.area)
+        setValue('area', (areaMapeada ?? trabajador.area).toUpperCase())
+      }
       setBusqueda('encontrado')
     },
     [fecha, setValue, trigger, zonaUsuario],
@@ -212,8 +220,8 @@ export function FormularioGeneral() {
           <Field label="Grupo / cuadrilla" value={valores.grupo}>
             <input type="text" placeholder="ej. CH12" {...conMayusculas(register('grupo'))} className="input" />
           </Field>
-          <Field label="Área / actividad" value={valores.area}>
-            <input type="text" placeholder="ej. Cosecha ARA Granel 3.0 kg" {...conMayusculas(register('area'))} className="input" />
+          <Field label="Área" value={valores.area}>
+            <input type="text" placeholder="ej. COSECHA" {...conMayusculas(register('area'))} className="input" />
           </Field>
         </div>
         <Field label="Líder de Cosecha" value={valores.supCuadrilla}>
