@@ -23,7 +23,6 @@ import { CerrarCasoModal } from './CerrarCasoModal'
 import { DetalleAtencionModal } from './DetalleAtencionModal'
 import { EditarAtencionModal } from './EditarAtencionModal'
 import { ZONAS } from '@/data/zonasFundos'
-import { AREAS } from '@/data/areas'
 import { TIPOS_REGISTRO_PRINCIPAL } from '@/data/tipoRegistro'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -222,12 +221,8 @@ export function AtencionList() {
                 onChange={(e) => actualizarFiltro(setFiltroArea)(e.target.value)}
                 className={cn('input', CLASE_INPUT_POR_ESTADO[estadoFiltroArea])}
               >
-                <option value="">Toda área</option>
-                {AREAS.map((a) => (
-                  <option key={a} value={a}>
-                    {a}
-                  </option>
-                ))}
+                <option value="">Todos</option>
+                <option value="COSECHA">Cosecha</option>
               </select>
               <select
                 value={filtroZona}
