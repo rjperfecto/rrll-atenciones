@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { AlertCircle, CheckCircle2, Upload } from 'lucide-react'
+import { utils, writeFile } from 'xlsx'
+import { AlertCircle, CheckCircle2, Download, Upload } from 'lucide-react'
 import { leerFilasXlsx } from './leerXlsx'
 import { mapearEncabezadosAfiliados, esContingenciaAfiliado, type CampoAfiliado } from './afiliadosColumnas'
 import { LEGAJO_REGEX } from '@/data/legajo'
@@ -8,6 +9,20 @@ import { PageHeader } from '@/components/ui/PageHeader'
 import { CardSection, Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import type { Afiliado } from '@/types'
+
+// Encabezados y una fila de ejemplo, en el formato exacto que espera
+// mapearEncabezadosAfiliados (ver afiliadosColumnas.ts) — vacía, no trae los
+// datos ya cargados, es solo el formato de referencia para armar el Excel.
+function descargarPlantilla() {
+  const aoa = [
+    ['LEGAJO', 'NOMBRE COMPLETO', 'CONTINGENCIA'],
+    ['1012345678', 'JUAN PÉREZ LÓPEZ', 'AFILIADO'],
+  ]
+  const hoja = utils.aoa_to_sheet(aoa)
+  const libro = utils.book_new()
+  utils.book_append_sheet(libro, hoja, 'Afiliados')
+  writeFile(libro, 'plantilla_afiliados.xlsx')
+}
 
 type Resultado = {
   validos: Afiliado[]
@@ -126,6 +141,10 @@ export function ImportarAfiliados() {
 
       <div className="space-y-4">
         <CardSection title="Archivo" icon={<Upload className="size-4 text-brand" />}>
+          <Button type="button" variant="secondary" onClick={descargarPlantilla} className="self-start">
+            <Download className="size-4" />
+            Descargar plantilla
+          </Button>
           <input type="file" accept=".xlsx" onChange={onFileSelected} className="input" />
           {procesando && <p className="text-sm text-neutral-500">Procesando archivo...</p>}
         </CardSection>
