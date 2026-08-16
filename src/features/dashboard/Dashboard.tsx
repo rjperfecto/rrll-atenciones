@@ -366,7 +366,7 @@ export function Dashboard({ titulo, opcionesTipo }: { titulo: string; opcionesTi
                       <span className="flex items-center justify-center size-5 rounded-full bg-navy-soft text-navy text-[11px] font-bold shrink-0">
                         {i + 1}
                       </span>
-                      <span className="text-sm text-neutral-700 truncate">{r.responsable}</span>
+                      <span className="text-sm text-neutral-700 truncate">{r.responsable.toUpperCase()}</span>
                     </span>
                     <span className="text-sm font-semibold text-neutral-900 shrink-0">{r.total}</span>
                   </div>

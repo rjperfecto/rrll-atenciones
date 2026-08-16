@@ -216,7 +216,7 @@ export function FormularioGeneral() {
             <input type="text" placeholder="ej. Cosecha ARA Granel 3.0 kg" {...conMayusculas(register('area'))} className="input" />
           </Field>
         </div>
-        <Field label="Sup. cuadrilla" value={valores.supCuadrilla}>
+        <Field label="Líder de Cosecha" value={valores.supCuadrilla}>
           <input type="text" {...conMayusculas(register('supCuadrilla'))} className="input" />
         </Field>
       </CardSection>

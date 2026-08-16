@@ -56,7 +56,7 @@ export function DetalleAtencionModal({ atencion, onClose }: { atencion: Atencion
             <Dato label="Legajo" value={involucrado?.legajo} />
             <Dato
               label="Afiliado sindical"
-              value={involucrado?.es_afiliado === null || involucrado?.es_afiliado === undefined ? undefined : involucrado.es_afiliado ? 'Sí' : 'No'}
+              value={involucrado?.es_afiliado === null || involucrado?.es_afiliado === undefined ? undefined : involucrado.es_afiliado ? 'SÍ' : 'NO'}
             />
 
             <Dato label="Zona" value={atencion.zona} />
@@ -64,7 +64,7 @@ export function DetalleAtencionModal({ atencion, onClose }: { atencion: Atencion
             <Dato label="Módulo" value={atencion.modulo} />
             <Dato label="Grupo" value={atencion.grupo} />
             <Dato label="Área" value={atencion.area} />
-            <Dato label="Sup. cuadrilla" value={atencion.sup_cuadrilla} />
+            <Dato label="Líder de Cosecha" value={atencion.sup_cuadrilla} />
 
             <Dato label="Tipo" value={atencion.tipo} />
             <Dato label="Categoría" value={atencion.categoria} />
@@ -106,7 +106,7 @@ export function DetalleAtencionModal({ atencion, onClose }: { atencion: Atencion
 
       <div className="mt-4 pt-4 border-t border-neutral-200">
         <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
-          <Dato label="Responsable" value={atencion.responsable_nombre} />
+          <Dato label="Responsable" value={atencion.responsable_nombre.toUpperCase()} />
           <Dato label="Sup. RRLL" value={atencion.sup_rrll} />
         </dl>
       </div>

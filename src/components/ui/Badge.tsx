@@ -44,8 +44,8 @@ const ESTADO_ICONOS: Record<Estado, typeof Clock> = {
 }
 
 const ESTADO_ETIQUETAS: Record<Estado, string> = {
-  ABIERTO: 'Pendiente',
-  CERRADO: 'Cerrado',
+  ABIERTO: 'PENDIENTE',
+  CERRADO: 'CERRADO',
 }
 
 function Badge({ className, children }: { className: string; children: React.ReactNode }) {

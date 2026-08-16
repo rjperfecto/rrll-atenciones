@@ -22,7 +22,7 @@ const COLUMNAS = [
   'ZONA',
   'FUNDO',
   'MODULO',
-  'SUP. CUADRILLA',
+  'LIDER DE COSECHA',
   'FALTA',
   'ACCION CORRECTIVA',
   'ANTECEDENTE',
@@ -65,7 +65,7 @@ export function exportarAtencionesCsv(atenciones: Atencion[]) {
       ZONA: a.zona,
       FUNDO: a.fundo ?? '',
       MODULO: a.modulo ?? '',
-      'SUP. CUADRILLA': a.sup_cuadrilla ?? '',
+      'LIDER DE COSECHA': a.sup_cuadrilla ?? '',
       FALTA: a.falta ?? a.subcategoria ?? '',
       'ACCION CORRECTIVA': a.accion_correctiva ?? '',
       ANTECEDENTE: a.antecedente ?? '',
@@ -74,7 +74,7 @@ export function exportarAtencionesCsv(atenciones: Atencion[]) {
       ESTADO: a.estado,
       ÁREA: a.area ?? '',
       REPORTA: a.reporte ?? '',
-      'RESPONSABLE RRLL': a.responsable_nombre,
+      'RESPONSABLE RRLL': a.responsable_nombre.toUpperCase(),
       'SUP. RRLL': a.sup_rrll ?? '',
     }
     return fila
@@ -139,7 +139,7 @@ export function exportar360LaboralCsv(atenciones: Atencion[]) {
       'FECHA DE CIERRE': a.fecha_cierre ?? '',
       EVIDENCIA: a.evidencia_360 ?? '',
       OBSERVACIONES: a.comentarios ?? '',
-      'RESPONSABLE RRLL': a.responsable_nombre,
+      'RESPONSABLE RRLL': a.responsable_nombre.toUpperCase(),
       'SUP. RRLL': a.sup_rrll ?? '',
     }
     return fila
