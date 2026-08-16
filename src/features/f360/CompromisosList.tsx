@@ -10,6 +10,7 @@ import {
   Eye,
   Inbox,
   Loader2,
+  Pencil,
   RefreshCw,
   Search,
   SearchX,
@@ -21,6 +22,7 @@ import { exportar360LaboralXlsx } from '@/lib/exportXlsx'
 import { useAuth } from '@/features/auth/AuthContext'
 import { CerrarCompromisoModal } from './CerrarCompromisoModal'
 import { DetalleAtencionModal } from '@/features/atenciones/DetalleAtencionModal'
+import { EditarAtencionModal } from '@/features/atenciones/EditarAtencionModal'
 import { ZONAS } from '@/data/zonasFundos'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -39,6 +41,7 @@ export function CompromisosList() {
   const [searchParams] = useSearchParams()
   const [cerrando, setCerrando] = useState<Atencion | null>(null)
   const [viendoDetalle, setViendoDetalle] = useState<Atencion | null>(null)
+  const [editando, setEditando] = useState<Atencion | null>(null)
   const [busqueda, setBusqueda] = useState(() => searchParams.get('q') ?? '')
   const [busquedaDebounced, setBusquedaDebounced] = useState(() => searchParams.get('q') ?? '')
   const [filtroEstado, setFiltroEstado] = useState(() => searchParams.get('estado') ?? '')
@@ -57,7 +60,8 @@ export function CompromisosList() {
   // rol (ver migración 0021) — un CAMPO con zona ve todo lo de esa zona, no
   // solo lo propio. Eliminar sigue siendo solo ADMIN/SUPERVISOR.
   const puedeVerTodo = profile?.rol === 'ADMIN' || profile?.rol === 'SUPERVISOR' || Boolean(profile?.zona_asignada)
-  const puedeEliminar = profile?.rol === 'ADMIN' || profile?.rol === 'SUPERVISOR'
+  // Editar y eliminar comparten el mismo alcance.
+  const puedeGestionar = profile?.rol === 'ADMIN' || profile?.rol === 'SUPERVISOR'
 
   useEffect(() => {
     const t = setTimeout(() => setBusquedaDebounced(busqueda), 400)
@@ -298,11 +302,15 @@ export function CompromisosList() {
                           Cerrar compromiso
                         </Button>
                       )}
-                      {puedeEliminar && (
-                        <Button variant="danger" onClick={() => eliminar(a)} loading={eliminandoId === a.id} className="ml-auto">
-                          <Trash2 className="size-4" />
-                          Eliminar
-                        </Button>
+                      {puedeGestionar && (
+                        <>
+                          <Button variant="secondary" onClick={() => setEditando(a)} className="p-2.5 ml-auto" aria-label="Editar">
+                            <Pencil className="size-4" />
+                          </Button>
+                          <Button variant="danger" onClick={() => eliminar(a)} loading={eliminandoId === a.id} className="p-2.5" aria-label="Eliminar">
+                            <Trash2 className="size-4" />
+                          </Button>
+                        </>
                       )}
                     </div>
                   </div>
@@ -339,6 +347,15 @@ export function CompromisosList() {
         />
       )}
       {viendoDetalle && <DetalleAtencionModal atencion={viendoDetalle} onClose={() => setViendoDetalle(null)} />}
+      {editando && (
+        <EditarAtencionModal
+          atencion={editando}
+          onClose={() => {
+            setEditando(null)
+            void cargar()
+          }}
+        />
+      )}
     </div>
   )
 }

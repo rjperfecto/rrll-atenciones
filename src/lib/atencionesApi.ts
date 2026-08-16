@@ -121,6 +121,15 @@ export async function eliminarAtencion(id: string): Promise<{ error: string | nu
   return { error: error?.message ?? null }
 }
 
+// Editar (corregir) los datos de una atención ya creada — distinto de
+// cerrarCasoAtencion, que solo cambia estado/acción correctiva al cerrar el
+// caso. Mismo alcance de RLS que eliminar: ADMIN cualquiera, SUPERVISOR solo
+// su zona (ver migración 0020), reforzado en la UI en AtencionList/CompromisosList.
+export async function editarAtencion(id: string, cambios: Partial<Atencion>): Promise<{ error: string | null }> {
+  const { error } = await supabase.from('atenciones').update(cambios).eq('id', id)
+  return { error: error?.message ?? null }
+}
+
 export async function cerrarCasoAtencion(
   id: string,
   cambios: Pick<Atencion, 'estado' | 'accion_correctiva' | 'dias_suspension' | 'detalle_cierre' | 'fecha_cierre' | 'updated_at'>,

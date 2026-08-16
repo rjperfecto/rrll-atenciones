@@ -9,6 +9,7 @@ import {
   Eye,
   Inbox,
   Loader2,
+  Pencil,
   RefreshCw,
   Search,
   SearchX,
@@ -20,6 +21,7 @@ import { exportarAtencionesXlsx } from '@/lib/exportXlsx'
 import { useAuth } from '@/features/auth/AuthContext'
 import { CerrarCasoModal } from './CerrarCasoModal'
 import { DetalleAtencionModal } from './DetalleAtencionModal'
+import { EditarAtencionModal } from './EditarAtencionModal'
 import { ZONAS } from '@/data/zonasFundos'
 import { TIPOS_REGISTRO_PRINCIPAL } from '@/data/tipoRegistro'
 import { Card } from '@/components/ui/Card'
@@ -41,6 +43,7 @@ export function AtencionList() {
   const [searchParams] = useSearchParams()
   const [cerrando, setCerrando] = useState<Atencion | null>(null)
   const [viendoDetalle, setViendoDetalle] = useState<Atencion | null>(null)
+  const [editando, setEditando] = useState<Atencion | null>(null)
   const [busqueda, setBusqueda] = useState(() => searchParams.get('q') ?? '')
   const [busquedaDebounced, setBusquedaDebounced] = useState(() => searchParams.get('q') ?? '')
   const [filtroTipoRegistro, setFiltroTipoRegistro] = useState('')
@@ -60,7 +63,8 @@ export function AtencionList() {
   // rol (ver migración 0021) — un CAMPO con zona ve todo lo de esa zona, no
   // solo lo propio. Eliminar sigue siendo solo ADMIN/SUPERVISOR.
   const puedeVerTodo = profile?.rol === 'ADMIN' || profile?.rol === 'SUPERVISOR' || Boolean(profile?.zona_asignada)
-  const puedeEliminar = profile?.rol === 'ADMIN' || profile?.rol === 'SUPERVISOR'
+  // Editar y eliminar comparten el mismo alcance.
+  const puedeGestionar = profile?.rol === 'ADMIN' || profile?.rol === 'SUPERVISOR'
 
   // Debounce del texto libre: evita disparar una consulta por cada tecla.
   useEffect(() => {
@@ -322,11 +326,15 @@ export function AtencionList() {
                         Cerrar caso
                       </Button>
                     )}
-                    {puedeEliminar && (
-                      <Button variant="danger" onClick={() => eliminar(a)} loading={eliminandoId === a.id} className="ml-auto">
-                        <Trash2 className="size-4" />
-                        Eliminar
-                      </Button>
+                    {puedeGestionar && (
+                      <>
+                        <Button variant="secondary" onClick={() => setEditando(a)} className="p-2.5 ml-auto" aria-label="Editar">
+                          <Pencil className="size-4" />
+                        </Button>
+                        <Button variant="danger" onClick={() => eliminar(a)} loading={eliminandoId === a.id} className="p-2.5" aria-label="Eliminar">
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </>
                     )}
                   </div>
                 </div>
@@ -370,6 +378,15 @@ export function AtencionList() {
         />
       )}
       {viendoDetalle && <DetalleAtencionModal atencion={viendoDetalle} onClose={() => setViendoDetalle(null)} />}
+      {editando && (
+        <EditarAtencionModal
+          atencion={editando}
+          onClose={() => {
+            setEditando(null)
+            void cargarAtenciones()
+          }}
+        />
+      )}
     </div>
   )
 }
