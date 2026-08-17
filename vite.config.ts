@@ -11,6 +11,10 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
+      // El registro se hace a mano en src/registerSW.ts (para poder revisar
+      // periódicamente si hay una versión nueva y recargar solo, ver ese
+      // archivo) en vez del script automático que inyecta el plugin.
+      injectRegister: false,
       includeAssets: ['icons/icon-192.png', 'icons/icon-512.png'],
       manifest: {
         name: 'RRLL Atenciones - Hortifrut Perú',
