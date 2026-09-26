@@ -66,6 +66,13 @@ export interface Involucrado {
   es_afiliado: boolean | null
 }
 
+export interface AlertaReportada360 {
+  categoria: string
+  subcategoria: string
+  nivel: 'ALTO' | 'MEDIO' | 'BAJO'
+  cantidad: number
+}
+
 export interface Atencion {
   id: string
   client_uuid: string
@@ -100,8 +107,12 @@ export interface Atencion {
   // trabajador individual. Zona/Fundo/Módulo se reutilizan igual que en
   // Atenciones (ver Formulario360Laboral/RegistrarCaminata).
   lider_cosecha: string | null
-  alcance: number | null
+  total_encuestado: number | null
   tipo_atencion_360: string[] | null
+  alertas_reportadas: AlertaReportada360[]
+  // Legado (pre recategorización de alertas): registros creados antes de
+  // alertas_reportadas siguen mostrándose con estos dos campos (ver
+  // DetalleAtencionModal / exportXlsx).
   alertas_360: string[] | null
   detalle_alerta: string | null
   compromiso_generado: boolean | null

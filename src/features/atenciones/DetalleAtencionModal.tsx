@@ -2,6 +2,39 @@ import { Modal } from '@/components/ui/Modal'
 import { GravedadBadge, EstadoBadge } from '@/components/ui/Badge'
 import type { Atencion } from '@/types'
 
+function TablaAlertas({ atencion }: { atencion: Atencion }) {
+  if (atencion.alertas_reportadas.length > 0) {
+    return (
+      <div className="col-span-2">
+        <dt className="text-xs text-neutral-500 mb-1">Alertas</dt>
+        <dd>
+          <ul className="divide-y divide-neutral-200 rounded-lg border border-neutral-200">
+            {atencion.alertas_reportadas.map((a) => (
+              <li key={`${a.categoria}::${a.subcategoria}`} className="flex items-center justify-between gap-3 px-3 py-2">
+                <span className="text-sm text-neutral-800">
+                  {a.categoria} · {a.subcategoria}
+                </span>
+                <span className="flex items-center gap-2 shrink-0">
+                  <GravedadBadge gravedad={a.nivel} />
+                  <span className="text-xs text-neutral-500">
+                    {a.cantidad} persona{a.cantidad === 1 ? '' : 's'}
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </dd>
+      </div>
+    )
+  }
+  // Registros creados antes de la recategorización de alertas: fallback al
+  // catálogo plano viejo.
+  if (atencion.alertas_360 && atencion.alertas_360.length > 0) {
+    return <Dato label="Alertas" value={atencion.alertas_360.join(' / ')} />
+  }
+  return null
+}
+
 function Dato({ label, value }: { label: string; value?: string | number | null }) {
   if (value === null || value === undefined || value === '') return null
   return (
@@ -37,10 +70,10 @@ export function DetalleAtencionModal({ atencion, onClose }: { atencion: Atencion
           <Dato label="Módulo" value={atencion.zona === 'PACKING' ? undefined : atencion.modulo} />
           <Dato label="Líder de cosecha" value={atencion.lider_cosecha} />
           <Dato label="Grupo" value={atencion.grupo} />
-          <Dato label="Alcance" value={atencion.alcance} />
+          <Dato label="Total de personal encuestado" value={atencion.total_encuestado} />
           <Dato label="Actividad" value={atencion.area} />
           <Dato label="Tipo de atención" value={atencion.tipo_atencion_360?.join(' / ')} />
-          <Dato label="Alertas" value={atencion.alertas_360?.join(' / ')} />
+          <TablaAlertas atencion={atencion} />
           <Dato label="Detalle de la alerta" value={atencion.detalle_alerta} />
           <Dato label="Compromiso" value={atencion.compromiso_generado === true ? 'Sí' : atencion.compromiso_generado === false ? 'No' : undefined} />
           <Dato label="Detalle compromiso" value={atencion.detalle_compromiso} />

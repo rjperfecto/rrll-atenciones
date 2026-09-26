@@ -3,6 +3,13 @@ import { ZONAS } from '@/data/zonasFundos'
 import { LEGAJO_REGEX } from '@/data/legajo'
 import { PACKING_FUNDOS, TURNOS_360 } from '@/data/formulario360'
 
+export const alertaReportadaSchema = z.object({
+  categoria: z.string().min(1),
+  subcategoria: z.string().min(1),
+  nivel: z.enum(['ALTO', 'MEDIO', 'BAJO']),
+  cantidad: z.number().int().min(1, 'La cantidad debe ser al menos 1'),
+})
+
 // "360 Laboral" es un registro de sesión/grupo (conversatorio/seguimiento/
 // compromiso), no de un trabajador individual — por eso es un schema aparte
 // del de Registrar/Atenciones. Zona/Fundo/Módulo se capturan exactamente
@@ -19,12 +26,11 @@ export const atencion360Schema = z
     legajoSupervisor: z.string().regex(LEGAJO_REGEX, 'El legajo debe empezar con "10" seguido del DNI (8 dígitos)'),
     liderCosecha: z.string().min(1, 'El líder de cosecha es obligatorio'),
     grupo: z.string().min(1, 'El grupo es obligatorio'),
-    alcance: z.union([z.number(), z.nan()]).optional(),
+    totalEncuestado: z.union([z.number(), z.nan()]).optional(),
     actividad: z.string().min(1, 'La actividad es obligatoria'),
     tipoAtencion360: z.array(z.string()).min(1, 'Selecciona al menos un tipo de atención'),
     otroTipoAtencion: z.string().optional(),
-    alertas360: z.array(z.string()).min(1, 'Selecciona al menos una alerta'),
-    otraAlerta: z.string().optional(),
+    alertasReportadas: z.array(alertaReportadaSchema).min(1, 'Agrega al menos una alerta'),
     detalleAlerta: z.string().min(1, 'El detalle de la alerta es obligatorio'),
     compromisoGenerado: z.enum(['SI', 'NO'], { message: 'Indica si se generó un compromiso' }),
     detalleCompromiso: z.string().optional(),
@@ -42,15 +48,12 @@ export const atencion360Schema = z
       }
     }
 
-    if (valores.alcance === undefined || Number.isNaN(valores.alcance)) {
-      ctx.addIssue({ code: 'custom', message: 'El alcance es obligatorio', path: ['alcance'] })
+    if (valores.totalEncuestado === undefined || Number.isNaN(valores.totalEncuestado)) {
+      ctx.addIssue({ code: 'custom', message: 'El total de personal encuestado es obligatorio', path: ['totalEncuestado'] })
     }
 
     if (valores.tipoAtencion360.includes('OTRAS') && !valores.otroTipoAtencion) {
       ctx.addIssue({ code: 'custom', message: 'Especifica el otro tipo de atención', path: ['otroTipoAtencion'] })
-    }
-    if (valores.alertas360.includes('OTRAS') && !valores.otraAlerta) {
-      ctx.addIssue({ code: 'custom', message: 'Especifica la otra alerta', path: ['otraAlerta'] })
     }
 
     if (valores.compromisoGenerado === 'SI') {

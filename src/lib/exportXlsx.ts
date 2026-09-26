@@ -95,7 +95,7 @@ const COLUMNAS_360 = [
   'NIVEL DE CONFLICTIVIDAD',
   'LIDER DE COSECHA',
   'GRUPO',
-  'ALCANCE',
+  'TOTAL ENCUESTADO',
   'ZONA',
   'FUNDO',
   'MODULO',
@@ -122,13 +122,16 @@ export function exportar360LaboralXlsx(atenciones: Atencion[]) {
       'NIVEL DE CONFLICTIVIDAD': a.gravedad,
       'LIDER DE COSECHA': a.lider_cosecha ?? '',
       GRUPO: a.grupo ?? '',
-      ALCANCE: a.alcance !== null && a.alcance !== undefined ? String(a.alcance) : '',
+      'TOTAL ENCUESTADO': a.total_encuestado !== null && a.total_encuestado !== undefined ? String(a.total_encuestado) : '',
       ZONA: a.zona,
       FUNDO: a.fundo ?? '',
       MODULO: a.modulo ?? '',
       ACTIVIDAD: a.area ?? '',
       'TIPO DE ATENCION': (a.tipo_atencion_360 ?? []).join(' / '),
-      ALERTAS: (a.alertas_360 ?? []).join(' / '),
+      ALERTAS:
+        a.alertas_reportadas.length > 0
+          ? a.alertas_reportadas.map((al) => `${al.categoria} > ${al.subcategoria} (${al.nivel}): ${al.cantidad}`).join(' / ')
+          : (a.alertas_360 ?? []).join(' / '),
       'DETALLE DE LA ALERTA': a.detalle_alerta ?? '',
       COMPROMISO: a.compromiso_generado === true ? 'SI' : a.compromiso_generado === false ? 'NO' : '',
       'DETALLE COMPROMISO': a.detalle_compromiso ?? '',

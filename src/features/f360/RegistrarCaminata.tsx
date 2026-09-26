@@ -25,12 +25,12 @@ import { conMayusculas } from '@/lib/conMayusculas'
 import { LEGAJO_REGEX } from '@/data/legajo'
 import { ZONAS } from '@/data/zonasFundos'
 import type { Zona } from '@/data/zonasFundos'
-import { PACKING_FUNDOS, TURNOS_360, TIPOS_ATENCION_360, ALERTAS_360 } from '@/data/formulario360'
+import { PACKING_FUNDOS, TURNOS_360, TIPOS_ATENCION_360 } from '@/data/formulario360'
 import { supRrllPorZona } from '@/data/supervisoresRrll'
 import { moduloDesdeFundo } from '@/lib/modulo'
 import { zonaDesdeFundo } from '@/lib/zonaFundo'
 import { buscarTrabajadorPorLegajo, buscarAfiliadoPorLegajo } from '@/lib/trabajadoresApi'
-import { crearAtencion, contarTrabajadoresGrupo } from '@/lib/atencionesApi'
+import { crearAtencion } from '@/lib/atencionesApi'
 import { useAuth } from '@/features/auth/AuthContext'
 import { cn } from '@/lib/cn'
 import { Button } from '@/components/ui/Button'
@@ -38,7 +38,8 @@ import { CardSection } from '@/components/ui/Card'
 import { Field } from '@/components/ui/Field'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { GRAVEDAD_COLORES } from '@/components/ui/Badge'
-import type { Atencion } from '@/types'
+import { AlertasReportadas } from '@/features/f360/AlertasReportadas'
+import type { Atencion, AlertaReportada360 } from '@/types'
 
 type EstadoBusqueda = 'idle' | 'buscando' | 'encontrado' | 'no_encontrado' | 'formato_invalido'
 
@@ -103,8 +104,9 @@ function CheckboxGroup({ opciones, valores, onToggle }: { opciones: readonly str
 // "Registrar caminata" (360 Laboral): registro de sesión/grupo, no de un
 // trabajador individual. Ubicación (Zona/Fundo/Módulo) se captura igual que
 // en Atenciones; lo único que cambia es que se escanea al SUPERVISOR del
-// grupo (autocompleta Líder de cosecha, Grupo y Alcance), no a un
-// trabajador puntual. Ver plan: separa 360 Laboral de Atenciones.
+// grupo (autocompleta Líder de cosecha y Grupo), no a un trabajador puntual.
+// El total de personal encuestado se carga a mano (no todo el grupo se
+// encuesta siempre). Ver plan: separa 360 Laboral de Atenciones.
 export function RegistrarCaminata() {
   const { profile } = useAuth()
   const [estadoGuardado, setEstadoGuardado] = useState<'idle' | 'guardando' | 'guardado'>('idle')
@@ -132,7 +134,7 @@ export function RegistrarCaminata() {
       tipoRegistro: '360 LABORAL',
       fecha: hoy(),
       tipoAtencion360: [],
-      alertas360: [],
+      alertasReportadas: [],
       zona: (zonaUsuario as Zona | undefined) ?? undefined,
     },
   })
@@ -144,9 +146,9 @@ export function RegistrarCaminata() {
   const supRrll = useMemo(() => (zona ? supRrllPorZona(zona) : null), [zona])
   const estadoLegajo = estadoDeCampo(legajoSupervisor, errors.legajoSupervisor?.message)
   const tipoAtencion360 = valores.tipoAtencion360 ?? []
-  const alertas360 = valores.alertas360 ?? []
+  const alertasReportadas = (valores.alertasReportadas ?? []) as AlertaReportada360[]
 
-  function toggle(campo: 'tipoAtencion360' | 'alertas360', valor: string) {
+  function toggle(campo: 'tipoAtencion360', valor: string) {
     const actual: string[] = valores[campo] ?? []
     const siguiente = actual.includes(valor) ? actual.filter((v) => v !== valor) : [...actual, valor]
     setValue(campo, siguiente, { shouldValidate: true, shouldDirty: true })
@@ -177,10 +179,7 @@ export function RegistrarCaminata() {
         if (zonaDetectada) setValue('zona', zonaDetectada)
       }
       if (trabajador.grupo) {
-        const grupoDetectado = trabajador.grupo.toUpperCase()
-        setValue('grupo', grupoDetectado)
-        const total = await contarTrabajadoresGrupo(grupoDetectado, fecha || hoy())
-        setValue('alcance', total, { shouldValidate: true })
+        setValue('grupo', trabajador.grupo.toUpperCase())
       }
       setBusqueda('encontrado')
     },
@@ -200,7 +199,7 @@ export function RegistrarCaminata() {
     reset()
     setValue('fecha', hoy())
     setValue('tipoAtencion360', [])
-    setValue('alertas360', [])
+    setValue('alertasReportadas', [])
     setBusqueda('idle')
     setFormKey((k) => k + 1)
   }
@@ -214,9 +213,6 @@ export function RegistrarCaminata() {
     const tipoAtencion = values.tipoAtencion360.includes('OTRAS')
       ? [...values.tipoAtencion360.filter((v) => v !== 'OTRAS'), values.otroTipoAtencion || '']
       : values.tipoAtencion360
-    const alertas = values.alertas360.includes('OTRAS')
-      ? [...values.alertas360.filter((v) => v !== 'OTRAS'), values.otraAlerta || '']
-      : values.alertas360
 
     // Se recalcula acá (no se confía solo en el estado de "Buscar") por si
     // el usuario escribió el legajo del supervisor y envió sin buscar antes.
@@ -256,9 +252,10 @@ export function RegistrarCaminata() {
       antecedente: null,
       notas_seguimiento: null,
       lider_cosecha: values.liderCosecha,
-      alcance: values.alcance ?? null,
+      total_encuestado: values.totalEncuestado ?? null,
       tipo_atencion_360: tipoAtencion,
-      alertas_360: alertas,
+      alertas_reportadas: values.alertasReportadas,
+      alertas_360: null,
       detalle_alerta: values.detalleAlerta,
       compromiso_generado: compromisoSi,
       detalle_compromiso: compromisoSi ? values.detalleCompromiso || null : null,
@@ -347,7 +344,7 @@ export function RegistrarCaminata() {
             {busqueda === 'encontrado' && (
               <p className="text-xs text-emerald-600 mt-1 flex items-center gap-1">
                 <CheckCircle2 className="size-3.5 shrink-0" />
-                Líder, grupo, zona y alcance autocompletados desde TAREO — revisa si aplican.
+                Líder, grupo y zona autocompletados desde TAREO — revisa si aplican.
               </p>
             )}
             {busqueda === 'no_encontrado' && (
@@ -366,8 +363,8 @@ export function RegistrarCaminata() {
             <Field label="Grupo" value={valores.grupo} error={errors.grupo?.message}>
               <input type="text" {...conMayusculas(register('grupo'))} className="input" />
             </Field>
-            <Field label="Alcance" value={valores.alcance} error={errors.alcance?.message} hint="Cantidad de trabajadores en el grupo (autocompletado)">
-              <input type="number" min={0} {...register('alcance', { valueAsNumber: true })} className="input" />
+            <Field label="Total de personal encuestado" value={valores.totalEncuestado} error={errors.totalEncuestado?.message}>
+              <input type="number" min={0} {...register('totalEncuestado', { valueAsNumber: true })} className="input" />
             </Field>
           </div>
         </CardSection>
@@ -454,13 +451,8 @@ export function RegistrarCaminata() {
         </CardSection>
 
         <CardSection title="Alertas" icon={<Bell className="size-4 text-brand" />}>
-          <CheckboxGroup opciones={ALERTAS_360} valores={alertas360} onToggle={(v) => toggle('alertas360', v)} />
-          {errors.alertas360 && <p className="text-xs text-danger mt-1">{errors.alertas360.message}</p>}
-          {alertas360.includes('OTRAS') && (
-            <Field label="Especifica" value={valores.otraAlerta} error={errors.otraAlerta?.message} className="mt-3">
-              <input type="text" {...conMayusculas(register('otraAlerta'))} className="input" />
-            </Field>
-          )}
+          <AlertasReportadas valores={alertasReportadas} onChange={(v) => setValue('alertasReportadas', v, { shouldValidate: true, shouldDirty: true })} />
+          {errors.alertasReportadas && <p className="text-xs text-danger mt-1">{errors.alertasReportadas.message}</p>}
           <Field label="Detalle de la alerta" value={valores.detalleAlerta} error={errors.detalleAlerta?.message} className="mt-3">
             <textarea rows={3} {...conMayusculas(register('detalleAlerta'))} className="input" />
           </Field>

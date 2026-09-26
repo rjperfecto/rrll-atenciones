@@ -3,13 +3,14 @@ import { AlertCircle } from 'lucide-react'
 import { editarAtencion } from '@/lib/atencionesApi'
 import { TIPOS, categoriasPorTipo, subcategoriasPorCategoria, gravedadDe, type Tipo } from '@/data/categorizacion'
 import { ZONAS } from '@/data/zonasFundos'
-import { PACKING_FUNDOS, TURNOS_360, TIPOS_ATENCION_360, ALERTAS_360 } from '@/data/formulario360'
+import { PACKING_FUNDOS, TURNOS_360, TIPOS_ATENCION_360 } from '@/data/formulario360'
 import { moduloDesdeFundo } from '@/lib/modulo'
 import { dniDesdeLegajo, LEGAJO_REGEX } from '@/data/legajo'
 import { Modal } from '@/components/ui/Modal'
 import { Field } from '@/components/ui/Field'
 import { Button } from '@/components/ui/Button'
-import type { Atencion } from '@/types'
+import { AlertasReportadas } from '@/features/f360/AlertasReportadas'
+import type { Atencion, AlertaReportada360 } from '@/types'
 
 // Separa la lista guardada (catálogo + a lo más 1 valor libre "OTRAS: ...",
 // mismo patrón que arma RegistrarCaminata al guardar) para poder editarla
@@ -245,16 +246,14 @@ function Editar360Laboral({ atencion, onClose }: { atencion: Atencion; onClose: 
   const [turno, setTurno] = useState(esPacking ? (atencion.modulo ?? '') : '')
   const [liderCosecha, setLiderCosecha] = useState(atencion.lider_cosecha ?? '')
   const [grupo, setGrupo] = useState(atencion.grupo ?? '')
-  const [alcance, setAlcance] = useState(atencion.alcance ?? 0)
+  const [totalEncuestado, setTotalEncuestado] = useState(atencion.total_encuestado ?? 0)
   const [actividad, setActividad] = useState(atencion.area ?? '')
 
   const tipoInicial = separarCatalogoYLibre(atencion.tipo_atencion_360, TIPOS_ATENCION_360)
   const [tipoAtencion, setTipoAtencion] = useState<string[]>(tipoInicial.delCatalogo)
   const [otroTipoAtencion, setOtroTipoAtencion] = useState(tipoInicial.libre)
 
-  const alertaInicial = separarCatalogoYLibre(atencion.alertas_360, ALERTAS_360)
-  const [alertas, setAlertas] = useState<string[]>(alertaInicial.delCatalogo)
-  const [otraAlerta, setOtraAlerta] = useState(alertaInicial.libre)
+  const [alertasReportadas, setAlertasReportadas] = useState<AlertaReportada360[]>(atencion.alertas_reportadas ?? [])
 
   const [detalleAlerta, setDetalleAlerta] = useState(atencion.detalle_alerta ?? '')
   const [observaciones, setObservaciones] = useState(atencion.comentarios ?? '')
@@ -269,17 +268,16 @@ function Editar360Laboral({ atencion, onClose }: { atencion: Atencion; onClose: 
     setError(null)
     setGuardando(true)
     const tipoFinal = [...tipoAtencion, ...(otroTipoAtencion.trim() ? [otroTipoAtencion.trim()] : [])]
-    const alertasFinal = [...alertas, ...(otraAlerta.trim() ? [otraAlerta.trim()] : [])]
     const { error: err } = await editarAtencion(atencion.id, {
       zona,
       fundo: esPacking ? fundo || null : fundo || null,
       modulo: esPacking ? turno || null : fundo ? moduloDesdeFundo(fundo) : null,
       lider_cosecha: liderCosecha || null,
       grupo: grupo || null,
-      alcance,
+      total_encuestado: totalEncuestado,
       area: actividad || null,
       tipo_atencion_360: tipoFinal,
-      alertas_360: alertasFinal,
+      alertas_reportadas: alertasReportadas,
       detalle_alerta: detalleAlerta || null,
       comentarios: observaciones || null,
       updated_at: new Date().toISOString(),
@@ -354,8 +352,8 @@ function Editar360Laboral({ atencion, onClose }: { atencion: Atencion; onClose: 
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Field label="Alcance" value={alcance}>
-            <input type="number" min={0} value={alcance} onChange={(e) => setAlcance(Number(e.target.value))} className="input" />
+          <Field label="Total de personal encuestado" value={totalEncuestado}>
+            <input type="number" min={0} value={totalEncuestado} onChange={(e) => setTotalEncuestado(Number(e.target.value))} className="input" />
           </Field>
           <Field label="Actividad realizada" value={actividad}>
             <input type="text" value={actividad} onChange={(e) => setActividad(e.target.value.toUpperCase())} className="input" />
@@ -372,10 +370,7 @@ function Editar360Laboral({ atencion, onClose }: { atencion: Atencion; onClose: 
 
         <div>
           <p className="text-[13px] font-medium text-neutral-700 mb-1.5">Alertas</p>
-          <CheckboxGroup opciones={ALERTAS_360} valores={alertas} onToggle={(v) => toggle(alertas, setAlertas, v)} />
-          <Field label="Especifica (opcional)" value={otraAlerta} className="mt-3">
-            <input type="text" value={otraAlerta} onChange={(e) => setOtraAlerta(e.target.value.toUpperCase())} className="input" />
-          </Field>
+          <AlertasReportadas valores={alertasReportadas} onChange={setAlertasReportadas} />
         </div>
 
         <Field label="Detalle de la alerta" value={detalleAlerta}>
