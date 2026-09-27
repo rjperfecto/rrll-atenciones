@@ -37,12 +37,12 @@ export const TIPOS: Tipo[] = [
 ]
 
 export const CATEGORIZACION: CategorizacionEntry[] = [
-  // CONSULTA
-  { tipo: 'CONSULTA', categoria: 'APLICAR MEDIDA DISCIPLINARIA', subcategoria: 'DERIVACIÓN A OTRA ÁREA', gravedad: 'BAJO' },
-  { tipo: 'CONSULTA', categoria: 'USO DE APLICATIVOS (BERRYDICTO)', subcategoria: 'DERIVACIÓN AL EQUIPO', gravedad: 'BAJO' },
-  { tipo: 'CONSULTA', categoria: 'DERIVACIÓN A OTRA ÁREA', subcategoria: 'APLICAR MEDIDA DISCIPLINARIA', gravedad: 'BAJO' },
-  { tipo: 'CONSULTA', categoria: 'DERIVACION AL EQUIPO', subcategoria: 'FALLAS EN APLICATIVO', gravedad: 'BAJO' },
-  { tipo: 'CONSULTA', categoria: 'CAMBIO DE ÁREA', subcategoria: 'PROCESO DE RRLL', gravedad: 'BAJO' },
+  // CONSULTA (subcategoria = categoria: no hay una subcategoría real distinta)
+  { tipo: 'CONSULTA', categoria: 'APLICAR MEDIDA DISCIPLINARIA', subcategoria: 'APLICAR MEDIDA DISCIPLINARIA', gravedad: 'BAJO' },
+  { tipo: 'CONSULTA', categoria: 'USO DE APLICATIVOS (BERRYDICTO)', subcategoria: 'USO DE APLICATIVOS (BERRYDICTO)', gravedad: 'BAJO' },
+  { tipo: 'CONSULTA', categoria: 'DERIVACIÓN A OTRA ÁREA', subcategoria: 'DERIVACIÓN A OTRA ÁREA', gravedad: 'BAJO' },
+  { tipo: 'CONSULTA', categoria: 'DERIVACION AL EQUIPO', subcategoria: 'DERIVACION AL EQUIPO', gravedad: 'BAJO' },
+  { tipo: 'CONSULTA', categoria: 'CAMBIO DE ÁREA', subcategoria: 'CAMBIO DE ÁREA', gravedad: 'BAJO' },
 
   // INTERVENCIÓN - ACTOS CONTRA LA BUENA FE LABORAL
   { tipo: 'INTERVENCIÓN', categoria: 'ACTOS CONTRA LA BUENA FE LABORAL', subcategoria: 'PROPORCIONAR A SUS SUPERIORES INFORMACIÓN FALSA SOBRE EL TRABAJO', gravedad: 'MEDIO' },
