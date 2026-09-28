@@ -86,61 +86,95 @@ export function exportarAtencionesXlsx(atenciones: Atencion[]) {
   descargarXlsx(COLUMNAS, filas, 'Atenciones', 'atenciones_rrll')
 }
 
-// Columnas propias de 360 Laboral: es un registro de sesión/grupo (no un
-// trabajador individual), así que no comparte columnas con el export de
-// arriba (Tipo/Categoría/Legajo/etc. no aplican acá).
+const MESES = [
+  'ENERO',
+  'FEBRERO',
+  'MARZO',
+  'ABRIL',
+  'MAYO',
+  'JUNIO',
+  'JULIO',
+  'AGOSTO',
+  'SEPTIEMBRE',
+  'OCTUBRE',
+  'NOVIEMBRE',
+  'DICIEMBRE',
+]
+
+// Las primeras 22 columnas (FECHA...Status compromiso) replican exactamente
+// nombre y orden del Excel "INDICADORES_ACTUALIZADO.xlsx" (hoja 360 LABORAL),
+// para poder pegar/comparar filas directo contra ese reporte. Las 5 últimas
+// (RESULTADO COMPROMISO...SUP. RRLL) no existen en ese Excel pero sí se
+// capturan en la app, así que se agregan al final para no perder ese dato.
 const COLUMNAS_360 = [
   'FECHA',
+  'AÑO',
+  'MES',
   'SEMANA',
-  'NIVEL DE CONFLICTIVIDAD',
-  'LIDER DE COSECHA',
-  'GRUPO',
-  'TOTAL ENCUESTADO',
-  'ZONA',
-  'FUNDO',
-  'MODULO',
-  'ACTIVIDAD',
-  'TIPO DE ATENCION',
-  'ALERTAS',
-  'DETALLE DE LA ALERTA',
-  'COMPROMISO',
-  'DETALLE COMPROMISO',
-  'FECHA FIN COMPROMISO',
+  'Nombre',
+  'Grupo',
+  'Líder de Cosecha',
+  'Nivel de conflictividad',
+  'Sede',
+  'Turno',
+  'Zona',
+  'Fundo',
+  'Módulo',
+  'Actividad',
+  'Tipo de atención',
+  'Alcance',
+  'Alertas',
+  'Detalle de la alerta',
+  'Compromiso',
+  'Detalle compromiso',
+  'Fecha fin compromiso',
+  'Status compromiso',
   'RESULTADO COMPROMISO',
   'FECHA DE CIERRE',
   'EVIDENCIA',
   'OBSERVACIONES',
-  'RESPONSABLE RRLL',
   'SUP. RRLL',
 ] as const
 
 export function exportar360LaboralXlsx(atenciones: Atencion[]) {
   const filas = atenciones.map((a) => {
+    const esPacking = a.zona === 'PACKING'
+    const fecha = new Date(a.fecha + 'T00:00:00')
+    const compromisoSi = a.compromiso_generado === true
     const fila: Record<(typeof COLUMNAS_360)[number], string> = {
       FECHA: a.fecha,
-      SEMANA: String(semanaIso(a.fecha)),
-      'NIVEL DE CONFLICTIVIDAD': a.gravedad,
-      'LIDER DE COSECHA': a.lider_cosecha ?? '',
-      GRUPO: a.grupo ?? '',
-      'TOTAL ENCUESTADO': a.total_encuestado !== null && a.total_encuestado !== undefined ? String(a.total_encuestado) : '',
-      ZONA: a.zona,
-      FUNDO: a.fundo ?? '',
-      MODULO: a.modulo ?? '',
-      ACTIVIDAD: a.area ?? '',
-      'TIPO DE ATENCION': (a.tipo_atencion_360 ?? []).join(' / '),
-      ALERTAS:
+      AÑO: String(fecha.getUTCFullYear()),
+      MES: MESES[fecha.getUTCMonth()],
+      SEMANA: `SEM ${semanaIso(a.fecha)}`,
+      Nombre: a.responsable_nombre.toUpperCase(),
+      Grupo: a.grupo ?? '',
+      'Líder de Cosecha': a.lider_cosecha ?? '',
+      'Nivel de conflictividad': a.gravedad,
+      Sede: esPacking ? 'PACKING' : 'FUNDO',
+      // Turno solo se captura para sedes PACKING (Día/Noche); en FUNDO la
+      // app no registra turno, así que queda vacío en vez de inventar un valor.
+      Turno: esPacking ? (a.modulo ?? '') : '',
+      Zona: a.zona,
+      Fundo: a.fundo ?? '',
+      // Para PACKING, "modulo" guarda el turno (ya mostrado arriba), no un
+      // módulo real, así que acá queda vacío para no duplicarlo.
+      Módulo: esPacking ? '' : (a.modulo ?? ''),
+      Actividad: a.area ?? '',
+      'Tipo de atención': (a.tipo_atencion_360 ?? []).join(' / '),
+      Alcance: a.total_encuestado !== null && a.total_encuestado !== undefined ? String(a.total_encuestado) : '',
+      Alertas:
         a.alertas_reportadas.length > 0
           ? a.alertas_reportadas.map((al) => `${al.categoria} > ${al.subcategoria} (${al.nivel}): ${al.cantidad}`).join(' / ')
           : (a.alertas_360 ?? []).join(' / '),
-      'DETALLE DE LA ALERTA': a.detalle_alerta ?? '',
-      COMPROMISO: a.compromiso_generado === true ? 'SI' : a.compromiso_generado === false ? 'NO' : '',
-      'DETALLE COMPROMISO': a.detalle_compromiso ?? '',
-      'FECHA FIN COMPROMISO': a.fecha_fin_compromiso ?? '',
+      'Detalle de la alerta': a.detalle_alerta ?? '',
+      Compromiso: a.compromiso_generado === true ? 'Se generó un compromiso' : a.compromiso_generado === false ? 'No se generó un compromiso' : '',
+      'Detalle compromiso': a.detalle_compromiso ?? '',
+      'Fecha fin compromiso': a.fecha_fin_compromiso ?? '',
+      'Status compromiso': !compromisoSi ? 'Sin compromiso' : a.estado === 'CERRADO' ? 'Cerrado' : 'Abierto',
       'RESULTADO COMPROMISO': a.resultado_compromiso ?? '',
       'FECHA DE CIERRE': a.fecha_cierre ?? '',
       EVIDENCIA: a.evidencia_360 ?? '',
       OBSERVACIONES: a.comentarios ?? '',
-      'RESPONSABLE RRLL': a.responsable_nombre.toUpperCase(),
       'SUP. RRLL': a.sup_rrll ?? '',
     }
     return fila
