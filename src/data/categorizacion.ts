@@ -158,7 +158,7 @@ export const CATEGORIZACION: CategorizacionEntry[] = [
   { tipo: 'PREVENTIVO', categoria: 'DESPLIEGUE DE COMUNICACIÓN', subcategoria: 'DESPLIEGUE DE COMUNICACIÓN', gravedad: 'BAJO' },
 
   // GESTION LABORAL
-  { tipo: 'GESTION LABORAL', categoria: 'PROCESO DE RRLL', subcategoria: 'USO DE APLICATIVOS (BERRYDICTO)', gravedad: 'BAJO' },
+  { tipo: 'GESTION LABORAL', categoria: 'PROCESO DE RRLL', subcategoria: 'PROCESO DE RRLL', gravedad: 'BAJO' },
   { tipo: 'GESTION LABORAL', categoria: 'TRÁMITES SINDICALES', subcategoria: 'TRÁMITES SINDICALES', gravedad: 'MEDIO' },
 
   // INCUMPLIMIENTO LABORAL

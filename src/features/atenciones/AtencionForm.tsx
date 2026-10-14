@@ -77,13 +77,14 @@ export function AtencionForm() {
     // zona) gana siempre sobre lo que haya en el formulario.
     const zonaFinal = (profile.zona_asignada as Zona | null) ?? values.zona
     const now = new Date().toISOString()
+    const hoyStr = now.slice(0, 10)
 
     const atencion: Atencion = {
       id: crypto.randomUUID(),
       client_uuid: crypto.randomUUID(),
       tipo_registro: values.tipoRegistro,
       fecha: values.fecha,
-      fecha_cierre: null,
+      fecha_cierre: hoyStr,
       zona: zonaFinal,
       fundo: values.fundo || null,
       modulo: values.fundo ? moduloDesdeFundo(values.fundo) : null,
@@ -103,10 +104,14 @@ export function AtencionForm() {
           es_afiliado: esAfiliadoFinal,
         },
       ],
-      estado: 'ABIERTO',
-      accion_correctiva: null,
-      dias_suspension: null,
-      detalle_cierre: null,
+      // El cierre ya no es un paso aparte (antes "Cerrar caso" después de
+      // registrar): se completa en el mismo formulario (ver
+      // FormularioGeneral.tsx, sección "Cierre del caso") y el caso se
+      // guarda directamente como CERRADO.
+      estado: 'CERRADO',
+      accion_correctiva: values.accionCorrectiva,
+      dias_suspension: values.accionCorrectiva === 'SUSPENSIÓN' ? (values.diasSuspension ?? null) : null,
+      detalle_cierre: values.detalleCierre || null,
       sup_cuadrilla: values.supCuadrilla || null,
       responsable_id: profile.id,
       responsable_nombre: profile.nombre_completo,
@@ -143,7 +148,7 @@ export function AtencionForm() {
 
   return (
     <div className="max-w-xl">
-      <PageHeader title="Registrar" description="Registra un caso de RRLL en campo." />
+      <PageHeader title="Registrar" description="Registra y cierra el caso de RRLL en un solo paso." />
 
       <FormProvider {...metodos}>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
@@ -178,7 +183,7 @@ export function AtencionForm() {
                 Limpiar formulario
               </Button>
               <Button type="submit" loading={isSubmitting}>
-                {isSubmitting ? 'Guardando...' : 'Registrar atención'}
+                {isSubmitting ? 'Guardando...' : 'Registrar y cerrar'}
               </Button>
             </div>
           </div>

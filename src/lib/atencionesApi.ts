@@ -171,8 +171,10 @@ export interface AntecedenteFalta {
 // Tipo=INTERVENCIÓN (faltas reales de la Matriz), no consultas/reclamos/etc,
 // para ayudar a definir una medida correctiva acorde al historial de la persona.
 // Se muestra con qué se cerró cada una (o "PENDIENTE" si aún no se cierra).
-export async function buscarAntecedentesPorLegajo(legajo: string, excluirId: string): Promise<AntecedenteFalta[]> {
-  const { data, error } = await supabase
+// excluirId es opcional: al registrar (ver FormularioGeneral.tsx) el caso
+// todavía no existe, así que no hay nada que excluir.
+export async function buscarAntecedentesPorLegajo(legajo: string, excluirId?: string): Promise<AntecedenteFalta[]> {
+  let query = supabase
     .from('atenciones')
     .select('fecha, subcategoria, estado, accion_correctiva, involucrados')
     // .contains() genera sintaxis de array de Postgres (cs.{...}) para este
@@ -180,8 +182,8 @@ export async function buscarAntecedentesPorLegajo(legajo: string, excluirId: str
     // .filter() con el JSON ya serializado evita ese problema.
     .filter('involucrados', 'cs', JSON.stringify([{ legajo }]))
     .eq('tipo', 'INTERVENCIÓN')
-    .neq('id', excluirId)
-    .order('fecha', { ascending: false })
+  if (excluirId) query = query.neq('id', excluirId)
+  const { data, error } = await query.order('fecha', { ascending: false })
   if (error || !data) return []
   return data as AntecedenteFalta[]
 }

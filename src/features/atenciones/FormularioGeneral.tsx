@@ -1,17 +1,31 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useFormContext } from 'react-hook-form'
-import { AlertCircle, AlertTriangle, CheckCircle2, FileWarning, Lock, MapPin, ScanLine, Search, StickyNote, UserSearch } from 'lucide-react'
+import {
+  AlertCircle,
+  AlertTriangle,
+  CheckCircle2,
+  FileWarning,
+  History,
+  Lock,
+  MapPin,
+  ScanLine,
+  Search,
+  StickyNote,
+  UserSearch,
+} from 'lucide-react'
 import { BarcodeScannerModal } from '@/components/ui/BarcodeScannerModal'
 import { estadoDeCampo, CLASE_INPUT_POR_ESTADO } from '@/lib/campoEstado'
 import { conMayusculas } from '@/lib/conMayusculas'
 import { TIPOS, categoriasPorTipo, subcategoriasPorCategoria, gravedadDe } from '@/data/categorizacion'
 import { ZONAS } from '@/data/zonasFundos'
 import { LEGAJO_REGEX } from '@/data/legajo'
+import { ACCIONES_CORRECTIVAS, requiereDias } from '@/data/accionCorrectiva'
 import { supRrllPorZona } from '@/data/supervisoresRrll'
 import { moduloDesdeFundo } from '@/lib/modulo'
 import { zonaDesdeFundo } from '@/lib/zonaFundo'
 import { buscarTrabajadorPorLegajo, buscarAfiliadoPorLegajo } from '@/lib/trabajadoresApi'
 import { areaDeActividad } from '@/lib/actividadAreaApi'
+import { buscarAntecedentesPorLegajo, type AntecedenteFalta } from '@/lib/atencionesApi'
 import { useAuth } from '@/features/auth/AuthContext'
 import { CardSection } from '@/components/ui/Card'
 import { Field } from '@/components/ui/Field'
@@ -29,6 +43,7 @@ export function FormularioGeneral() {
   const [busqueda, setBusqueda] = useState<EstadoBusqueda>('idle')
   const [escaneando, setEscaneando] = useState(false)
   const [esAfiliado, setEsAfiliado] = useState<boolean | null>(null)
+  const [antecedentes, setAntecedentes] = useState<AntecedenteFalta[] | null>(null)
   const { profile } = useAuth()
   const zonaUsuario = profile?.zona_asignada ?? null
 
@@ -41,7 +56,7 @@ export function FormularioGeneral() {
   } = useFormContext<AtencionFormValues>()
 
   const valores = watch()
-  const { legajo, fecha, tipo, categoria, subcategoria, zona, fundo } = valores
+  const { legajo, fecha, tipo, categoria, subcategoria, zona, fundo, accionCorrectiva } = valores
 
   const categorias = useMemo(() => (tipo ? categoriasPorTipo(tipo) : []), [tipo])
   const subcategorias = useMemo(
@@ -63,15 +78,21 @@ export function FormularioGeneral() {
       if (!LEGAJO_REGEX.test(legajoLimpio)) {
         setBusqueda('formato_invalido')
         setEsAfiliado(null)
+        setAntecedentes(null)
         void trigger('legajo')
         return
       }
       setBusqueda('buscando')
-      const [esAfiliadoEncontrado, trabajador] = await Promise.all([
+      // Los antecedentes (faltas previas del legajo) se traen junto con el
+      // resto: ya no es un paso aparte al cerrar el caso (CerrarCasoModal),
+      // se muestran acá para elegir la acción correctiva con ese contexto.
+      const [esAfiliadoEncontrado, trabajador, antecedentesEncontrados] = await Promise.all([
         buscarAfiliadoPorLegajo(legajoLimpio),
         buscarTrabajadorPorLegajo(legajoLimpio, fecha ?? ''),
+        buscarAntecedentesPorLegajo(legajoLimpio),
       ])
       setEsAfiliado(esAfiliadoEncontrado)
+      setAntecedentes(antecedentesEncontrados)
       if (!trabajador) {
         setBusqueda('no_encontrado')
         return
@@ -130,6 +151,7 @@ export function FormularioGeneral() {
                   onChange: () => {
                     setBusqueda('idle')
                     setEsAfiliado(null)
+                    setAntecedentes(null)
                   },
                 })}
                 className={cn('input', CLASE_INPUT_POR_ESTADO[estadoLegajo], estadoLegajo !== 'neutral' && 'pl-9')}
@@ -294,6 +316,67 @@ export function FormularioGeneral() {
         </Field>
         <Field label="Comentarios" value={valores.comentarios}>
           <textarea rows={3} placeholder="Detalle narrativo del caso..." {...conMayusculas(register('comentarios'))} className="input" />
+        </Field>
+      </CardSection>
+
+      <CardSection title="Cierre del caso" icon={<CheckCircle2 className="size-4 text-brand" />}>
+        {/* El cierre ya no es un paso aparte (antes "Cerrar caso" después de
+            registrar, ver CerrarCasoModal.tsx): se completa acá mismo y el
+            caso se guarda directamente como CERRADO (ver AtencionForm.tsx). */}
+        {antecedentes !== null && (
+          <div className="rounded-md border border-neutral-200 bg-neutral-50 p-3">
+            <p className="text-sm font-medium text-neutral-800 flex items-center gap-1.5 mb-1">
+              <History className="size-4 text-brand" />
+              ANTECEDENTES
+            </p>
+            {antecedentes.length === 0 ? (
+              <p className="text-sm text-neutral-500">Sin faltas previas registradas para este legajo.</p>
+            ) : (
+              <>
+                <p className="text-sm text-neutral-700 mb-2">
+                  {antecedentes.length} falta{antecedentes.length > 1 ? 's' : ''} previa{antecedentes.length > 1 ? 's' : ''} registrada
+                  {antecedentes.length > 1 ? 's' : ''} para este legajo:
+                </p>
+                <ul className="space-y-1 max-h-40 overflow-y-auto">
+                  {antecedentes.map((a, i) => (
+                    <li key={i} className="text-sm text-neutral-600 flex items-center gap-2">
+                      <span className="text-neutral-400">{a.fecha}</span>
+                      <span className="flex-1">{a.subcategoria}</span>
+                      <span
+                        className={cn(
+                          'px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap',
+                          a.estado === 'CERRADO' ? 'bg-success-soft text-emerald-800' : 'bg-warning-soft text-amber-800',
+                        )}
+                      >
+                        {a.estado === 'CERRADO' ? a.accion_correctiva : 'PENDIENTE'}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </div>
+        )}
+
+        <Field label="Acción correctiva" value={accionCorrectiva} error={errors.accionCorrectiva?.message}>
+          <select {...register('accionCorrectiva')} className="input">
+            <option value="">Selecciona...</option>
+            {ACCIONES_CORRECTIVAS.map((a) => (
+              <option key={a} value={a}>
+                {a}
+              </option>
+            ))}
+          </select>
+        </Field>
+
+        {requiereDias(accionCorrectiva || '') && (
+          <Field label="Días de suspensión" value={valores.diasSuspension} error={errors.diasSuspension?.message}>
+            <input type="number" min={1} {...register('diasSuspension', { valueAsNumber: true })} className="input" />
+          </Field>
+        )}
+
+        <Field label="Detalle del cierre (opcional)" value={valores.detalleCierre}>
+          <input type="text" {...conMayusculas(register('detalleCierre'))} className="input" />
         </Field>
       </CardSection>
 
