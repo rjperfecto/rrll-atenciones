@@ -15,6 +15,18 @@ async function telefonoDeLegajo(legajo: string): Promise<Telefono | null> {
   return (data as Telefono) ?? null
 }
 
+// Batch (no uno por uno) para no hacer una query por cada soporte/cosechador
+// del grupo, que puede tener varias decenas de personas.
+async function telefonosDeLegajos(legajos: string[]): Promise<Map<string, string | null>> {
+  const mapa = new Map<string, string | null>()
+  if (legajos.length === 0) return mapa
+  const { data } = await supabase.from('telefonos').select('*').in('legajo', legajos)
+  for (const t of (data ?? []) as Telefono[]) {
+    mapa.set(t.legajo, t.telefono_1 ?? t.telefono_2 ?? null)
+  }
+  return mapa
+}
+
 // Busca, dentro del mismo día que el resto del grupo, la fila propia del
 // líder (para sacar su legajo y así su celular). Si no marcó ese día en ESE
 // grupo (ej. supervisa varios), se amplía la búsqueda a cualquier grupo de
@@ -46,11 +58,10 @@ async function filaDelLider(nombreLider: string, fecha: string, grupo: string): 
 export interface PersonaGrupo {
   legajo: string
   nombre_completo: string
-}
-
-export interface LiderGrupo extends PersonaGrupo {
   telefono: string | null
 }
+
+export type LiderGrupo = PersonaGrupo
 
 export interface ResultadoGrupo {
   grupo: string
@@ -104,12 +115,13 @@ export async function buscarGrupoCompleto(grupo: string): Promise<ResultadoGrupo
 
   const resto = roster.filter((r) => r.legajo !== liderLegajo)
   const esSoporte = (area: string | null) => (area ?? '').toUpperCase().includes('SOPORTE')
+  const telefonos = await telefonosDeLegajos(resto.map((r) => r.legajo))
   const soportes = resto
     .filter((r) => esSoporte(r.area))
-    .map((r) => ({ legajo: r.legajo, nombre_completo: r.nombre_completo }))
+    .map((r) => ({ legajo: r.legajo, nombre_completo: r.nombre_completo, telefono: telefonos.get(r.legajo) ?? null }))
   const cosechadores = resto
     .filter((r) => !esSoporte(r.area))
-    .map((r) => ({ legajo: r.legajo, nombre_completo: r.nombre_completo }))
+    .map((r) => ({ legajo: r.legajo, nombre_completo: r.nombre_completo, telefono: telefonos.get(r.legajo) ?? null }))
 
   return { grupo: grupoLimpio, ubicacion, fecha, lider, soportes, cosechadores }
 }
@@ -120,7 +132,7 @@ export interface ResultadoTrabajador {
   telefono: string | null
   grupo: string | null
   fecha: string // fecha del dato de personal usado (para mostrar "datos al...")
-  supervisor: { nombre_completo: string; telefono: string | null } | null
+  supervisor: { legajo: string | null; nombre_completo: string; telefono: string | null } | null
 }
 
 export async function buscarPorLegajo(legajo: string): Promise<ResultadoTrabajador | null> {
@@ -145,6 +157,7 @@ export async function buscarPorLegajo(legajo: string): Promise<ResultadoTrabajad
     const filaSup = await filaDelLider(t.sup_cuadrilla, t.fecha, t.grupo ?? '')
     const telSup = filaSup ? await telefonoDeLegajo(filaSup.legajo) : null
     supervisor = {
+      legajo: filaSup?.legajo ?? null,
       nombre_completo: t.sup_cuadrilla,
       telefono: telSup?.telefono_1 ?? telSup?.telefono_2 ?? null,
     }

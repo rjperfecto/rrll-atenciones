@@ -1,5 +1,6 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useFormContext } from 'react-hook-form'
+import { useSearchParams } from 'react-router-dom'
 import {
   AlertCircle,
   AlertTriangle,
@@ -46,6 +47,7 @@ export function FormularioGeneral() {
   const [antecedentes, setAntecedentes] = useState<AntecedenteFalta[] | null>(null)
   const { profile } = useAuth()
   const zonaUsuario = profile?.zona_asignada ?? null
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const {
     register,
@@ -130,6 +132,24 @@ export function FormularioGeneral() {
     },
     [fecha, setValue, trigger, zonaUsuario],
   )
+
+  // Derivar a un registro desde Herramientas > Búsqueda (ver
+  // AccionesPersonaModal): llega como /?legajo=XXXX, precarga el legajo y
+  // busca automáticamente, igual que si el usuario lo hubiera tipeado.
+  useEffect(() => {
+    const legajoParam = searchParams.get('legajo')
+    if (!legajoParam) return
+    setValue('legajo', legajoParam)
+    void buscarPorLegajo(legajoParam)
+    setSearchParams(
+      (prev) => {
+        prev.delete('legajo')
+        return prev
+      },
+      { replace: true },
+    )
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const onCodigoEscaneado = useCallback(
     (texto: string) => {
