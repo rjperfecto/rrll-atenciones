@@ -74,8 +74,10 @@ export function AtencionForm() {
 
     const esAfiliadoFinal = await buscarAfiliadoPorLegajo(values.legajo)
     // La zona fija del usuario logueado (Administración > Personal por
-    // zona) gana siempre sobre lo que haya en el formulario.
-    const zonaFinal = (profile.zona_asignada as Zona | null) ?? values.zona
+    // zona) gana siempre sobre lo que haya en el formulario — excepto
+    // Packing, donde se deja elegir entre PACKING y OFICINA (ver
+    // FormularioGeneral), así que ahí se respeta lo que el usuario eligió.
+    const zonaFinal = profile.zona_asignada === 'PACKING' ? values.zona : ((profile.zona_asignada as Zona | null) ?? values.zona)
     const now = new Date().toISOString()
     const hoyStr = now.slice(0, 10)
 

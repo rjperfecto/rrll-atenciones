@@ -1,6 +1,5 @@
 import { z } from 'zod'
 import { ZONAS } from '@/data/zonasFundos'
-import { LEGAJO_REGEX } from '@/data/legajo'
 import { PACKING_FUNDOS, TURNOS_360 } from '@/data/formulario360'
 
 export const alertaReportadaSchema = z.object({
@@ -25,8 +24,10 @@ export const atencion360Schema = z
     zona: z.enum(ZONAS, { message: 'Selecciona una zona' }),
     fundo: z.string().min(1, 'El fundo es obligatorio'),
     modulo: z.string().optional(),
-    legajoSupervisor: z.string().regex(LEGAJO_REGEX, 'El legajo debe empezar con "10" seguido del DNI (8 dígitos)'),
     liderCosecha: z.string().min(1, 'El líder de cosecha es obligatorio'),
+    // Se busca por número de grupo (no por legajo del supervisor): un
+    // trabajador cualquiera de ese grupo trae el mismo líder/fundo (ver
+    // buscarTrabajadorPorGrupo en RegistrarCaminata).
     grupo: z.string().min(1, 'El grupo es obligatorio'),
     totalEncuestado: z.union([z.number(), z.nan()]).optional(),
     actividad: z.string().min(1, 'La actividad es obligatoria'),

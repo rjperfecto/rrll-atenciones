@@ -11,23 +11,20 @@ import {
   FileWarning,
   Loader2,
   MapPin,
-  ScanLine,
   Search,
   StickyNote,
   UserSearch,
 } from 'lucide-react'
 import { atencion360Schema, type Atencion360FormValues } from '@/features/atenciones/atencion360Schema'
-import { BarcodeScannerModal } from '@/components/ui/BarcodeScannerModal'
 import { estadoDeCampo, CLASE_INPUT_POR_ESTADO } from '@/lib/campoEstado'
 import { conMayusculas } from '@/lib/conMayusculas'
-import { LEGAJO_REGEX } from '@/data/legajo'
 import { ZONAS } from '@/data/zonasFundos'
 import type { Zona } from '@/data/zonasFundos'
 import { PACKING_FUNDOS, TURNOS_360, TIPOS_ATENCION_360 } from '@/data/formulario360'
 import { supRrllPorZona } from '@/data/supervisoresRrll'
 import { moduloDesdeFundo } from '@/lib/modulo'
 import { zonaDesdeFundo } from '@/lib/zonaFundo'
-import { buscarTrabajadorPorLegajo, buscarAfiliadoPorLegajo } from '@/lib/trabajadoresApi'
+import { buscarTrabajadorPorGrupo } from '@/lib/trabajadoresApi'
 import { crearAtencion } from '@/lib/atencionesApi'
 import { useAuth } from '@/features/auth/AuthContext'
 import { cn } from '@/lib/cn'
@@ -101,16 +98,16 @@ function CheckboxGroup({ opciones, valores, onToggle }: { opciones: readonly str
 
 // "Registrar caminata" (360 Laboral): registro de sesión/grupo, no de un
 // trabajador individual. Ubicación (Zona/Fundo/Módulo) se captura igual que
-// en Atenciones; lo único que cambia es que se escanea al SUPERVISOR del
-// grupo (autocompleta Líder de cosecha y Grupo), no a un trabajador puntual.
-// El total de personal encuestado se carga a mano (no todo el grupo se
-// encuesta siempre). Ver plan: separa 360 Laboral de Atenciones.
+// en Atenciones; lo único que cambia es que se busca por NÚMERO DE GRUPO
+// (autocompleta Líder de cosecha y Fundo/Zona desde cualquier trabajador de
+// ese grupo, ver buscarTrabajadorPorGrupo), no por legajo de un trabajador
+// puntual. El total de personal encuestado se carga a mano (no todo el
+// grupo se encuesta siempre). Ver plan: separa 360 Laboral de Atenciones.
 export function RegistrarCaminata() {
   const { profile } = useAuth()
   const [estadoGuardado, setEstadoGuardado] = useState<'idle' | 'guardando' | 'guardado'>('idle')
   const [errorGuardado, setErrorGuardado] = useState<string | null>(null)
   const [busqueda, setBusqueda] = useState<EstadoBusqueda>('idle')
-  const [escaneando, setEscaneando] = useState(false)
   const [formKey, setFormKey] = useState(0)
   const zonaUsuario = profile?.zona_asignada ?? null
 
@@ -138,11 +135,11 @@ export function RegistrarCaminata() {
   })
 
   const valores = watch()
-  const { legajoSupervisor, fecha, zona, fundo } = valores
+  const { grupo, fecha, zona, fundo } = valores
   const esPacking = zona === 'PACKING'
   const moduloDetectado = useMemo(() => (!esPacking && fundo ? moduloDesdeFundo(fundo) : null), [esPacking, fundo])
   const supRrll = useMemo(() => (zona ? supRrllPorZona(zona) : null), [zona])
-  const estadoLegajo = estadoDeCampo(legajoSupervisor, errors.legajoSupervisor?.message)
+  const estadoGrupo = estadoDeCampo(grupo, errors.grupo?.message)
   const tipoAtencion360 = valores.tipoAtencion360 ?? []
   const alertasReportadas = (valores.alertasReportadas ?? []) as AlertaReportada360[]
 
@@ -152,45 +149,35 @@ export function RegistrarCaminata() {
     setValue(campo, siguiente, { shouldValidate: true, shouldDirty: true })
   }
 
-  const buscarSupervisor = useCallback(
-    async (valorLegajo: string) => {
-      const legajoLimpio = valorLegajo.trim()
-      if (legajoLimpio !== valorLegajo) setValue('legajoSupervisor', legajoLimpio)
-      if (!LEGAJO_REGEX.test(legajoLimpio)) {
+  const buscarPorGrupo = useCallback(
+    async (valorGrupo: string) => {
+      const grupoLimpio = valorGrupo.trim().toUpperCase()
+      if (grupoLimpio !== valorGrupo) setValue('grupo', grupoLimpio)
+      if (!grupoLimpio) {
         setBusqueda('formato_invalido')
-        void trigger('legajoSupervisor')
+        void trigger('grupo')
         return
       }
       setBusqueda('buscando')
-      const trabajador = await buscarTrabajadorPorLegajo(legajoLimpio, fecha || hoy())
+      const trabajador = await buscarTrabajadorPorGrupo(grupoLimpio, fecha || hoy())
       if (!trabajador) {
         setBusqueda('no_encontrado')
         return
       }
-      setValue('liderCosecha', trabajador.nombre_completo.toUpperCase())
+      // El líder de cosecha del grupo es el sup_cuadrilla de cualquiera de
+      // sus trabajadores (no el nombre del trabajador encontrado).
+      if (trabajador.sup_cuadrilla) setValue('liderCosecha', trabajador.sup_cuadrilla.toUpperCase())
       if (trabajador.fundo) setValue('fundo', trabajador.fundo.toUpperCase())
       // La zona fija del USUARIO logueado (Administración > Personal por
-      // zona) manda siempre sobre la zona detectada por el fundo del
-      // supervisor ese día.
+      // zona) manda siempre sobre la zona detectada por el fundo del grupo
+      // ese día.
       if (!zonaUsuario) {
         const zonaDetectada = trabajador.fundo ? zonaDesdeFundo(trabajador.fundo) : null
         if (zonaDetectada) setValue('zona', zonaDetectada)
       }
-      if (trabajador.grupo) {
-        setValue('grupo', trabajador.grupo.toUpperCase())
-      }
       setBusqueda('encontrado')
     },
     [fecha, setValue, trigger, zonaUsuario],
-  )
-
-  const onCodigoEscaneado = useCallback(
-    (texto: string) => {
-      setEscaneando(false)
-      setValue('legajoSupervisor', texto)
-      void buscarSupervisor(texto)
-    },
-    [buscarSupervisor, setValue],
   )
 
   function limpiarFormulario() {
@@ -211,9 +198,6 @@ export function RegistrarCaminata() {
       ? [...values.tipoAtencion360.filter((v) => v !== 'OTRAS'), values.otroTipoAtencion || '']
       : values.tipoAtencion360
 
-    // Se recalcula acá (no se confía solo en el estado de "Buscar") por si
-    // el usuario escribió el legajo del supervisor y envió sin buscar antes.
-    void (await buscarAfiliadoPorLegajo(values.legajoSupervisor))
     // La zona fija del usuario logueado (Administración > Personal por
     // zona) gana siempre sobre lo que haya en el formulario.
     const zonaFinal = (profile.zona_asignada as Zona | null) ?? values.zona
@@ -309,51 +293,45 @@ export function RegistrarCaminata() {
           {errors.nivelConflictividad && <p className="text-xs text-danger mt-1">{errors.nivelConflictividad.message}</p>}
         </CardSection>
 
-        <CardSection title="Supervisor del grupo" icon={<UserSearch className="size-4 text-brand" />}>
+        <CardSection title="Grupo" icon={<UserSearch className="size-4 text-brand" />}>
           <div>
-            <label htmlFor="campo-legajo-supervisor" className="block text-[13px] font-medium text-neutral-700 mb-1.5">
-              Legajo del supervisor
+            <label htmlFor="campo-grupo" className="block text-[13px] font-medium text-neutral-700 mb-1.5">
+              Número de grupo
             </label>
             <div className="flex gap-2">
               <div className="relative flex-1">
                 <input
-                  id="campo-legajo-supervisor"
+                  id="campo-grupo"
                   type="text"
-                  inputMode="numeric"
-                  maxLength={10}
-                  placeholder="1012345678"
-                  {...register('legajoSupervisor', { onChange: () => setBusqueda('idle') })}
-                  className={cn('input', CLASE_INPUT_POR_ESTADO[estadoLegajo], estadoLegajo !== 'neutral' && 'pl-9')}
+                  placeholder="CH12"
+                  {...conMayusculas(register('grupo', { onChange: () => setBusqueda('idle') }))}
+                  className={cn('input', CLASE_INPUT_POR_ESTADO[estadoGrupo], estadoGrupo !== 'neutral' && 'pl-9')}
                 />
-                {estadoLegajo !== 'neutral' && (
+                {estadoGrupo !== 'neutral' && (
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                    {estadoLegajo === 'success' && <CheckCircle2 className="size-4 text-success" />}
-                    {estadoLegajo === 'warning' && <AlertTriangle className="size-4 text-warning" />}
-                    {estadoLegajo === 'error' && <AlertCircle className="size-4 text-danger" />}
+                    {estadoGrupo === 'success' && <CheckCircle2 className="size-4 text-success" />}
+                    {estadoGrupo === 'warning' && <AlertTriangle className="size-4 text-warning" />}
+                    {estadoGrupo === 'error' && <AlertCircle className="size-4 text-danger" />}
                   </span>
                 )}
               </div>
-              <Button type="button" variant="primary" onClick={() => buscarSupervisor(legajoSupervisor || '')} loading={busqueda === 'buscando'} className="shrink-0">
+              <Button type="button" variant="primary" onClick={() => buscarPorGrupo(grupo || '')} loading={busqueda === 'buscando'} className="shrink-0">
                 <Search className="size-4" />
                 Buscar
               </Button>
-              <Button type="button" variant="secondary" onClick={() => setEscaneando(true)} className="shrink-0" title="Escanear carnet">
-                <ScanLine className="size-4" />
-                <span className="hidden sm:inline">Escanear</span>
-              </Button>
             </div>
-            {estadoLegajo === 'warning' && errors.legajoSupervisor && <p className="text-xs text-warning mt-1">{errors.legajoSupervisor.message}</p>}
-            {estadoLegajo === 'error' && errors.legajoSupervisor && <p className="text-xs text-danger mt-1">{errors.legajoSupervisor.message}</p>}
+            {estadoGrupo === 'warning' && errors.grupo && <p className="text-xs text-warning mt-1">{errors.grupo.message}</p>}
+            {estadoGrupo === 'error' && errors.grupo && <p className="text-xs text-danger mt-1">{errors.grupo.message}</p>}
             {busqueda === 'encontrado' && (
               <p className="text-xs text-emerald-600 mt-1 flex items-center gap-1">
                 <CheckCircle2 className="size-3.5 shrink-0" />
-                Líder, grupo y zona autocompletados desde TAREO — revisa si aplican.
+                Líder de cosecha, fundo y zona autocompletados desde TAREO — revisa si aplican.
               </p>
             )}
             {busqueda === 'no_encontrado' && (
               <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
                 <AlertCircle className="size-3.5 shrink-0" />
-                No encontramos ese legajo en el tareo de esa fecha. Completa los datos a mano.
+                No encontramos ese grupo en el tareo de esa fecha. Completa los datos a mano.
               </p>
             )}
           </div>
@@ -362,14 +340,9 @@ export function RegistrarCaminata() {
             <input type="text" {...conMayusculas(register('liderCosecha'))} className="input" />
           </Field>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="Grupo" value={valores.grupo} error={errors.grupo?.message}>
-              <input type="text" {...conMayusculas(register('grupo'))} className="input" />
-            </Field>
-            <Field label="Total de personal encuestado" value={valores.totalEncuestado} error={errors.totalEncuestado?.message}>
-              <input type="number" min={0} {...register('totalEncuestado', { valueAsNumber: true })} className="input" />
-            </Field>
-          </div>
+          <Field label="Total de personal encuestado" value={valores.totalEncuestado} error={errors.totalEncuestado?.message}>
+            <input type="number" min={0} {...register('totalEncuestado', { valueAsNumber: true })} className="input" />
+          </Field>
         </CardSection>
 
         <CardSection title="Ubicación" icon={<MapPin className="size-4 text-brand" />}>
@@ -478,8 +451,6 @@ export function RegistrarCaminata() {
           </div>
         </div>
       </form>
-
-      {escaneando && <BarcodeScannerModal onDetected={onCodigoEscaneado} onClose={() => setEscaneando(false)} />}
 
       {estadoGuardado !== 'idle' && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">

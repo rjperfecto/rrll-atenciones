@@ -70,6 +70,14 @@ export function FormularioGeneral() {
   const modulo = useMemo(() => (fundo ? moduloDesdeFundo(fundo) : null), [fundo])
   const supRrll = useMemo(() => (zona ? supRrllPorZona(zona) : null), [zona])
   const estadoLegajo = estadoDeCampo(legajo, errors.legajo?.message)
+  // Personal de Packing (zona_asignada='PACKING') puede atender tanto el
+  // packing como la oficina administrativa: a diferencia de las demás zonas
+  // fijas, acá no se bloquea del todo, se deja elegir entre esas dos (ver
+  // también AtencionForm, que ya no fuerza zona_asignada en el submit para
+  // este caso).
+  const esPackingFijo = zonaUsuario === 'PACKING'
+  const zonaBloqueada = Boolean(zonaUsuario) && !esPackingFijo
+  const opcionesZona = esPackingFijo ? (['PACKING', 'OFICINA'] as const) : ZONAS
 
   const buscarPorLegajo = useCallback(
     async (valorLegajo: string) => {
@@ -218,16 +226,18 @@ export function FormularioGeneral() {
             value={zona}
             error={errors.zona?.message}
             hint={
-              zonaUsuario
-                ? 'Fijada por Personal por zona: todo lo que registras queda siempre en esta zona.'
-                : supRrll
-                  ? `Sup. RRLL: ${supRrll}`
-                  : undefined
+              esPackingFijo
+                ? 'Personal de Packing: elige si este caso es de Packing u Oficina.'
+                : zonaUsuario
+                  ? 'Fijada por Personal por zona: todo lo que registras queda siempre en esta zona.'
+                  : supRrll
+                    ? `Sup. RRLL: ${supRrll}`
+                    : undefined
             }
           >
-            <select {...register('zona')} disabled={Boolean(zonaUsuario)} className={cn('input', zonaUsuario && 'bg-neutral-100 text-neutral-500 cursor-not-allowed')}>
+            <select {...register('zona')} disabled={zonaBloqueada} className={cn('input', zonaBloqueada && 'bg-neutral-100 text-neutral-500 cursor-not-allowed')}>
               <option value="">Selecciona...</option>
-              {ZONAS.map((z) => (
+              {opcionesZona.map((z) => (
                 <option key={z} value={z}>
                   {z}
                 </option>
