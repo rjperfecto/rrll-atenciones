@@ -8,6 +8,8 @@ export const alertaReportadaSchema = z.object({
   subcategoria: z.string().min(1),
   nivel: z.enum(['ALTO', 'MEDIO', 'BAJO']),
   cantidad: z.number().int().min(1, 'La cantidad debe ser al menos 1'),
+  detalle: z.string().min(1, 'El detalle es obligatorio'),
+  accion: z.string().min(1, 'La acción es obligatoria'),
 })
 
 // "360 Laboral" es un registro de sesión/grupo (conversatorio/seguimiento/
@@ -31,11 +33,6 @@ export const atencion360Schema = z
     tipoAtencion360: z.array(z.string()).min(1, 'Selecciona al menos un tipo de atención'),
     otroTipoAtencion: z.string().optional(),
     alertasReportadas: z.array(alertaReportadaSchema).min(1, 'Agrega al menos una alerta'),
-    detalleAlerta: z.string().min(1, 'El detalle de la alerta es obligatorio'),
-    compromisoGenerado: z.enum(['SI', 'NO'], { message: 'Indica si se generó un compromiso' }),
-    detalleCompromiso: z.string().optional(),
-    fechaFinCompromiso: z.string().optional(),
-    evidencia360: z.string().min(1, 'La evidencia es obligatoria'),
     observaciones: z.string().min(1, 'Las observaciones son obligatorias'),
   })
   .superRefine((valores, ctx) => {
@@ -54,15 +51,6 @@ export const atencion360Schema = z
 
     if (valores.tipoAtencion360.includes('OTRAS') && !valores.otroTipoAtencion) {
       ctx.addIssue({ code: 'custom', message: 'Especifica el otro tipo de atención', path: ['otroTipoAtencion'] })
-    }
-
-    if (valores.compromisoGenerado === 'SI') {
-      if (!valores.detalleCompromiso) {
-        ctx.addIssue({ code: 'custom', message: 'El detalle del compromiso es obligatorio', path: ['detalleCompromiso'] })
-      }
-      if (!valores.fechaFinCompromiso) {
-        ctx.addIssue({ code: 'custom', message: 'La fecha fin de compromiso es obligatoria', path: ['fechaFinCompromiso'] })
-      }
     }
   })
 

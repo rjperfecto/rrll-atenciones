@@ -11,9 +11,13 @@ function TablaAlertas({ atencion }: { atencion: Atencion }) {
           <ul className="divide-y divide-neutral-200 rounded-lg border border-neutral-200">
             {atencion.alertas_reportadas.map((a) => (
               <li key={`${a.categoria}::${a.subcategoria}`} className="flex items-center justify-between gap-3 px-3 py-2">
-                <span className="text-sm text-neutral-800">
-                  {a.categoria} · {a.subcategoria}
-                </span>
+                <div className="min-w-0">
+                  <span className="text-sm text-neutral-800">
+                    {a.categoria} · {a.subcategoria}
+                  </span>
+                  {a.detalle && <p className="text-xs text-neutral-500 mt-0.5">{a.detalle}</p>}
+                  {a.accion && <p className="text-xs text-neutral-500 mt-0.5">Acción: {a.accion}</p>}
+                </div>
                 <span className="flex items-center gap-2 shrink-0">
                   <GravedadBadge gravedad={a.nivel} />
                   <span className="text-xs text-neutral-500">
@@ -78,7 +82,6 @@ export function DetalleAtencionModal({ atencion, onClose }: { atencion: Atencion
           <Dato label="Compromiso" value={atencion.compromiso_generado === true ? 'Sí' : atencion.compromiso_generado === false ? 'No' : undefined} />
           <Dato label="Detalle compromiso" value={atencion.detalle_compromiso} />
           <Dato label="Fecha fin compromiso" value={atencion.fecha_fin_compromiso} />
-          <Dato label="Evidencia" value={atencion.evidencia_360} />
           <Dato label="Observaciones" value={atencion.comentarios} />
         </dl>
       ) : (

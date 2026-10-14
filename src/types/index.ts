@@ -71,6 +71,11 @@ export interface AlertaReportada360 {
   subcategoria: string
   nivel: 'ALTO' | 'MEDIO' | 'BAJO'
   cantidad: number
+  // Detalle y acción propios de esta alerta (reemplazan, respectivamente,
+  // al antiguo "Detalle de la alerta" general y a la sección "Compromiso"
+  // del formulario — ver detalle_alerta y compromiso_generado más abajo).
+  detalle: string
+  accion: string
 }
 
 export interface Atencion {
@@ -110,14 +115,23 @@ export interface Atencion {
   total_encuestado: number | null
   tipo_atencion_360: string[] | null
   alertas_reportadas: AlertaReportada360[]
-  // Legado (pre recategorización de alertas): registros creados antes de
-  // alertas_reportadas siguen mostrándose con estos dos campos (ver
-  // DetalleAtencionModal / exportXlsx).
+  // Legado: registros creados antes de alertas_reportadas (alertas_360,
+  // catálogo plano) o antes de que cada alerta tuviera su propio detalle
+  // (detalle_alerta, general) siguen mostrándose con estos campos (ver
+  // DetalleAtencionModal / exportXlsx). El formulario ya no escribe en
+  // ninguno de los dos.
   alertas_360: string[] | null
   detalle_alerta: string | null
+  // Legado: la sección "Compromiso" (generaba un caso pendiente hasta
+  // cerrarlo en Compromisos) se quitó del formulario — cada alerta trae su
+  // propia Acción (ver alertas_reportadas) y la caminata nace CERRADO. Los
+  // compromisos pendientes de antes de este cambio siguen viéndose y
+  // cerrándose igual (ver CompromisosList / CerrarCompromisoModal).
   compromiso_generado: boolean | null
   detalle_compromiso: string | null
   fecha_fin_compromiso: string | null
+  // Legado: la sección "Evidencia" se eliminó del formulario por no
+  // usarse. Solo queda para no perder el dato de registros viejos.
   evidencia_360: string | null
   // Se llena al cerrar un compromiso pendiente (ver CerrarCompromisoModal),
   // igual que accion_correctiva/detalle_cierre para Atenciones normales.

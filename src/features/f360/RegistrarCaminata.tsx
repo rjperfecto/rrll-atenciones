@@ -9,10 +9,8 @@ import {
   CheckCircle2,
   ClipboardCheck,
   FileWarning,
-  Handshake,
   Loader2,
   MapPin,
-  Paperclip,
   ScanLine,
   Search,
   StickyNote,
@@ -209,7 +207,6 @@ export function RegistrarCaminata() {
     setErrorGuardado(null)
     setEstadoGuardado('guardando')
 
-    const compromisoSi = values.compromisoGenerado === 'SI'
     const tipoAtencion = values.tipoAtencion360.includes('OTRAS')
       ? [...values.tipoAtencion360.filter((v) => v !== 'OTRAS'), values.otroTipoAtencion || '']
       : values.tipoAtencion360
@@ -227,7 +224,7 @@ export function RegistrarCaminata() {
       client_uuid: crypto.randomUUID(),
       tipo_registro: '360 LABORAL',
       fecha: values.fecha,
-      fecha_cierre: compromisoSi ? null : values.fecha,
+      fecha_cierre: values.fecha,
       zona: zonaFinal,
       fundo: values.fundo,
       modulo: esPacking ? values.modulo || null : moduloDesdeFundo(values.fundo),
@@ -240,7 +237,7 @@ export function RegistrarCaminata() {
       gravedad: values.nivelConflictividad,
       comentarios: values.observaciones,
       involucrados: [],
-      estado: compromisoSi ? 'ABIERTO' : 'CERRADO',
+      estado: 'CERRADO',
       accion_correctiva: null,
       dias_suspension: null,
       detalle_cierre: null,
@@ -256,11 +253,17 @@ export function RegistrarCaminata() {
       tipo_atencion_360: tipoAtencion,
       alertas_reportadas: values.alertasReportadas,
       alertas_360: null,
-      detalle_alerta: values.detalleAlerta,
-      compromiso_generado: compromisoSi,
-      detalle_compromiso: compromisoSi ? values.detalleCompromiso || null : null,
-      fecha_fin_compromiso: compromisoSi ? values.fechaFinCompromiso || null : null,
-      evidencia_360: values.evidencia360,
+      // Ya no se pide un detalle ni una acción general: cada alerta trae
+      // los suyos (ver AlertasReportadas). compromiso_generado/
+      // detalle_compromiso/fecha_fin_compromiso quedan null: la sección
+      // "Compromiso" se quitó del formulario (reemplazada por la Acción de
+      // cada alerta) y la caminata nace CERRADO. evidencia_360 queda null:
+      // la sección "Evidencia" se eliminó del formulario por no usarse.
+      detalle_alerta: null,
+      compromiso_generado: null,
+      detalle_compromiso: null,
+      fecha_fin_compromiso: null,
+      evidencia_360: null,
       resultado_compromiso: null,
       created_at: now,
       updated_at: now,
@@ -453,38 +456,6 @@ export function RegistrarCaminata() {
         <CardSection title="Alertas" icon={<Bell className="size-4 text-brand" />}>
           <AlertasReportadas valores={alertasReportadas} onChange={(v) => setValue('alertasReportadas', v, { shouldValidate: true, shouldDirty: true })} />
           {errors.alertasReportadas && <p className="text-xs text-danger mt-1">{errors.alertasReportadas.message}</p>}
-          <Field label="Detalle de la alerta" value={valores.detalleAlerta} error={errors.detalleAlerta?.message} className="mt-3">
-            <textarea rows={3} {...conMayusculas(register('detalleAlerta'))} className="input" />
-          </Field>
-        </CardSection>
-
-        <CardSection title="Compromiso" icon={<Handshake className="size-4 text-brand" />}>
-          <SegmentedControl
-            opciones={['SI', 'NO'] as const}
-            valor={valores.compromisoGenerado}
-            onChange={(v) => setValue('compromisoGenerado', v, { shouldValidate: true, shouldDirty: true })}
-          />
-          {errors.compromisoGenerado && <p className="text-xs text-danger mt-1">{errors.compromisoGenerado.message}</p>}
-          {valores.compromisoGenerado === 'SI' && (
-            <div className="space-y-4 pt-3">
-              <Field label="Detalle del compromiso" value={valores.detalleCompromiso} error={errors.detalleCompromiso?.message}>
-                <textarea rows={3} {...conMayusculas(register('detalleCompromiso'))} className="input" />
-              </Field>
-              <Field label="Fecha fin de compromiso" value={valores.fechaFinCompromiso} error={errors.fechaFinCompromiso?.message}>
-                <input type="date" {...register('fechaFinCompromiso')} className="input" />
-              </Field>
-              <p className="text-xs text-amber-700 flex items-center gap-1.5">
-                <AlertCircle className="size-3.5 shrink-0" />
-                Este registro va a quedar pendiente en "Compromisos" hasta que se cierre.
-              </p>
-            </div>
-          )}
-        </CardSection>
-
-        <CardSection title="Evidencia" icon={<Paperclip className="size-4 text-brand" />}>
-          <Field label="Evidencia de 360 laboral" value={valores.evidencia360} error={errors.evidencia360?.message} hint="Referencia o enlace (por ahora no se sube el archivo directamente)">
-            <input type="text" {...conMayusculas(register('evidencia360'))} className="input" />
-          </Field>
         </CardSection>
 
         <CardSection title="Observaciones" icon={<StickyNote className="size-4 text-brand" />}>

@@ -8,8 +8,10 @@ import type { AlertaReportada360 } from '@/types'
 
 // Editor de alertas de 360 Laboral: Categoría -> Subcategoría (el nivel se
 // deriva del catálogo, no lo elige el usuario) + cantidad de personal que
-// reportó esa alerta. Compartido entre RegistrarCaminata (react-hook-form) y
-// EditarAtencionModal (useState) via valores/onChange controlados.
+// reportó esa alerta, su detalle y la acción tomada (reemplaza la antigua
+// sección "Compromiso" única del formulario, ver RegistrarCaminata).
+// Compartido entre RegistrarCaminata (react-hook-form) y EditarAtencionModal
+// (useState) via valores/onChange controlados.
 export function AlertasReportadas({
   valores,
   onChange,
@@ -20,19 +22,24 @@ export function AlertasReportadas({
   const [categoria, setCategoria] = useState('')
   const [subcategoria, setSubcategoria] = useState('')
   const [cantidad, setCantidad] = useState('')
+  const [detalle, setDetalle] = useState('')
+  const [accion, setAccion] = useState('')
 
   const categorias = categoriasAlerta360()
   const yaAgregadas = new Set(valores.map((v) => `${v.categoria}::${v.subcategoria}`))
   const subcategorias = categoria ? subcategoriasAlerta360(categoria).filter((s) => !yaAgregadas.has(`${categoria}::${s}`)) : []
+  const faltaAlgo = !categoria || !subcategoria || !cantidad || !detalle.trim() || !accion.trim()
 
   function agregar() {
     const cantidadNum = Number(cantidad)
     const nivel = nivelAlerta360(categoria, subcategoria)
-    if (!categoria || !subcategoria || !nivel || !Number.isFinite(cantidadNum) || cantidadNum < 1) return
-    onChange([...valores, { categoria, subcategoria, nivel, cantidad: cantidadNum }])
+    if (!categoria || !subcategoria || !nivel || !Number.isFinite(cantidadNum) || cantidadNum < 1 || !detalle.trim() || !accion.trim()) return
+    onChange([...valores, { categoria, subcategoria, nivel, cantidad: cantidadNum, detalle: detalle.trim(), accion: accion.trim() }])
     setCategoria('')
     setSubcategoria('')
     setCantidad('')
+    setDetalle('')
+    setAccion('')
   }
 
   function quitar(index: number) {
@@ -41,7 +48,7 @@ export function AlertasReportadas({
 
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-2 sm:grid-cols-[1fr_1fr_6rem_auto] gap-2 items-end">
+      <div className="grid grid-cols-2 sm:grid-cols-[1fr_1fr_6rem] gap-2">
         <div>
           <label className="block text-[13px] font-medium text-neutral-700 mb-1.5">Categoría</label>
           <select
@@ -80,7 +87,19 @@ export function AlertasReportadas({
           <label className="block text-[13px] font-medium text-neutral-700 mb-1.5">Cantidad</label>
           <input type="number" min={1} value={cantidad} onChange={(e) => setCantidad(e.target.value)} className="input" />
         </div>
-        <Button type="button" variant="secondary" onClick={agregar} disabled={!categoria || !subcategoria || !cantidad} className="shrink-0">
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <div>
+          <label className="block text-[13px] font-medium text-neutral-700 mb-1.5">Detalle de esta alerta</label>
+          <input type="text" value={detalle} onChange={(e) => setDetalle(e.target.value.toUpperCase())} className="input" />
+        </div>
+        <div>
+          <label className="block text-[13px] font-medium text-neutral-700 mb-1.5">Acción</label>
+          <input type="text" value={accion} onChange={(e) => setAccion(e.target.value.toUpperCase())} className="input" />
+        </div>
+      </div>
+      <div className="flex justify-end">
+        <Button type="button" variant="secondary" onClick={agregar} disabled={faltaAlgo} className="shrink-0">
           <Plus className="size-4" />
           Agregar
         </Button>
@@ -100,6 +119,8 @@ export function AlertasReportadas({
                     {v.cantidad} persona{v.cantidad === 1 ? '' : 's'}
                   </span>
                 </div>
+                {v.detalle && <p className="text-xs text-neutral-500 mt-1">{v.detalle}</p>}
+                {v.accion && <p className="text-xs text-neutral-500 mt-0.5">Acción: {v.accion}</p>}
               </div>
               <button
                 type="button"

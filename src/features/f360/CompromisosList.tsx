@@ -18,7 +18,7 @@ import {
   X,
 } from 'lucide-react'
 import { listarAtencionesPaginado, listarAtencionesParaExportar, eliminarAtencion, type FiltrosAtenciones } from '@/lib/atencionesApi'
-import { exportar360LaboralXlsx } from '@/lib/exportXlsx'
+import { exportar360LaboralXlsx, exportarDetalleAlertas360Xlsx } from '@/lib/exportXlsx'
 import { useAuth } from '@/features/auth/AuthContext'
 import { CerrarCompromisoModal } from './CerrarCompromisoModal'
 import { DetalleAtencionModal } from '@/features/atenciones/DetalleAtencionModal'
@@ -53,6 +53,7 @@ export function CompromisosList() {
   const [total, setTotal] = useState(0)
   const [cargando, setCargando] = useState(false)
   const [exportando, setExportando] = useState(false)
+  const [exportandoDetalle, setExportandoDetalle] = useState(false)
   const [errorCarga, setErrorCarga] = useState<string | null>(null)
   const [eliminandoId, setEliminandoId] = useState<string | null>(null)
 
@@ -149,6 +150,14 @@ export function CompromisosList() {
     setExportando(false)
   }
 
+  async function exportarDetalle() {
+    if (!profile) return
+    setExportandoDetalle(true)
+    const { data, error } = await listarAtencionesParaExportar(profile.id, puedeVerTodo, filtros, TIPOS_BASE)
+    if (!error) exportarDetalleAlertas360Xlsx(data)
+    setExportandoDetalle(false)
+  }
+
   if (errorCarga) {
     return (
       <Card className="p-10 flex flex-col items-center text-center gap-2">
@@ -170,10 +179,16 @@ export function CompromisosList() {
       <div className="flex items-start justify-between gap-3 flex-wrap mb-4">
         <PageHeader title="Compromisos" description={`${total} caminata${total === 1 ? '' : 's'} de 360 Laboral`} />
         {total > 0 && (
-          <Button variant="secondary" onClick={exportar} loading={exportando}>
-            <Download className="size-4" />
-            {exportando ? 'Exportando...' : 'Exportar a Excel'}
-          </Button>
+          <div className="flex gap-2 flex-wrap">
+            <Button variant="secondary" onClick={exportar} loading={exportando}>
+              <Download className="size-4" />
+              {exportando ? 'Exportando...' : 'Exportar a Excel'}
+            </Button>
+            <Button variant="secondary" onClick={exportarDetalle} loading={exportandoDetalle}>
+              <Download className="size-4" />
+              {exportandoDetalle ? 'Exportando...' : 'Exportar detalle de alertas'}
+            </Button>
+          </div>
         )}
       </div>
 

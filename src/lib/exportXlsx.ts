@@ -103,9 +103,11 @@ const MESES = [
 
 // Las primeras 22 columnas (FECHA...Status compromiso) replican exactamente
 // nombre y orden del Excel "INDICADORES_ACTUALIZADO.xlsx" (hoja 360 LABORAL),
-// para poder pegar/comparar filas directo contra ese reporte. Las 5 últimas
+// para poder pegar/comparar filas directo contra ese reporte. Las últimas
 // (RESULTADO COMPROMISO...SUP. RRLL) no existen en ese Excel pero sí se
 // capturan en la app, así que se agregan al final para no perder ese dato.
+// EVIDENCIA se quitó: la sección correspondiente se eliminó del formulario
+// por no usarse (ver RegistrarCaminata).
 const COLUMNAS_360 = [
   'FECHA',
   'AÑO',
@@ -131,7 +133,6 @@ const COLUMNAS_360 = [
   'Status compromiso',
   'RESULTADO COMPROMISO',
   'FECHA DE CIERRE',
-  'EVIDENCIA',
   'OBSERVACIONES',
   'SUP. RRLL',
 ] as const
@@ -173,11 +174,52 @@ export function exportar360LaboralXlsx(atenciones: Atencion[]) {
       'Status compromiso': !compromisoSi ? 'Sin compromiso' : a.estado === 'CERRADO' ? 'Cerrado' : 'Abierto',
       'RESULTADO COMPROMISO': a.resultado_compromiso ?? '',
       'FECHA DE CIERRE': a.fecha_cierre ?? '',
-      EVIDENCIA: a.evidencia_360 ?? '',
       OBSERVACIONES: a.comentarios ?? '',
       'SUP. RRLL': a.sup_rrll ?? '',
     }
     return fila
   })
   descargarXlsx(COLUMNAS_360, filas, '360 Laboral', '360_laboral_rrll')
+}
+
+// Segundo reporte de 360 Laboral: una fila por cada alerta reportada (no por
+// caminata), para ver el detalle de categoría/subcategoría/cantidad/detalle/
+// acción que hoy queda resumido en una sola celda ("Alertas") del reporte
+// habitual. ACCION reemplaza al antiguo compromiso único de la caminata.
+const COLUMNAS_DETALLE_ALERTAS_360 = [
+  'FECHA',
+  'SEMANA',
+  'ZONA',
+  'FUNDO',
+  'GRUPO',
+  'LIDER DE COSECHA',
+  'CATEGORIA',
+  'SUBCATEGORIA',
+  'NIVEL',
+  'CANTIDAD',
+  'DETALLE',
+  'ACCION',
+] as const
+
+export function exportarDetalleAlertas360Xlsx(atenciones: Atencion[]) {
+  const filas: Record<(typeof COLUMNAS_DETALLE_ALERTAS_360)[number], string>[] = []
+  for (const a of atenciones) {
+    for (const alerta of a.alertas_reportadas) {
+      filas.push({
+        FECHA: a.fecha,
+        SEMANA: String(semanaIso(a.fecha)),
+        ZONA: a.zona,
+        FUNDO: a.fundo ?? '',
+        GRUPO: a.grupo ?? '',
+        'LIDER DE COSECHA': a.lider_cosecha ?? '',
+        CATEGORIA: alerta.categoria,
+        SUBCATEGORIA: alerta.subcategoria,
+        NIVEL: alerta.nivel,
+        CANTIDAD: String(alerta.cantidad),
+        DETALLE: alerta.detalle ?? '',
+        ACCION: alerta.accion ?? '',
+      })
+    }
+  }
+  descargarXlsx(COLUMNAS_DETALLE_ALERTAS_360, filas, 'Detalle Alertas 360', 'detalle_alertas_360_laboral')
 }

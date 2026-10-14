@@ -255,7 +255,6 @@ function Editar360Laboral({ atencion, onClose }: { atencion: Atencion; onClose: 
 
   const [alertasReportadas, setAlertasReportadas] = useState<AlertaReportada360[]>(atencion.alertas_reportadas ?? [])
 
-  const [detalleAlerta, setDetalleAlerta] = useState(atencion.detalle_alerta ?? '')
   const [observaciones, setObservaciones] = useState(atencion.comentarios ?? '')
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -278,7 +277,6 @@ function Editar360Laboral({ atencion, onClose }: { atencion: Atencion; onClose: 
       area: actividad || null,
       tipo_atencion_360: tipoFinal,
       alertas_reportadas: alertasReportadas,
-      detalle_alerta: detalleAlerta || null,
       comentarios: observaciones || null,
       updated_at: new Date().toISOString(),
     })
@@ -373,9 +371,6 @@ function Editar360Laboral({ atencion, onClose }: { atencion: Atencion; onClose: 
           <AlertasReportadas valores={alertasReportadas} onChange={setAlertasReportadas} />
         </div>
 
-        <Field label="Detalle de la alerta" value={detalleAlerta}>
-          <textarea rows={2} value={detalleAlerta} onChange={(e) => setDetalleAlerta(e.target.value.toUpperCase())} className="input" />
-        </Field>
         <Field label="Observaciones" value={observaciones}>
           <textarea rows={3} value={observaciones} onChange={(e) => setObservaciones(e.target.value.toUpperCase())} className="input" />
         </Field>
