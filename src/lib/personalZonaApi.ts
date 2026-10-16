@@ -12,6 +12,14 @@ export async function listarUsuarios(): Promise<Profile[]> {
   return (data as Profile[]) ?? []
 }
 
+// Solo nombres (ver migración 0028, vista v_personal_nombres): a diferencia
+// de listarUsuarios, esto lo puede llamar cualquier usuario logueado, no
+// solo ADMIN — se usa para el selector de "Responsable" en Agenda.
+export async function listarNombresPersonal(): Promise<{ data: { id: string; nombre_completo: string }[]; error: string | null }> {
+  const { data, error } = await supabase.from('v_personal_nombres').select('*')
+  return { data: (data as { id: string; nombre_completo: string }[]) ?? [], error: error?.message ?? null }
+}
+
 export async function asignarZonaUsuario(id: string, zona: string | null): Promise<{ error: string | null }> {
   const { error } = await supabase.from('profiles').update({ zona_asignada: zona }).eq('id', id)
   return { error: error?.message ?? null }

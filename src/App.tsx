@@ -1,12 +1,16 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { BrowserRouter, Navigate, NavLink, Route, Routes, useNavigate } from 'react-router-dom'
 import {
   Bell,
   Briefcase,
+  CalendarDays,
   ClipboardPlus,
+  FileStack,
+  FileText,
   Handshake,
   History,
   LayoutDashboard,
+  Loader2,
   LogOut,
   MapPinned,
   Menu,
@@ -26,6 +30,7 @@ import { AtencionList } from '@/features/atenciones/AtencionList'
 import { RegistrarCaminata } from '@/features/f360/RegistrarCaminata'
 import { CompromisosList } from '@/features/f360/CompromisosList'
 import { Busqueda } from '@/features/herramientas/Busqueda'
+import { AgendaCapacitaciones } from '@/features/agenda/AgendaCapacitaciones'
 import { Dashboard } from '@/features/dashboard/Dashboard'
 import { ImportarPersonal } from '@/features/admin/ImportarPersonal'
 import { ImportarAfiliados } from '@/features/admin/ImportarAfiliados'
@@ -33,6 +38,13 @@ import { PersonalPorZona } from '@/features/admin/PersonalPorZona'
 import { CrearUsuario } from '@/features/admin/CrearUsuario'
 import { contarPendientes } from '@/lib/atencionesApi'
 import { cn } from '@/lib/cn'
+
+// pdf-lib + pdfjs-dist pesan ~2.8MB minificados: iban en el chunk principal
+// (cargaba en TODAS las pantallas, no solo estas dos) e inflaban el bundle
+// por encima del límite de precache de la PWA (2 MiB). Separadas con lazy()
+// quedan en su propio chunk, que solo se descarga al entrar a estas rutas.
+const Documento = lazy(() => import('@/features/herramientas/Documento').then((m) => ({ default: m.Documento })))
+const PlantillasPdf = lazy(() => import('@/features/admin/PlantillasPdf').then((m) => ({ default: m.PlantillasPdf })))
 
 // Ítem de menú lateral estilo panel admin: activo = píldora lavanda con
 // borde izquierdo morado y texto/ícono morado; inactivo = gris, hover sutil.
@@ -146,6 +158,14 @@ function AppLayout() {
           <Search className="size-4" />
           Búsqueda
         </NavLink>
+        <NavLink to="/agenda" className={navClass} onClick={cerrarMenu}>
+          <CalendarDays className="size-4" />
+          Agenda
+        </NavLink>
+        <NavLink to="/herramientas/documento" className={navClass} onClick={cerrarMenu}>
+          <FileText className="size-4" />
+          Documento
+        </NavLink>
       </GrupoNav>
 
       {puedeVerZona && (
@@ -183,6 +203,10 @@ function AppLayout() {
             <NavLink to="/admin/crear-usuario" className={navClass} onClick={cerrarMenu}>
               <UserPlus className="size-4" />
               Crear usuario
+            </NavLink>
+            <NavLink to="/admin/plantillas-pdf" className={navClass} onClick={cerrarMenu}>
+              <FileStack className="size-4" />
+              Plantillas PDF
             </NavLink>
           </GrupoNav>
         </>
@@ -285,12 +309,21 @@ function AppLayout() {
         </header>
 
         <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 py-6">
+          <Suspense
+            fallback={
+              <div className="flex items-center justify-center p-10">
+                <Loader2 className="size-6 text-brand animate-spin" />
+              </div>
+            }
+          >
           <Routes>
             <Route path="/" element={<AtencionForm />} />
             <Route path="/historial" element={<AtencionList />} />
             <Route path="/360/registrar" element={<RegistrarCaminata />} />
             <Route path="/360/compromisos" element={<CompromisosList />} />
             <Route path="/herramientas/busqueda" element={<Busqueda />} />
+            <Route path="/herramientas/documento" element={<Documento />} />
+            <Route path="/agenda" element={<AgendaCapacitaciones />} />
             <Route
               path="/dashboard/atenciones"
               element={
@@ -339,8 +372,13 @@ function AppLayout() {
               path="/admin/crear-usuario"
               element={profile.rol === 'ADMIN' ? <CrearUsuario /> : <Navigate to="/" />}
             />
+            <Route
+              path="/admin/plantillas-pdf"
+              element={profile.rol === 'ADMIN' ? <PlantillasPdf /> : <Navigate to="/" />}
+            />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
+          </Suspense>
         </main>
       </div>
     </div>

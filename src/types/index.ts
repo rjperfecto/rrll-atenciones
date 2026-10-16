@@ -139,3 +139,48 @@ export interface Atencion {
   created_at: string
   updated_at: string
 }
+
+// Agenda de capacitaciones/reuniones (ver migración 0027): calendario
+// semanal compartido, de 7:00 a 17:00 en bloques de media hora. hora_inicio
+// y hora_fin vienen de Postgres como "HH:MM:SS".
+export interface Capacitacion {
+  id: string
+  fecha: string // YYYY-MM-DD
+  hora_inicio: string // HH:MM:SS
+  hora_fin: string // HH:MM:SS
+  responsable: string
+  tema: string
+  ubicacion: string
+  color: string // id de COLORES_AGENDA (ver src/data/coloresAgenda.ts)
+  creado_por: string
+  creado_por_nombre: string
+  created_at: string
+  updated_at: string
+}
+
+// Plantillas PDF (ver migración 0029): un PDF cargado una vez, con
+// posiciones configuradas para superponer los datos de un trabajador
+// puntual al generarlo (ver Documento / PosicionadorPlantilla).
+// Solo dos bloques para ubicar (no uno por dato suelto):
+// "datos" = SEÑOR(A)/DNI/CELULAR concatenados en 3 líneas, "fecha" = "CHAO,
+// <fecha larga>".
+export type CampoPlantilla = 'datos' | 'fecha'
+
+export interface PosicionCampoPlantilla {
+  campo: CampoPlantilla
+  pagina: number // 1-indexed; por ahora siempre 1 (ver migración 0029)
+  x: number // puntos PDF, origen abajo-izquierda
+  y: number
+  tamano: number // tamaño de fuente en puntos
+}
+
+export interface PlantillaPdf {
+  id: string
+  nombre: string
+  storage_path: string
+  posiciones: PosicionCampoPlantilla[]
+  creado_por: string
+  creado_por_nombre: string
+  created_at: string
+  updated_at: string
+}

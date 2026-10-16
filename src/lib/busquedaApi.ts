@@ -72,21 +72,29 @@ export interface ResultadoGrupo {
   cosechadores: PersonaGrupo[]
 }
 
-export async function buscarGrupoCompleto(grupo: string): Promise<ResultadoGrupo | null> {
+// fechaDeseada (opcional): para Documento masivo, donde el usuario elige a
+// mano qué día del grupo quiere (no siempre "el más reciente"). Sin ella,
+// se comporta como antes.
+export async function buscarGrupoCompleto(grupo: string, fechaDeseada?: string): Promise<ResultadoGrupo | null> {
   const grupoLimpio = grupo.trim().toUpperCase()
   if (!grupoLimpio) return null
 
-  // 1) Última fecha con datos de este grupo (no más allá de hoy).
-  const { data: ultima } = await supabase
-    .from('trabajadores_historial')
-    .select('fecha')
-    .eq('grupo', grupoLimpio)
-    .lte('fecha', hoy())
-    .order('fecha', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-  if (!ultima) return null
-  const fecha = (ultima as { fecha: string }).fecha
+  let fecha: string
+  if (fechaDeseada) {
+    fecha = fechaDeseada
+  } else {
+    // Última fecha con datos de este grupo (no más allá de hoy).
+    const { data: ultima } = await supabase
+      .from('trabajadores_historial')
+      .select('fecha')
+      .eq('grupo', grupoLimpio)
+      .lte('fecha', hoy())
+      .order('fecha', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (!ultima) return null
+    fecha = (ultima as { fecha: string }).fecha
+  }
 
   // 2) Foto completa del grupo ese día.
   const { data: filas } = await supabase
