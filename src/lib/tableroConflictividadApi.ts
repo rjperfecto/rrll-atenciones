@@ -15,3 +15,10 @@ export async function listarCaminatasPorGrupo(): Promise<Map<string, number>> {
   for (const r of (data as { grupo: string; caminatas: number }[]) ?? []) mapa.set(r.grupo, r.caminatas)
   return mapa
 }
+
+export async function listarCantidadPersonasPorGrupo(): Promise<Map<string, number>> {
+  const { data } = await supabase.from('v_grupo_cantidad_personas').select('*')
+  const mapa = new Map<string, number>()
+  for (const r of (data as { grupo: string; personas: number }[]) ?? []) mapa.set(r.grupo, r.personas)
+  return mapa
+}

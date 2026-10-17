@@ -1,20 +1,22 @@
 import { useEffect, useMemo, useState } from 'react'
 import { AlertCircle, Loader2 } from 'lucide-react'
 import { listarConflictividad, type ConflictividadGrupo } from '@/lib/conflictividadApi'
-import { listarGrupoFundoActual, listarCaminatasPorGrupo } from '@/lib/tableroConflictividadApi'
+import { listarGrupoFundoActual, listarCaminatasPorGrupo, listarCantidadPersonasPorGrupo } from '@/lib/tableroConflictividadApi'
 import { zonaDesdeFundo } from '@/lib/zonaFundo'
 import { CardSection, Card } from '@/components/ui/Card'
-import { GravedadBadge } from '@/components/ui/Badge'
+import { GRAVEDAD_COLORES } from '@/components/ui/Badge'
 
 const ZONAS_TABLERO = ['ZONA 1', 'ZONA 2', 'ZONA 3'] as const
 
-type FilaTablero = ConflictividadGrupo & { fundo: string | null; caminatas: number }
+type FilaTablero = ConflictividadGrupo & { fundo: string | null; caminatas: number; personas: number }
 
 // Solo informativo (no se programa nada acá, ver ProximasCaminatas arriba):
-// un grupo por fila, de mayor a menor conflictividad, con cuántas caminatas
-// 360 ya se le hicieron. La zona de cada grupo se deriva de su fundo más
+// un grupo por fila. La zona de cada grupo se deriva de su fundo más
 // reciente en TAREO (v_grupo_fundo_actual) — un grupo sin fila de TAREO
 // todavía, o en Packing/CAE/Oficina, no entra en ninguna de las 3 columnas.
+// Orden: primero los grupos sin ninguna caminata hecha (0), y entre esos (y
+// el resto) por conflictividad de mayor a menor — así se ve primero a quién
+// no se le ha hecho nada, priorizado por qué tan crítico es.
 export function TableroConflictividad() {
   const [filas, setFilas] = useState<FilaTablero[] | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -22,10 +24,11 @@ export function TableroConflictividad() {
   useEffect(() => {
     let cancelado = false
     async function cargar() {
-      const [{ data: conflictividad, error: err }, fundoPorGrupo, caminatasPorGrupo] = await Promise.all([
+      const [{ data: conflictividad, error: err }, fundoPorGrupo, caminatasPorGrupo, personasPorGrupo] = await Promise.all([
         listarConflictividad(),
         listarGrupoFundoActual(),
         listarCaminatasPorGrupo(),
+        listarCantidadPersonasPorGrupo(),
       ])
       if (cancelado) return
       if (err) {
@@ -37,6 +40,7 @@ export function TableroConflictividad() {
           ...c,
           fundo: fundoPorGrupo.get(c.grupo) ?? null,
           caminatas: caminatasPorGrupo.get(c.grupo) ?? 0,
+          personas: personasPorGrupo.get(c.grupo) ?? 0,
         })),
       )
     }
@@ -54,7 +58,14 @@ export function TableroConflictividad() {
       if (!zona || !mapa.has(zona)) continue
       mapa.get(zona)!.push(f)
     }
-    for (const lista of mapa.values()) lista.sort((a, b) => b.valor - a.valor)
+    for (const lista of mapa.values()) {
+      lista.sort((a, b) => {
+        const aSinCaminatas = a.caminatas === 0 ? 0 : 1
+        const bSinCaminatas = b.caminatas === 0 ? 0 : 1
+        if (aSinCaminatas !== bSinCaminatas) return aSinCaminatas - bSinCaminatas
+        return b.valor - a.valor
+      })
+    }
     return mapa
   }, [filas])
 
@@ -84,11 +95,16 @@ export function TableroConflictividad() {
           ) : (
             <ul className="divide-y divide-neutral-100">
               {porZona.get(zona)!.map((f) => (
-                <li key={f.grupo} className="flex items-center justify-between gap-2 py-2">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-neutral-800 truncate">{f.grupo}</p>
-                    <GravedadBadge gravedad={f.nivel} />
-                  </div>
+                <li key={f.grupo} className="flex items-center gap-2 py-2">
+                  <span
+                    className="size-2.5 rounded-full shrink-0"
+                    style={{ backgroundColor: GRAVEDAD_COLORES[f.nivel] }}
+                    title={f.nivel}
+                    aria-label={`Conflictividad ${f.nivel}`}
+                  />
+                  <p className="text-sm font-medium text-neutral-800 truncate flex-1">
+                    {f.grupo} - {f.personas}
+                  </p>
                   <div className="text-xs text-neutral-500 shrink-0 text-right">
                     <p>
                       {f.caminatas} caminata{f.caminatas === 1 ? '' : 's'}
