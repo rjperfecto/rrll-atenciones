@@ -25,11 +25,21 @@ const ANCHO_MIN_COL_DIA = 130
 const ALTO_FILA = 44
 const ALTO_ENCABEZADO = 56
 
-// Letra blanca con contorno negro (pedido explícito): se lee igual sobre
-// cualquiera de los 11 colores de la paleta, incluso los más claros
-// (Plátano, Lavanda), sin tener que calcular contraste color por color.
+// Google Calendar usa "Google Sans" (propietaria, no está en Google Fonts
+// para uso web) en su interfaz — Roboto es su tipografía pública, la que
+// Calendar sí usa para el texto de los eventos en la grilla.
+const FUENTE_AGENDA = "'Roboto', ui-sans-serif, system-ui, sans-serif"
+
+// Letra blanca con contorno negro (pedido explícito): -webkit-text-stroke
+// dibuja un borde real alrededor de cada letra (a diferencia de apilar
+// text-shadow, que a este tamaño de letra queda débil/borroso y el texto
+// termina viéndose apenas) — se lee igual sobre cualquiera de los 11
+// colores de la paleta, incluso los más claros (Plátano, Lavanda).
 const CONTORNO_TEXTO: CSSProperties = {
-  textShadow: '-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 0 0 2px #000',
+  fontFamily: FUENTE_AGENDA,
+  WebkitTextStroke: '0.6px #000',
+  paintOrder: 'stroke fill',
+  textShadow: '0 1px 1px rgba(0,0,0,0.6)',
 }
 
 type EstadoModal =
@@ -155,6 +165,7 @@ export function AgendaCapacitaciones() {
               style={{
                 gridTemplateColumns: `${ANCHO_COL_HORAS}px repeat(${dias.length}, minmax(${ANCHO_MIN_COL_DIA}px, 1fr))`,
                 gridTemplateRows: `${ALTO_ENCABEZADO}px repeat(${SLOTS_AGENDA.length}, ${ALTO_FILA}px)`,
+                fontFamily: FUENTE_AGENDA,
               }}
             >
               {/* esquina */}
@@ -222,15 +233,18 @@ export function AgendaCapacitaciones() {
                       gridRow: `${filaDeHora(ev.hora_inicio) + 2} / span ${duracionEnFilas(ev.hora_inicio, ev.hora_fin)}`,
                       backgroundColor: hexDeColor(ev.color),
                     }}
-                    className="m-0.5 rounded-md px-1.5 py-1 text-left text-white text-[11px] leading-tight overflow-hidden shadow-sm hover:brightness-95 hover:shadow-md transition-shadow"
+                    className="m-0.5 rounded-md px-1.5 py-1 text-left text-white leading-tight overflow-hidden shadow-sm hover:brightness-95 hover:shadow-md transition-shadow"
                   >
-                    <p className="font-bold truncate" style={CONTORNO_TEXTO}>
-                      {ev.tema}
-                    </p>
-                    <p className="truncate" style={CONTORNO_TEXTO}>
+                    {/* Responsable es lo más destacado del bloque (pedido
+                        explícito): va primero y en el tamaño más grande,
+                        Tema y Ubicación debajo, más chicos. */}
+                    <p className="font-bold text-[13px] truncate" style={CONTORNO_TEXTO}>
                       {ev.responsable}
                     </p>
-                    <p className="truncate" style={CONTORNO_TEXTO}>
+                    <p className="font-medium text-[11px] truncate" style={CONTORNO_TEXTO}>
+                      {ev.tema}
+                    </p>
+                    <p className="text-[10px] truncate" style={CONTORNO_TEXTO}>
                       {ev.ubicacion}
                     </p>
                   </button>
