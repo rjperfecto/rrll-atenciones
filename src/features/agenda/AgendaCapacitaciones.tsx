@@ -222,10 +222,10 @@ export function AgendaCapacitaciones() {
               )}
 
               {/* eventos (pintan encima de las celdas clickeables por orden de
-                  aparición): tarjeta en bandas de color (pedido explícito,
-                  igual a la referencia) — franja del color elegido arriba,
-                  Responsable en banda blanca (lo más destacado), Tema en
-                  banda del color sólido, Ubicación en banda del color clarito. */}
+                  aparición): tarjeta de un solo color sólido (pedido
+                  explícito) — Responsable y Tema centrados en el medio
+                  (Responsable destacado, más grande), Ubicación abajo en
+                  una franja del color clarito. */}
               {dias.map((d, di) =>
                 (porDia.get(d.fecha) ?? []).map((ev) => {
                   const hex = hexDeColor(ev.color)
@@ -240,15 +240,16 @@ export function AgendaCapacitaciones() {
                       }}
                       className="m-0.5 rounded-md overflow-hidden shadow-sm hover:shadow-md transition-shadow flex flex-col text-left"
                     >
-                      <span className="h-[3px] shrink-0" style={{ backgroundColor: hex }} />
-                      <span className="shrink-0 bg-white text-black font-bold text-[11px] leading-tight text-center truncate px-1 py-0.5">
-                        {ev.responsable}
-                      </span>
                       <span
-                        className="flex-1 min-h-0 flex items-center justify-center text-white font-semibold text-[10px] leading-tight text-center px-1 py-0.5 overflow-hidden"
-                        style={{ backgroundColor: hex, ...CONTORNO_TEXTO }}
+                        className="flex-1 min-h-0 flex flex-col items-center justify-center gap-0.5 px-1 py-1 overflow-hidden"
+                        style={{ backgroundColor: hex }}
                       >
-                        <span className="line-clamp-2">{ev.tema}</span>
+                        <span className="w-full font-bold text-[12px] leading-tight text-white text-center truncate" style={CONTORNO_TEXTO}>
+                          {ev.responsable}
+                        </span>
+                        <span className="w-full font-medium text-[10px] leading-tight text-white text-center overflow-hidden" style={CONTORNO_TEXTO}>
+                          <span className="line-clamp-2">{ev.tema}</span>
+                        </span>
                       </span>
                       <span
                         className="shrink-0 font-semibold text-[9px] leading-tight text-center truncate px-1 py-0.5"
