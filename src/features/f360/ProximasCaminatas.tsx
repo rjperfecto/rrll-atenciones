@@ -3,11 +3,14 @@ import { useNavigate } from 'react-router-dom'
 import { AlertCircle, CalendarPlus, CheckCircle2, Plus, Trash2 } from 'lucide-react'
 import { listarCaminatasProgramadas, programarCaminata, eliminarCaminataProgramada } from '@/lib/caminatasProgramadasApi'
 import { buscarGrupoCompleto, type ResultadoGrupo } from '@/lib/busquedaApi'
+import { listarConflictividad, type ConflictividadGrupo } from '@/lib/conflictividadApi'
 import { zonaDesdeFundo } from '@/lib/zonaFundo'
+import { moduloDesdeFundo } from '@/lib/modulo'
 import { useAuth } from '@/features/auth/AuthContext'
 import { CardSection } from '@/components/ui/Card'
 import { Field } from '@/components/ui/Field'
 import { Button } from '@/components/ui/Button'
+import { GravedadBadge } from '@/components/ui/Badge'
 import type { CaminataProgramada } from '@/types'
 
 function hoy() {
@@ -31,6 +34,7 @@ export function ProximasCaminatas() {
   const [errorAgregar, setErrorAgregar] = useState<string | null>(null)
   const [procesandoId, setProcesandoId] = useState<string | null>(null)
   const [info, setInfo] = useState<Record<string, ResultadoGrupo | null>>({})
+  const [conflictividad, setConflictividad] = useState<Map<string, ConflictividadGrupo>>(new Map())
 
   const cargar = useCallback(async () => {
     const { data, error: err } = await listarCaminatasProgramadas()
@@ -41,6 +45,10 @@ export function ProximasCaminatas() {
   useEffect(() => {
     void cargar()
   }, [cargar])
+
+  useEffect(() => {
+    void listarConflictividad().then(({ data }) => setConflictividad(new Map(data.map((c) => [c.grupo, c]))))
+  }, [])
 
   useEffect(() => {
     if (!programadas) return
@@ -101,7 +109,7 @@ export function ProximasCaminatas() {
   const puedeBorrar = (p: CaminataProgramada) => profile?.id === p.creado_por || profile?.rol === 'ADMIN'
 
   return (
-    <CardSection title="Próximas caminatas" icon={<CalendarPlus className="size-4 text-brand" />} className="mb-4">
+    <CardSection title="Programar caminata" icon={<CalendarPlus className="size-4 text-brand" />} className="mb-4">
       <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-2 items-end">
         <Field label="Grupo">
           <input type="text" placeholder="CH12" value={grupo} onChange={(e) => setGrupo(e.target.value.toUpperCase())} className="input" />
@@ -138,11 +146,14 @@ export function ProximasCaminatas() {
             const clave = `${p.grupo}|${p.fecha}`
             const r = info[clave]
             const zona = r?.ubicacion ? zonaDesdeFundo(r.ubicacion) : null
+            const modulo = r?.ubicacion ? moduloDesdeFundo(r.ubicacion) : null
+            const nivelConflictividad = conflictividad.get(p.grupo)?.nivel
             return (
               <li key={p.id} className="flex items-center justify-between gap-3 py-2.5 flex-wrap">
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-neutral-800">
+                  <p className="text-sm font-medium text-neutral-800 flex items-center gap-2">
                     {p.grupo} · {p.fecha}
+                    {nivelConflictividad && <GravedadBadge gravedad={nivelConflictividad} />}
                   </p>
                   <p className="text-xs text-neutral-500">
                     {r === undefined ? (
@@ -152,8 +163,8 @@ export function ProximasCaminatas() {
                     ) : (
                       <>
                         {zona ?? '—'}
-                        {r.ubicacion ? ` · ${r.ubicacion}` : ''}
-                        {r.lider ? ` · Líder: ${r.lider.nombre_completo}` : ''}
+                        {modulo ? ` · Módulo ${modulo}` : ''}
+                        {r.lider ? ` · Líder/Supervisor: ${r.lider.nombre_completo}` : ''}
                       </>
                     )}
                   </p>

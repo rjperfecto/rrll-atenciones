@@ -3,10 +3,12 @@ import { BrowserRouter, Navigate, NavLink, Route, Routes, useNavigate } from 're
 import {
   Bell,
   Briefcase,
+  CalendarClock,
   CalendarDays,
   ClipboardPlus,
   FileStack,
   FileText,
+  Flame,
   Handshake,
   History,
   LayoutDashboard,
@@ -29,11 +31,13 @@ import { AtencionForm } from '@/features/atenciones/AtencionForm'
 import { AtencionList } from '@/features/atenciones/AtencionList'
 import { RegistrarCaminata } from '@/features/f360/RegistrarCaminata'
 import { CompromisosList } from '@/features/f360/CompromisosList'
+import { ProximasCaminatasPage } from '@/features/f360/ProximasCaminatasPage'
 import { Busqueda } from '@/features/herramientas/Busqueda'
 import { AgendaCapacitaciones } from '@/features/agenda/AgendaCapacitaciones'
 import { Dashboard } from '@/features/dashboard/Dashboard'
 import { ImportarPersonal } from '@/features/admin/ImportarPersonal'
 import { ImportarAfiliados } from '@/features/admin/ImportarAfiliados'
+import { ImportarConflictividad } from '@/features/admin/ImportarConflictividad'
 import { PersonalPorZona } from '@/features/admin/PersonalPorZona'
 import { CrearUsuario } from '@/features/admin/CrearUsuario'
 import { contarPendientes } from '@/lib/atencionesApi'
@@ -151,6 +155,10 @@ function AppLayout() {
           <Handshake className="size-4" />
           Compromisos
         </NavLink>
+        <NavLink to="/360/proximas-caminatas" className={navClass} onClick={cerrarMenu}>
+          <CalendarClock className="size-4" />
+          Próximas caminatas
+        </NavLink>
       </GrupoNav>
 
       <GrupoNav titulo="Herramientas">
@@ -199,6 +207,10 @@ function AppLayout() {
             <NavLink to="/admin/personal-zona" className={navClass} onClick={cerrarMenu}>
               <MapPinned className="size-4" />
               Personal por zona
+            </NavLink>
+            <NavLink to="/admin/conflictividad" className={navClass} onClick={cerrarMenu}>
+              <Flame className="size-4" />
+              Importar conflictividad
             </NavLink>
             <NavLink to="/admin/crear-usuario" className={navClass} onClick={cerrarMenu}>
               <UserPlus className="size-4" />
@@ -321,6 +333,7 @@ function AppLayout() {
             <Route path="/historial" element={<AtencionList />} />
             <Route path="/360/registrar" element={<RegistrarCaminata />} />
             <Route path="/360/compromisos" element={<CompromisosList />} />
+            <Route path="/360/proximas-caminatas" element={<ProximasCaminatasPage />} />
             <Route path="/herramientas/busqueda" element={<Busqueda />} />
             <Route path="/herramientas/documento" element={<Documento />} />
             <Route path="/agenda" element={<AgendaCapacitaciones />} />
@@ -367,6 +380,10 @@ function AppLayout() {
             <Route
               path="/admin/personal-zona"
               element={profile.rol === 'ADMIN' ? <PersonalPorZona /> : <Navigate to="/" />}
+            />
+            <Route
+              path="/admin/conflictividad"
+              element={profile.rol === 'ADMIN' ? <ImportarConflictividad /> : <Navigate to="/" />}
             />
             <Route
               path="/admin/crear-usuario"
