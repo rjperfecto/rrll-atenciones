@@ -21,6 +21,7 @@ import { listarAtencionesPaginado, listarAtencionesParaExportar, eliminarAtencio
 import { exportar360LaboralXlsx, exportarDetalleAlertas360Xlsx } from '@/lib/exportXlsx'
 import { useAuth } from '@/features/auth/AuthContext'
 import { CerrarCompromisoModal } from './CerrarCompromisoModal'
+import { ProximasCaminatas } from './ProximasCaminatas'
 import { DetalleAtencionModal } from '@/features/atenciones/DetalleAtencionModal'
 import { EditarAtencionModal } from '@/features/atenciones/EditarAtencionModal'
 import { ZONAS } from '@/data/zonasFundos'
@@ -191,6 +192,8 @@ export function CompromisosList() {
           </div>
         )}
       </div>
+
+      <ProximasCaminatas />
 
       {total === 0 && !hayFiltrosActivos ? (
         <Card className="p-10 flex flex-col items-center text-center gap-2">

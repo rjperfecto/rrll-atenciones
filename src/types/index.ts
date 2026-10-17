@@ -184,3 +184,15 @@ export interface PlantillaPdf {
   created_at: string
   updated_at: string
 }
+
+// "Próximas caminatas" (ver migración 0030): solo guarda Grupo + Fecha — Zona,
+// Fundo y Líder se derivan en vivo desde TAREO (ver buscarGrupoCompleto),
+// no se duplican acá.
+export interface CaminataProgramada {
+  id: string
+  grupo: string
+  fecha: string // YYYY-MM-DD
+  creado_por: string
+  creado_por_nombre: string
+  created_at: string
+}

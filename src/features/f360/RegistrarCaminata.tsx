@@ -1,4 +1,5 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
@@ -110,6 +111,7 @@ export function RegistrarCaminata() {
   const [busqueda, setBusqueda] = useState<EstadoBusqueda>('idle')
   const [formKey, setFormKey] = useState(0)
   const zonaUsuario = profile?.zona_asignada ?? null
+  const [searchParams, setSearchParams] = useSearchParams()
 
   // Si el usuario logueado tiene Zona fija (Administración > Personal por
   // zona), el formulario arranca con esa zona (el campo queda deshabilitado
@@ -150,7 +152,10 @@ export function RegistrarCaminata() {
   }
 
   const buscarPorGrupo = useCallback(
-    async (valorGrupo: string) => {
+    // fechaOverride: para cuando se llega desde "Próximas caminatas"
+    // (?grupo=&fecha=) y hay que buscar con esa fecha, no con la que ya
+    // esté en el formulario en ese momento (ver efecto de precarga abajo).
+    async (valorGrupo: string, fechaOverride?: string) => {
       const grupoLimpio = valorGrupo.trim().toUpperCase()
       if (grupoLimpio !== valorGrupo) setValue('grupo', grupoLimpio)
       if (!grupoLimpio) {
@@ -159,7 +164,7 @@ export function RegistrarCaminata() {
         return
       }
       setBusqueda('buscando')
-      const trabajador = await buscarTrabajadorPorGrupo(grupoLimpio, fecha || hoy())
+      const trabajador = await buscarTrabajadorPorGrupo(grupoLimpio, fechaOverride || fecha || hoy())
       if (!trabajador) {
         setBusqueda('no_encontrado')
         return
@@ -179,6 +184,26 @@ export function RegistrarCaminata() {
     },
     [fecha, setValue, trigger, zonaUsuario],
   )
+
+  // Viene de "Próximas caminatas" (Compromisos): ?grupo=...&fecha=...
+  // precarga y busca solo, igual que ?legajo= en Registrar (Atenciones).
+  useEffect(() => {
+    const grupoParam = searchParams.get('grupo')
+    if (!grupoParam) return
+    const fechaParam = searchParams.get('fecha')
+    if (fechaParam) setValue('fecha', fechaParam)
+    setValue('grupo', grupoParam)
+    void buscarPorGrupo(grupoParam, fechaParam || undefined)
+    setSearchParams(
+      (prev) => {
+        prev.delete('grupo')
+        prev.delete('fecha')
+        return prev
+      },
+      { replace: true },
+    )
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   function limpiarFormulario() {
     reset()
