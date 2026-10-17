@@ -35,6 +35,7 @@ import { ProximasCaminatasPage } from '@/features/f360/ProximasCaminatasPage'
 import { Busqueda } from '@/features/herramientas/Busqueda'
 import { AgendaCapacitaciones } from '@/features/agenda/AgendaCapacitaciones'
 import { Dashboard } from '@/features/dashboard/Dashboard'
+import { DashboardResumen } from '@/features/dashboard/DashboardResumen'
 import { ImportarPersonal } from '@/features/admin/ImportarPersonal'
 import { ImportarAfiliados } from '@/features/admin/ImportarAfiliados'
 import { ImportarConflictividad } from '@/features/admin/ImportarConflictividad'
@@ -178,6 +179,10 @@ function AppLayout() {
 
       {puedeVerZona && (
         <GrupoNav titulo="Dashboards">
+          <NavLink to="/dashboard/resumen" className={navClass} onClick={cerrarMenu}>
+            <LayoutDashboard className="size-4" />
+            Resumen
+          </NavLink>
           <NavLink to="/dashboard/atenciones" className={navClass} onClick={cerrarMenu}>
             <LayoutDashboard className="size-4" />
             Atenciones
@@ -337,6 +342,10 @@ function AppLayout() {
             <Route path="/herramientas/busqueda" element={<Busqueda />} />
             <Route path="/herramientas/documento" element={<Documento />} />
             <Route path="/capacitaciones" element={<AgendaCapacitaciones />} />
+            <Route
+              path="/dashboard/resumen"
+              element={puedeVerZona ? <DashboardResumen /> : <Navigate to="/" />}
+            />
             <Route
               path="/dashboard/atenciones"
               element={
