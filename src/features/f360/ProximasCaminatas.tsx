@@ -1,10 +1,9 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AlertCircle, CalendarPlus, CheckCircle2, Plus, Trash2 } from 'lucide-react'
 import { listarCaminatasProgramadas, programarCaminata, eliminarCaminataProgramada } from '@/lib/caminatasProgramadasApi'
 import { buscarGrupoCompleto, type ResultadoGrupo } from '@/lib/busquedaApi'
 import { listarConflictividad, type ConflictividadGrupo } from '@/lib/conflictividadApi'
-import { zonaDesdeFundo } from '@/lib/zonaFundo'
 import { moduloDesdeFundo } from '@/lib/modulo'
 import { useAuth } from '@/features/auth/AuthContext'
 import { CardSection } from '@/components/ui/Card'
@@ -108,6 +107,13 @@ export function ProximasCaminatas() {
 
   const puedeBorrar = (p: CaminataProgramada) => profile?.id === p.creado_por || profile?.rol === 'ADMIN'
 
+  // Ordenadas por conflictividad (mayor primero), igual que el tablero de
+  // abajo: así se puede presentar la tabla directamente, priorizada.
+  const programadasOrdenadas = useMemo(() => {
+    if (!programadas) return []
+    return [...programadas].sort((a, b) => (conflictividad.get(b.grupo)?.valor ?? -1) - (conflictividad.get(a.grupo)?.valor ?? -1))
+  }, [programadas, conflictividad])
+
   return (
     <CardSection title="Programar caminata" icon={<CalendarPlus className="size-4 text-brand" />} className="mb-4">
       <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-2 items-end">
@@ -141,55 +147,61 @@ export function ProximasCaminatas() {
       ) : programadas.length === 0 ? (
         <p className="text-sm text-neutral-400">No hay caminatas programadas.</p>
       ) : (
-        <ul className="divide-y divide-neutral-100">
-          {programadas.map((p) => {
-            const clave = `${p.grupo}|${p.fecha}`
-            const r = info[clave]
-            const zona = r?.ubicacion ? zonaDesdeFundo(r.ubicacion) : null
-            const modulo = r?.ubicacion ? moduloDesdeFundo(r.ubicacion) : null
-            const nivelConflictividad = conflictividad.get(p.grupo)?.nivel
-            return (
-              <li key={p.id} className="flex items-center justify-between gap-3 py-2.5 flex-wrap">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-neutral-800 flex items-center gap-2">
-                    {p.grupo} · {p.fecha}
-                    {nivelConflictividad && <GravedadBadge gravedad={nivelConflictividad} />}
-                  </p>
-                  <p className="text-xs text-neutral-500">
-                    {r === undefined ? (
-                      'Buscando datos de TAREO...'
-                    ) : r === null ? (
-                      <span className="text-amber-600">Sin datos de TAREO para ese grupo/fecha.</span>
-                    ) : (
-                      <>
-                        {zona ?? '—'}
-                        {modulo ? ` · Módulo ${modulo}` : ''}
-                        {r.lider ? ` · Líder/Supervisor: ${r.lider.nombre_completo}` : ''}
-                      </>
-                    )}
-                  </p>
-                </div>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <Button onClick={() => cerrar(p)} loading={procesandoId === p.id} className="text-xs px-2.5 py-1.5">
-                    <CheckCircle2 className="size-3.5" />
-                    Cerrar
-                  </Button>
-                  {puedeBorrar(p) && (
-                    <button
-                      type="button"
-                      onClick={() => eliminar(p)}
-                      disabled={procesandoId === p.id}
-                      className="p-1.5 rounded-md text-neutral-400 hover:bg-neutral-100 hover:text-danger"
-                      aria-label="Quitar"
-                    >
-                      <Trash2 className="size-4" />
-                    </button>
-                  )}
-                </div>
-              </li>
-            )
-          })}
-        </ul>
+        <div className="overflow-x-auto rounded-lg border border-neutral-200">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-blue-700 text-white">
+                <th className="px-3 py-2 font-semibold whitespace-nowrap">FECHA</th>
+                <th className="px-3 py-2 font-semibold whitespace-nowrap">RESPONSABLE</th>
+                <th className="px-3 py-2 font-semibold whitespace-nowrap">MÓDULO</th>
+                <th className="px-3 py-2 font-semibold whitespace-nowrap">GRUPO</th>
+                <th className="px-3 py-2 font-semibold whitespace-nowrap">LÍDER</th>
+                <th className="px-3 py-2 font-semibold whitespace-nowrap">CONFLICTIVIDAD</th>
+                <th className="px-3 py-2 font-semibold whitespace-nowrap"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-neutral-100">
+              {programadasOrdenadas.map((p) => {
+                const clave = `${p.grupo}|${p.fecha}`
+                const r = info[clave]
+                const modulo = r?.ubicacion ? (moduloDesdeFundo(r.ubicacion) ?? r.ubicacion) : null
+                const nivelConflictividad = conflictividad.get(p.grupo)?.nivel
+                const cargandoFila = r === undefined
+                return (
+                  <tr key={p.id} className="text-center even:bg-neutral-50">
+                    <td className="px-3 py-2 whitespace-nowrap">{p.fecha}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">{p.creado_por_nombre.toUpperCase()}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">{cargandoFila ? '…' : (modulo ?? '—')}</td>
+                    <td className="px-3 py-2 whitespace-nowrap font-medium">{p.grupo}</td>
+                    <td className="px-3 py-2">{cargandoFila ? '…' : (r?.lider?.nombre_completo ?? '—')}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">
+                      {nivelConflictividad ? <GravedadBadge gravedad={nivelConflictividad} /> : '—'}
+                    </td>
+                    <td className="px-3 py-2 whitespace-nowrap">
+                      <div className="flex items-center justify-center gap-1.5">
+                        <Button onClick={() => cerrar(p)} loading={procesandoId === p.id} className="text-xs px-2.5 py-1.5">
+                          <CheckCircle2 className="size-3.5" />
+                          Cerrar
+                        </Button>
+                        {puedeBorrar(p) && (
+                          <button
+                            type="button"
+                            onClick={() => eliminar(p)}
+                            disabled={procesandoId === p.id}
+                            className="p-1.5 rounded-md text-neutral-400 hover:bg-neutral-100 hover:text-danger"
+                            aria-label="Quitar"
+                          >
+                            <Trash2 className="size-4" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
       )}
     </CardSection>
   )
