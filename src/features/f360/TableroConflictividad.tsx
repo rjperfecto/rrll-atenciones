@@ -103,7 +103,7 @@ export function TableroConflictividad() {
                     aria-label={`Conflictividad ${f.nivel}`}
                   />
                   <p className="text-sm font-medium text-neutral-800 truncate flex-1">
-                    {f.grupo} - {f.personas}
+                    {f.grupo} ({f.personas} persona{f.personas === 1 ? '' : 's'})
                   </p>
                   <div className="text-xs text-neutral-500 shrink-0 text-right">
                     <p>
