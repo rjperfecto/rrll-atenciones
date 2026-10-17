@@ -3,7 +3,6 @@ import { AlertCircle, Loader2 } from 'lucide-react'
 import { listarConflictividad, type ConflictividadGrupo } from '@/lib/conflictividadApi'
 import { listarGrupoFundoActual, listarCaminatasPorGrupo } from '@/lib/tableroConflictividadApi'
 import { zonaDesdeFundo } from '@/lib/zonaFundo'
-import { moduloDesdeFundo } from '@/lib/modulo'
 import { CardSection, Card } from '@/components/ui/Card'
 import { GravedadBadge } from '@/components/ui/Badge'
 
@@ -94,7 +93,7 @@ export function TableroConflictividad() {
                     <p>
                       {f.caminatas} caminata{f.caminatas === 1 ? '' : 's'}
                     </p>
-                    <p className="text-neutral-400">{f.fundo ? (moduloDesdeFundo(f.fundo) ?? f.fundo) : '—'}</p>
+                    <p className="text-neutral-400">{f.fundo ?? '—'}</p>
                   </div>
                 </li>
               ))}

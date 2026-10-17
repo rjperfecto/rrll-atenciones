@@ -4,7 +4,8 @@ import { AlertCircle, CalendarPlus, CheckCircle2, Plus, Trash2 } from 'lucide-re
 import { listarCaminatasProgramadas, programarCaminata, eliminarCaminataProgramada } from '@/lib/caminatasProgramadasApi'
 import { buscarGrupoCompleto, type ResultadoGrupo } from '@/lib/busquedaApi'
 import { listarConflictividad, type ConflictividadGrupo } from '@/lib/conflictividadApi'
-import { moduloDesdeFundo } from '@/lib/modulo'
+import { zonaDesdeFundo } from '@/lib/zonaFundo'
+import { supRrllPorZona } from '@/data/supervisoresRrll'
 import { useAuth } from '@/features/auth/AuthContext'
 import { CardSection } from '@/components/ui/Card'
 import { Field } from '@/components/ui/Field'
@@ -153,7 +154,7 @@ export function ProximasCaminatas() {
               <tr className="bg-blue-700 text-white">
                 <th className="px-3 py-2 font-semibold whitespace-nowrap">FECHA</th>
                 <th className="px-3 py-2 font-semibold whitespace-nowrap">RESPONSABLE</th>
-                <th className="px-3 py-2 font-semibold whitespace-nowrap">MÓDULO</th>
+                <th className="px-3 py-2 font-semibold whitespace-nowrap">FUNDO</th>
                 <th className="px-3 py-2 font-semibold whitespace-nowrap">GRUPO</th>
                 <th className="px-3 py-2 font-semibold whitespace-nowrap">LÍDER</th>
                 <th className="px-3 py-2 font-semibold whitespace-nowrap">CONFLICTIVIDAD</th>
@@ -164,14 +165,19 @@ export function ProximasCaminatas() {
               {programadasOrdenadas.map((p) => {
                 const clave = `${p.grupo}|${p.fecha}`
                 const r = info[clave]
-                const modulo = r?.ubicacion ? (moduloDesdeFundo(r.ubicacion) ?? r.ubicacion) : null
+                const fundo = r?.ubicacion ?? null
+                const zona = fundo ? zonaDesdeFundo(fundo) : null
+                // El responsable no lo elige quien programa: sale solo según
+                // la zona del grupo, mismo mapeo fijo que SUP. RRLL en
+                // Atenciones (ver src/data/supervisoresRrll.ts).
+                const responsable = zona ? supRrllPorZona(zona) : null
                 const nivelConflictividad = conflictividad.get(p.grupo)?.nivel
                 const cargandoFila = r === undefined
                 return (
                   <tr key={p.id} className="text-center even:bg-neutral-50">
                     <td className="px-3 py-2 whitespace-nowrap">{p.fecha}</td>
-                    <td className="px-3 py-2 whitespace-nowrap">{p.creado_por_nombre.toUpperCase()}</td>
-                    <td className="px-3 py-2 whitespace-nowrap">{cargandoFila ? '…' : (modulo ?? '—')}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">{cargandoFila ? '…' : (responsable ?? '—')}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">{cargandoFila ? '…' : (fundo ?? '—')}</td>
                     <td className="px-3 py-2 whitespace-nowrap font-medium">{p.grupo}</td>
                     <td className="px-3 py-2">{cargandoFila ? '…' : (r?.lider?.nombre_completo ?? '—')}</td>
                     <td className="px-3 py-2 whitespace-nowrap">
