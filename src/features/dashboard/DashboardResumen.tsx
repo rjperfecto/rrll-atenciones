@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Award, CalendarRange, Gauge, Handshake, Sprout, Users } from 'lucide-react'
-import { listarGrupoFundoActual, listarCantidadPersonasPorGrupo } from '@/lib/tableroConflictividadApi'
+import { listarGrupoFundoActual, listarCantidadPersonasCosechaPorGrupo } from '@/lib/tableroConflictividadApi'
 import {
   listarSemanasConDatos,
   obtenerCasosPorResponsableSemanas,
@@ -63,7 +63,7 @@ export function DashboardResumen() {
 
   // Foto de hoy (grupos/personal) y la lista de semanas con datos: una sola vez.
   useEffect(() => {
-    void Promise.all([listarGrupoFundoActual(), listarCantidadPersonasPorGrupo(), listarSemanasConDatos()]).then(
+    void Promise.all([listarGrupoFundoActual(), listarCantidadPersonasCosechaPorGrupo(), listarSemanasConDatos()]).then(
       ([fundo, personas, semanas]) => {
         setGrupoFundo(fundo)
         setPersonasPorGrupo(personas)
@@ -151,7 +151,9 @@ export function DashboardResumen() {
             </Card>
           ))}
         </div>
-        <p className="text-xs text-neutral-400 mt-3">Según el último día de TAREO cargado para cada grupo (no una fecha fija).</p>
+        <p className="text-xs text-neutral-400 mt-3">
+          Solo personal de cosecha (sin soportes), según el último día de TAREO cargado para cada grupo (no una fecha fija).
+        </p>
       </CardSection>
 
       <Card className="p-4 mb-6">

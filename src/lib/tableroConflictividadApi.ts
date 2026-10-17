@@ -22,3 +22,13 @@ export async function listarCantidadPersonasPorGrupo(): Promise<Map<string, numb
   for (const r of (data as { grupo: string; personas: number }[]) ?? []) mapa.set(r.grupo, r.personas)
   return mapa
 }
+
+// Solo cosecha (sin soportes), para Dashboard > Resumen (ver migración
+// 0034). El tablero de conflictividad sigue usando listarCantidadPersonasPorGrupo
+// (todos), a propósito: no se pidió cambiar ese.
+export async function listarCantidadPersonasCosechaPorGrupo(): Promise<Map<string, number>> {
+  const { data } = await supabase.from('v_grupo_personas_cosecha').select('*')
+  const mapa = new Map<string, number>()
+  for (const r of (data as { grupo: string; personas: number }[]) ?? []) mapa.set(r.grupo, r.personas)
+  return mapa
+}
