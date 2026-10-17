@@ -8,16 +8,20 @@ export interface ColorAgenda {
   hex: string
 }
 
+// Misma paleta de 11 colores que usa Google Calendar para eventos (mismo
+// nombre y hex), traducida al español para la UI.
 export const COLORES_AGENDA: ColorAgenda[] = [
-  { id: 'azul', nombre: 'Azul', hex: '#3b82f6' },
-  { id: 'celeste', nombre: 'Celeste', hex: '#06b6d4' },
-  { id: 'verde', nombre: 'Verde', hex: '#10b981' },
-  { id: 'amarillo', nombre: 'Amarillo', hex: '#f59e0b' },
-  { id: 'naranja', nombre: 'Naranja', hex: '#f97316' },
-  { id: 'rojo', nombre: 'Rojo', hex: '#ef4444' },
-  { id: 'rosado', nombre: 'Rosado', hex: '#ec4899' },
-  { id: 'morado', nombre: 'Morado', hex: '#8b5cf6' },
-  { id: 'gris', nombre: 'Gris', hex: '#6b7280' },
+  { id: 'tomate', nombre: 'Tomate', hex: '#d50000' },
+  { id: 'flamenco', nombre: 'Flamenco', hex: '#e67c73' },
+  { id: 'mandarina', nombre: 'Mandarina', hex: '#f4511e' },
+  { id: 'platano', nombre: 'Plátano', hex: '#f6bf26' },
+  { id: 'salvia', nombre: 'Salvia', hex: '#33b679' },
+  { id: 'albahaca', nombre: 'Albahaca', hex: '#0b8043' },
+  { id: 'pavo_real', nombre: 'Pavo real', hex: '#039be5' },
+  { id: 'arandano', nombre: 'Arándano', hex: '#3f51b5' },
+  { id: 'lavanda', nombre: 'Lavanda', hex: '#7986cb' },
+  { id: 'uva', nombre: 'Uva', hex: '#8e24aa' },
+  { id: 'grafito', nombre: 'Grafito', hex: '#616161' },
 ]
 
 export function hexDeColor(id: string): string {

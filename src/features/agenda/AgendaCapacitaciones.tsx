@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { AlertCircle, CalendarDays, ChevronLeft, ChevronRight, Loader2, Plus, RefreshCw } from 'lucide-react'
 import { listarCapacitacionesRango } from '@/lib/capacitacionesApi'
 import { hexDeColor } from '@/data/coloresAgenda'
@@ -22,8 +22,15 @@ import type { Capacitacion } from '@/types'
 
 const ANCHO_COL_HORAS = 56
 const ANCHO_MIN_COL_DIA = 130
-const ALTO_FILA = 36
-const ALTO_ENCABEZADO = 48
+const ALTO_FILA = 44
+const ALTO_ENCABEZADO = 56
+
+// Letra blanca con contorno negro (pedido explícito): se lee igual sobre
+// cualquiera de los 11 colores de la paleta, incluso los más claros
+// (Plátano, Lavanda), sin tener que calcular contraste color por color.
+const CONTORNO_TEXTO: CSSProperties = {
+  textShadow: '-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 0 0 2px #000',
+}
 
 type EstadoModal =
   | { abierto: false }
@@ -157,19 +164,26 @@ export function AgendaCapacitaciones() {
               />
 
               {/* encabezados de día */}
-              {dias.map((d, i) => (
-                <div
-                  key={d.fecha}
-                  style={{ gridColumn: i + 2, gridRow: 1 }}
-                  className={cn(
-                    'flex flex-col items-center justify-center border-b border-neutral-100 bg-white',
-                    d.fecha === hoyStr && 'bg-brand/5',
-                  )}
-                >
-                  <span className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">{d.etiqueta}</span>
-                  <span className="text-sm font-semibold text-navy">{d.diaNumero}</span>
-                </div>
-              ))}
+              {dias.map((d, i) => {
+                const esHoy = d.fecha === hoyStr
+                return (
+                  <div
+                    key={d.fecha}
+                    style={{ gridColumn: i + 2, gridRow: 1 }}
+                    className={cn('flex flex-col items-center justify-center gap-0.5 border-b border-neutral-100 bg-white', esHoy && 'bg-brand/5')}
+                  >
+                    <span className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">{d.etiqueta}</span>
+                    <span
+                      className={cn(
+                        'flex items-center justify-center size-6 rounded-full text-sm font-semibold',
+                        esHoy ? 'bg-brand text-white' : 'text-navy',
+                      )}
+                    >
+                      {d.diaNumero}
+                    </span>
+                  </div>
+                )
+              })}
 
               {/* etiquetas de hora */}
               {SLOTS_AGENDA.map((hora, i) => (
@@ -208,10 +222,17 @@ export function AgendaCapacitaciones() {
                       gridRow: `${filaDeHora(ev.hora_inicio) + 2} / span ${duracionEnFilas(ev.hora_inicio, ev.hora_fin)}`,
                       backgroundColor: hexDeColor(ev.color),
                     }}
-                    className="m-0.5 rounded-md px-1.5 py-1 text-left text-white text-[11px] leading-tight overflow-hidden shadow-sm hover:brightness-95"
+                    className="m-0.5 rounded-md px-1.5 py-1 text-left text-white text-[11px] leading-tight overflow-hidden shadow-sm hover:brightness-95 hover:shadow-md transition-shadow"
                   >
-                    <p className="font-semibold truncate">{ev.tema}</p>
-                    <p className="truncate opacity-90">{ev.ubicacion}</p>
+                    <p className="font-bold truncate" style={CONTORNO_TEXTO}>
+                      {ev.tema}
+                    </p>
+                    <p className="truncate" style={CONTORNO_TEXTO}>
+                      {ev.responsable}
+                    </p>
+                    <p className="truncate" style={CONTORNO_TEXTO}>
+                      {ev.ubicacion}
+                    </p>
                   </button>
                 )),
               )}
