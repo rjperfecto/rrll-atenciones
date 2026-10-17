@@ -166,9 +166,9 @@ function AppLayout() {
           <Search className="size-4" />
           Búsqueda
         </NavLink>
-        <NavLink to="/agenda" className={navClass} onClick={cerrarMenu}>
+        <NavLink to="/capacitaciones" className={navClass} onClick={cerrarMenu}>
           <CalendarDays className="size-4" />
-          Agenda
+          Capacitaciones
         </NavLink>
         <NavLink to="/herramientas/documento" className={navClass} onClick={cerrarMenu}>
           <FileText className="size-4" />
@@ -336,7 +336,7 @@ function AppLayout() {
             <Route path="/360/proximas-caminatas" element={<ProximasCaminatasPage />} />
             <Route path="/herramientas/busqueda" element={<Busqueda />} />
             <Route path="/herramientas/documento" element={<Documento />} />
-            <Route path="/agenda" element={<AgendaCapacitaciones />} />
+            <Route path="/capacitaciones" element={<AgendaCapacitaciones />} />
             <Route
               path="/dashboard/atenciones"
               element={

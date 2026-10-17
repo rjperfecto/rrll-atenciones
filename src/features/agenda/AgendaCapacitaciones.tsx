@@ -21,8 +21,8 @@ import { cn } from '@/lib/cn'
 import type { Capacitacion } from '@/types'
 
 const ANCHO_COL_HORAS = 56
-const ANCHO_MIN_COL_DIA = 130
-const ALTO_FILA = 44
+const ANCHO_MIN_COL_DIA = 140
+const ALTO_FILA = 60
 const ALTO_ENCABEZADO = 56
 
 // Google Calendar usa "Google Sans" (propietaria, no está en Google Fonts
@@ -125,7 +125,7 @@ export function AgendaCapacitaciones() {
   return (
     <div>
       <div className="flex items-start justify-between gap-3 flex-wrap mb-4">
-        <PageHeader title="Agenda" description="Reuniones y capacitaciones de la semana." />
+        <PageHeader title="Capacitaciones" description="Reuniones y capacitaciones de la semana." />
         <Button variant="secondary" onClick={() => setSemanaBase(new Date())}>
           <CalendarDays className="size-4" />
           Hoy
@@ -196,14 +196,14 @@ export function AgendaCapacitaciones() {
                 )
               })}
 
-              {/* etiquetas de hora */}
+              {/* etiquetas de hora: centradas EXACTO sobre la línea que separa
+                  esta fila de la anterior (no "dentro" de la fila), para que
+                  quede claro a qué hora empieza cada bloque. */}
               {SLOTS_AGENDA.map((hora, i) => (
-                <div
-                  key={hora}
-                  style={{ gridColumn: 1, gridRow: i + 2 }}
-                  className="sticky left-0 z-20 bg-white border-r border-neutral-100 text-[10px] text-neutral-400 text-right pr-1.5 pt-0.5"
-                >
-                  {hora}
+                <div key={hora} style={{ gridColumn: 1, gridRow: i + 2 }} className="sticky left-0 z-20 relative bg-white border-r border-neutral-100">
+                  <span className="absolute right-1.5 top-0 -translate-y-1/2 bg-white px-0.5 text-[10px] text-neutral-400 leading-none">
+                    {hora}
+                  </span>
                 </div>
               ))}
 
@@ -221,34 +221,44 @@ export function AgendaCapacitaciones() {
                 )),
               )}
 
-              {/* eventos (pintan encima de las celdas clickeables por orden de aparición) */}
+              {/* eventos (pintan encima de las celdas clickeables por orden de
+                  aparición): tarjeta en bandas de color (pedido explícito,
+                  igual a la referencia) — franja del color elegido arriba,
+                  Responsable en banda blanca (lo más destacado), Tema en
+                  banda del color sólido, Ubicación en banda del color clarito. */}
               {dias.map((d, di) =>
-                (porDia.get(d.fecha) ?? []).map((ev) => (
-                  <button
-                    key={ev.id}
-                    type="button"
-                    onClick={() => abrirExistente(ev)}
-                    style={{
-                      gridColumn: di + 2,
-                      gridRow: `${filaDeHora(ev.hora_inicio) + 2} / span ${duracionEnFilas(ev.hora_inicio, ev.hora_fin)}`,
-                      backgroundColor: hexDeColor(ev.color),
-                    }}
-                    className="m-0.5 rounded-md px-1.5 py-1 text-left text-white leading-tight overflow-hidden shadow-sm hover:brightness-95 hover:shadow-md transition-shadow"
-                  >
-                    {/* Responsable es lo más destacado del bloque (pedido
-                        explícito): va primero y en el tamaño más grande,
-                        Tema y Ubicación debajo, más chicos. */}
-                    <p className="font-bold text-[13px] truncate" style={CONTORNO_TEXTO}>
-                      {ev.responsable}
-                    </p>
-                    <p className="font-medium text-[11px] truncate" style={CONTORNO_TEXTO}>
-                      {ev.tema}
-                    </p>
-                    <p className="text-[10px] truncate" style={CONTORNO_TEXTO}>
-                      {ev.ubicacion}
-                    </p>
-                  </button>
-                )),
+                (porDia.get(d.fecha) ?? []).map((ev) => {
+                  const hex = hexDeColor(ev.color)
+                  return (
+                    <button
+                      key={ev.id}
+                      type="button"
+                      onClick={() => abrirExistente(ev)}
+                      style={{
+                        gridColumn: di + 2,
+                        gridRow: `${filaDeHora(ev.hora_inicio) + 2} / span ${duracionEnFilas(ev.hora_inicio, ev.hora_fin)}`,
+                      }}
+                      className="m-0.5 rounded-md overflow-hidden shadow-sm hover:shadow-md transition-shadow flex flex-col text-left"
+                    >
+                      <span className="h-[3px] shrink-0" style={{ backgroundColor: hex }} />
+                      <span className="shrink-0 bg-white text-black font-bold text-[11px] leading-tight text-center truncate px-1 py-0.5">
+                        {ev.responsable}
+                      </span>
+                      <span
+                        className="flex-1 min-h-0 flex items-center justify-center text-white font-semibold text-[10px] leading-tight text-center px-1 py-0.5 overflow-hidden"
+                        style={{ backgroundColor: hex, ...CONTORNO_TEXTO }}
+                      >
+                        <span className="line-clamp-2">{ev.tema}</span>
+                      </span>
+                      <span
+                        className="shrink-0 font-semibold text-[9px] leading-tight text-center truncate px-1 py-0.5"
+                        style={{ backgroundColor: `color-mix(in srgb, ${hex} 30%, white)`, color: '#1a2138' }}
+                      >
+                        {ev.ubicacion}
+                      </span>
+                    </button>
+                  )
+                }),
               )}
             </div>
           </Card>
