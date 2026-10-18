@@ -23,12 +23,18 @@ export async function listarCantidadPersonasPorGrupo(): Promise<Map<string, numb
   return mapa
 }
 
-// Solo cosecha (sin soportes), para Dashboard > Resumen (ver migración
-// 0034). El tablero de conflictividad sigue usando listarCantidadPersonasPorGrupo
-// (todos), a propósito: no se pidió cambiar ese.
-export async function listarCantidadPersonasCosechaPorGrupo(): Promise<Map<string, number>> {
-  const { data } = await supabase.from('v_grupo_personas_cosecha').select('*')
-  const mapa = new Map<string, number>()
-  for (const r of (data as { grupo: string; personas: number }[]) ?? []) mapa.set(r.grupo, r.personas)
-  return mapa
+export interface GrupoCosechaActual {
+  grupo: string
+  fundo: string | null
+  personas: number
+}
+
+// Cosecha "de verdad" (ver migración 0036): ACTIVIDAD contiene COSECHA y
+// MODULO (sufijo de fundo) no está vacío — para Dashboard > Resumen. El
+// tablero de conflictividad de Próximas caminatas sigue usando
+// listarGrupoFundoActual/listarCantidadPersonasPorGrupo (todos los grupos,
+// cualquier actividad), a propósito: no se pidió cambiar ese.
+export async function listarGrupoCosechaActual(): Promise<GrupoCosechaActual[]> {
+  const { data } = await supabase.from('v_grupo_cosecha_actual').select('*')
+  return (data as GrupoCosechaActual[]) ?? []
 }

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Award, CalendarRange, Gauge, Handshake, Sprout, Users } from 'lucide-react'
-import { listarGrupoFundoActual, listarCantidadPersonasCosechaPorGrupo } from '@/lib/tableroConflictividadApi'
+import { listarGrupoCosechaActual, type GrupoCosechaActual } from '@/lib/tableroConflictividadApi'
 import {
   listarSemanasConDatos,
   obtenerCasosPorResponsableSemanas,
@@ -52,8 +52,7 @@ function RankingResponsables({ datos, color }: { datos: CasosPorResponsable[]; c
 // quién se le atribuyen los casos y qué % del personal de cada zona quedó
 // cubierto por al menos una atención en ese período.
 export function DashboardResumen() {
-  const [grupoFundo, setGrupoFundo] = useState<Map<string, string | null> | null>(null)
-  const [personasPorGrupo, setPersonasPorGrupo] = useState<Map<string, number> | null>(null)
+  const [gruposCosecha, setGruposCosecha] = useState<GrupoCosechaActual[] | null>(null)
   const [semanasDisponibles, setSemanasDisponibles] = useState<{ anio: number; semana: number }[]>([])
   const [semanasSeleccionadas, setSemanasSeleccionadas] = useState<Set<number>>(new Set())
   const [casosAtenciones, setCasosAtenciones] = useState<CasosPorResponsable[]>([])
@@ -61,15 +60,12 @@ export function DashboardResumen() {
   const [casosZonaAtenciones, setCasosZonaAtenciones] = useState<CasosPorZonaSimple[]>([])
   const [cargando, setCargando] = useState(true)
 
-  // Foto de hoy (grupos/personal) y la lista de semanas con datos: una sola vez.
+  // Foto de hoy (grupos/personal de cosecha) y la lista de semanas con datos: una sola vez.
   useEffect(() => {
-    void Promise.all([listarGrupoFundoActual(), listarCantidadPersonasCosechaPorGrupo(), listarSemanasConDatos()]).then(
-      ([fundo, personas, semanas]) => {
-        setGrupoFundo(fundo)
-        setPersonasPorGrupo(personas)
-        setSemanasDisponibles(semanas)
-      },
-    )
+    void Promise.all([listarGrupoCosechaActual(), listarSemanasConDatos()]).then(([grupos, semanas]) => {
+      setGruposCosecha(grupos)
+      setSemanasDisponibles(semanas)
+    })
   }, [])
 
   // Año de trabajo: el más reciente que tenga datos (ver limitación de mezclar
@@ -106,19 +102,19 @@ export function DashboardResumen() {
   }
 
   const porZona = useMemo(() => {
-    if (!grupoFundo || !personasPorGrupo) return null
+    if (!gruposCosecha) return null
     const base = new Map<string, { zona: string; grupos: number; personas: number }>(
       ZONAS_RESUMEN.map((z) => [z, { zona: z, grupos: 0, personas: 0 }]),
     )
-    for (const [grupo, fundo] of grupoFundo) {
-      const zona = fundo ? zonaDesdeFundo(fundo) : null
+    for (const g of gruposCosecha) {
+      const zona = g.fundo ? zonaDesdeFundo(g.fundo) : null
       if (!zona || !base.has(zona)) continue
       const fila = base.get(zona)!
       fila.grupos += 1
-      fila.personas += personasPorGrupo.get(grupo) ?? 0
+      fila.personas += g.personas
     }
     return [...base.values()]
-  }, [grupoFundo, personasPorGrupo])
+  }, [gruposCosecha])
 
   const totalGrupos = porZona?.reduce((acc, z) => acc + z.grupos, 0) ?? 0
   const totalPersonal = porZona?.reduce((acc, z) => acc + z.personas, 0) ?? 0
@@ -152,7 +148,7 @@ export function DashboardResumen() {
           ))}
         </div>
         <p className="text-xs text-neutral-400 mt-3">
-          Solo personal de cosecha (sin soportes), según el último día de TAREO cargado para cada grupo (no una fecha fija).
+          Solo personal de cosecha (actividad "COSECHA" y con módulo asignado), según el último día de TAREO cargado.
         </p>
       </CardSection>
 
