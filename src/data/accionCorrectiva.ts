@@ -10,6 +10,7 @@ export const ACCIONES_CORRECTIVAS = [
   'CARTA INDUCTIVA',
   'DECLARACIÓN JURADA',
   'SUSPENSIÓN',
+  'PERIODO DE PRUEBA',
   'ANULADO',
 ] as const
 
