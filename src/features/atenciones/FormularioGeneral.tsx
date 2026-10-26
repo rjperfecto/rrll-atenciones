@@ -340,11 +340,11 @@ export function FormularioGeneral() {
         )}
       </CardSection>
 
-      <CardSection title="Seguimiento (opcional)" icon={<StickyNote className="size-4 text-brand" />}>
-        <Field label="Reporta" value={valores.reporte}>
+      <CardSection title="Seguimiento" icon={<StickyNote className="size-4 text-brand" />}>
+        <Field label="Reporta" value={valores.reporte} error={errors.reporte?.message}>
           <input type="text" {...conMayusculas(register('reporte'))} className="input" />
         </Field>
-        <Field label="Comentarios" value={valores.comentarios}>
+        <Field label="Comentarios" value={valores.comentarios} error={errors.comentarios?.message}>
           <textarea rows={3} placeholder="Detalle narrativo del caso..." {...conMayusculas(register('comentarios'))} className="input" />
         </Field>
       </CardSection>
