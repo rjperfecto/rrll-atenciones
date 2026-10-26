@@ -252,7 +252,8 @@ export function RegistrarCaminata() {
       detalle_cierre: null,
       sup_cuadrilla: null,
       responsable_id: profile.id,
-      responsable_nombre: profile.nombre_completo,
+      // .toUpperCase() defensivo, ver mismo comentario en AtencionForm.tsx.
+      responsable_nombre: profile.nombre_completo.toUpperCase(),
       sup_rrll: supRrllPorZona(zonaFinal),
       reporte: null,
       antecedente: null,

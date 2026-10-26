@@ -89,7 +89,7 @@ export function CapacitacionModal({
       : await crearCapacitacion({
           id: crypto.randomUUID(),
           creado_por: creadorId,
-          creado_por_nombre: creadorNombre,
+          creado_por_nombre: creadorNombre.toUpperCase(),
           ...datos,
         })
     setGuardando(false)

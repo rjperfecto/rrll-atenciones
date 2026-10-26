@@ -11,6 +11,7 @@ export const ACCIONES_CORRECTIVAS = [
   'DECLARACIÓN JURADA',
   'SUSPENSIÓN',
   'PERIODO DE PRUEBA',
+  'DESPIDO',
   'ANULADO',
 ] as const
 

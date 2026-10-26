@@ -45,20 +45,24 @@ export function EditarAtencionModal({ atencion, onClose }: { atencion: Atencion;
 
 function EditarGeneral({ atencion, onClose }: { atencion: Atencion; onClose: () => void }) {
   const involucrado = atencion.involucrados[0]
-  const [nombre, setNombre] = useState(involucrado?.nombre_completo ?? '')
+  // .toUpperCase() en el valor inicial (no solo en cada onChange): si el
+  // registro guardado tenía algo en minúscula (de antes de forzar
+  // mayúsculas en todos lados), abrir y guardar sin tocar ese campo ahora sí
+  // lo normaliza, en vez de conservarlo como estaba.
+  const [nombre, setNombre] = useState((involucrado?.nombre_completo ?? '').toUpperCase())
   const [legajo, setLegajo] = useState(involucrado?.legajo ?? '')
   const [zona, setZona] = useState(atencion.zona)
-  const [fundo, setFundo] = useState(atencion.fundo ?? '')
-  const [grupo, setGrupo] = useState(atencion.grupo ?? '')
-  const [area, setArea] = useState(atencion.area ?? '')
-  const [liderCosecha, setLiderCosecha] = useState(atencion.sup_cuadrilla ?? '')
+  const [fundo, setFundo] = useState((atencion.fundo ?? '').toUpperCase())
+  const [grupo, setGrupo] = useState((atencion.grupo ?? '').toUpperCase())
+  const [area, setArea] = useState((atencion.area ?? '').toUpperCase())
+  const [liderCosecha, setLiderCosecha] = useState((atencion.sup_cuadrilla ?? '').toUpperCase())
   const [tipo, setTipo] = useState<Tipo | ''>(atencion.tipo ?? '')
   const [categoria, setCategoria] = useState(atencion.categoria ?? '')
   const [subcategoria, setSubcategoria] = useState(atencion.subcategoria ?? '')
-  const [falta, setFalta] = useState(atencion.falta ?? '')
-  const [reporte, setReporte] = useState(atencion.reporte ?? '')
-  const [antecedente, setAntecedente] = useState(atencion.antecedente ?? '')
-  const [comentarios, setComentarios] = useState(atencion.comentarios ?? '')
+  const [falta, setFalta] = useState((atencion.falta ?? '').toUpperCase())
+  const [reporte, setReporte] = useState((atencion.reporte ?? '').toUpperCase())
+  const [antecedente, setAntecedente] = useState((atencion.antecedente ?? '').toUpperCase())
+  const [comentarios, setComentarios] = useState((atencion.comentarios ?? '').toUpperCase())
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -242,20 +246,21 @@ function EditarGeneral({ atencion, onClose }: { atencion: Atencion; onClose: () 
 function Editar360Laboral({ atencion, onClose }: { atencion: Atencion; onClose: () => void }) {
   const [zona, setZona] = useState(atencion.zona)
   const esPacking = zona === 'PACKING'
-  const [fundo, setFundo] = useState(atencion.fundo ?? '')
+  // .toUpperCase() en el valor inicial, ver mismo comentario en EditarGeneral.
+  const [fundo, setFundo] = useState((atencion.fundo ?? '').toUpperCase())
   const [turno, setTurno] = useState(esPacking ? (atencion.modulo ?? '') : '')
-  const [liderCosecha, setLiderCosecha] = useState(atencion.lider_cosecha ?? '')
-  const [grupo, setGrupo] = useState(atencion.grupo ?? '')
+  const [liderCosecha, setLiderCosecha] = useState((atencion.lider_cosecha ?? '').toUpperCase())
+  const [grupo, setGrupo] = useState((atencion.grupo ?? '').toUpperCase())
   const [totalEncuestado, setTotalEncuestado] = useState(atencion.total_encuestado ?? 0)
-  const [actividad, setActividad] = useState(atencion.area ?? '')
+  const [actividad, setActividad] = useState((atencion.area ?? '').toUpperCase())
 
   const tipoInicial = separarCatalogoYLibre(atencion.tipo_atencion_360, TIPOS_ATENCION_360)
   const [tipoAtencion, setTipoAtencion] = useState<string[]>(tipoInicial.delCatalogo)
-  const [otroTipoAtencion, setOtroTipoAtencion] = useState(tipoInicial.libre)
+  const [otroTipoAtencion, setOtroTipoAtencion] = useState(tipoInicial.libre.toUpperCase())
 
   const [alertasReportadas, setAlertasReportadas] = useState<AlertaReportada360[]>(atencion.alertas_reportadas ?? [])
 
-  const [observaciones, setObservaciones] = useState(atencion.comentarios ?? '')
+  const [observaciones, setObservaciones] = useState((atencion.comentarios ?? '').toUpperCase())
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
 

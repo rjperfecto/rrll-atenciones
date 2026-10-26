@@ -21,7 +21,7 @@ export async function programarCaminata(
     grupo: grupo.trim().toUpperCase(),
     fecha,
     creado_por: creadoPor,
-    creado_por_nombre: creadoPorNombre,
+    creado_por_nombre: creadoPorNombre.toUpperCase(),
     created_at: new Date().toISOString(),
   })
   return { error: error?.message ?? null }

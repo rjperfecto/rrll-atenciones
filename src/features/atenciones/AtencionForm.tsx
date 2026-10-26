@@ -116,7 +116,11 @@ export function AtencionForm() {
       detalle_cierre: values.detalleCierre || null,
       sup_cuadrilla: values.supCuadrilla || null,
       responsable_id: profile.id,
-      responsable_nombre: profile.nombre_completo,
+      // .toUpperCase() acá (no solo confiar en que profile.nombre_completo ya
+      // venga en mayúsculas): una cuenta creada fuera de Crear usuario (ej. a
+      // mano en Supabase Auth) podría no estarlo, y todo el resto del
+      // registro sí se fuerza a mayúsculas.
+      responsable_nombre: profile.nombre_completo.toUpperCase(),
       sup_rrll: supRrllPorZona(zonaFinal),
       reporte: values.reporte || null,
       antecedente: null,

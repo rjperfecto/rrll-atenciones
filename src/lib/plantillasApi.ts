@@ -26,7 +26,7 @@ export async function subirPlantilla(
       storage_path: path,
       posiciones: [],
       creado_por: creadoPor,
-      creado_por_nombre: creadoPorNombre,
+      creado_por_nombre: creadoPorNombre.toUpperCase(),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })
