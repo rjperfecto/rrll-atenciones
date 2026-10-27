@@ -125,6 +125,8 @@ export function DetalleAtencionModal({ atencion, onClose }: { atencion: Atencion
             <Dato label="Fecha de cierre" value={atencion.fecha_cierre} />
             <Dato label="Acción correctiva" value={atencion.accion_correctiva} />
             <Dato label="Días de suspensión" value={atencion.dias_suspension} />
+            <Dato label="Detalle compromiso" value={atencion.detalle_compromiso} />
+            <Dato label="Fecha de compromiso" value={atencion.fecha_fin_compromiso} />
             <Dato label="Detalle" value={atencion.detalle_cierre} />
           </dl>
         </div>

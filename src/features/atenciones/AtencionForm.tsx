@@ -131,9 +131,12 @@ export function AtencionForm() {
       alertas_reportadas: [],
       alertas_360: null,
       detalle_alerta: null,
-      compromiso_generado: null,
-      detalle_compromiso: null,
-      fecha_fin_compromiso: null,
+      // Reutiliza las mismas columnas que 360 Laboral (ver migración
+      // 0014_form_360_laboral.sql): acá "Generar compromiso" es una Acción
+      // correctiva más, no reabre el caso (sigue naciendo CERRADO).
+      compromiso_generado: values.accionCorrectiva === 'GENERAR COMPROMISO' ? true : null,
+      detalle_compromiso: values.accionCorrectiva === 'GENERAR COMPROMISO' ? (values.detalleCompromiso ?? null) : null,
+      fecha_fin_compromiso: values.accionCorrectiva === 'GENERAR COMPROMISO' ? (values.fechaCompromiso ?? null) : null,
       evidencia_360: null,
       resultado_compromiso: null,
       created_at: now,

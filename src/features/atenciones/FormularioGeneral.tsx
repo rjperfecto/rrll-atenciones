@@ -20,7 +20,7 @@ import { conMayusculas } from '@/lib/conMayusculas'
 import { TIPOS, categoriasPorTipo, subcategoriasPorCategoria, gravedadDe } from '@/data/categorizacion'
 import { ZONAS } from '@/data/zonasFundos'
 import { LEGAJO_REGEX } from '@/data/legajo'
-import { ACCIONES_CORRECTIVAS, requiereDias } from '@/data/accionCorrectiva'
+import { ACCIONES_CORRECTIVAS, requiereDias, requiereCompromiso } from '@/data/accionCorrectiva'
 import { supRrllPorZona } from '@/data/supervisoresRrll'
 import { moduloDesdeFundo } from '@/lib/modulo'
 import { zonaDesdeFundo } from '@/lib/zonaFundo'
@@ -403,6 +403,17 @@ export function FormularioGeneral() {
           <Field label="Días de suspensión" value={valores.diasSuspension} error={errors.diasSuspension?.message}>
             <input type="number" min={1} {...register('diasSuspension', { valueAsNumber: true })} className="input" />
           </Field>
+        )}
+
+        {requiereCompromiso(accionCorrectiva || '') && (
+          <>
+            <Field label="Detalle compromiso" value={valores.detalleCompromiso} error={errors.detalleCompromiso?.message}>
+              <textarea rows={2} {...conMayusculas(register('detalleCompromiso'))} className="input" />
+            </Field>
+            <Field label="Fecha de compromiso" value={valores.fechaCompromiso} error={errors.fechaCompromiso?.message}>
+              <input type="date" {...register('fechaCompromiso')} className="input" />
+            </Field>
+          </>
         )}
 
         <Field label="Detalle del cierre (opcional)" value={valores.detalleCierre}>

@@ -32,10 +32,20 @@ export const atencionSchema = z
     accionCorrectiva: z.enum(ACCIONES_CORRECTIVAS, { message: 'Selecciona la acción correctiva' }),
     diasSuspension: z.number().int().min(1).optional(),
     detalleCierre: z.string().optional(),
+    detalleCompromiso: z.string().optional(),
+    fechaCompromiso: z.string().optional(),
   })
   .refine((data) => data.accionCorrectiva !== 'SUSPENSIÓN' || Boolean(data.diasSuspension), {
     message: 'Indica los días de suspensión',
     path: ['diasSuspension'],
+  })
+  .refine((data) => data.accionCorrectiva !== 'GENERAR COMPROMISO' || Boolean(data.detalleCompromiso), {
+    message: 'Indica el detalle del compromiso',
+    path: ['detalleCompromiso'],
+  })
+  .refine((data) => data.accionCorrectiva !== 'GENERAR COMPROMISO' || Boolean(data.fechaCompromiso), {
+    message: 'Indica la fecha del compromiso',
+    path: ['fechaCompromiso'],
   })
 
 export type AtencionFormValues = z.infer<typeof atencionSchema>

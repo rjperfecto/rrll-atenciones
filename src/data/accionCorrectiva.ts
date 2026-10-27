@@ -12,6 +12,7 @@ export const ACCIONES_CORRECTIVAS = [
   'SUSPENSIÓN',
   'PERIODO DE PRUEBA',
   'DESPIDO',
+  'GENERAR COMPROMISO',
   'ANULADO',
 ] as const
 
@@ -19,4 +20,8 @@ export type AccionCorrectiva = (typeof ACCIONES_CORRECTIVAS)[number]
 
 export function requiereDias(accion: AccionCorrectiva | ''): boolean {
   return accion === 'SUSPENSIÓN'
+}
+
+export function requiereCompromiso(accion: AccionCorrectiva | ''): boolean {
+  return accion === 'GENERAR COMPROMISO'
 }
