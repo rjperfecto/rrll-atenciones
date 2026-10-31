@@ -6,12 +6,26 @@ import type { CampoPlantilla, PosicionCampoPlantilla } from '@/types'
 const ANCHO_FIRMA_DEFAULT = 150
 const ALTO_FIRMA_DEFAULT = 60
 
+// Debajo del trazo siempre va una línea con el nombre y DNI del firmante
+// (como una firma de papel) — esta franja se reserva dentro del mismo
+// recuadro que se posicionó en el editor (ver PosicionadorPlantilla), para
+// no depender de que haya espacio libre debajo en la plantilla.
+const ALTO_PIE_FIRMA = 26
+const TAMANO_PIE_FIRMA = 7.5
+const INTERLINEA_PIE_FIRMA = 9.5
+
+export interface FirmaParaPdf {
+  png: Uint8Array
+  nombre: string
+  dni: string
+}
+
 export async function generarPdfConDatos(
   bytesPlantilla: ArrayBuffer,
   posiciones: PosicionCampoPlantilla[],
-  // "firma" no entra acá (no es texto): va aparte en firmaPng.
+  // "firma" no entra acá (no es texto): va aparte en el parámetro firma.
   valores: Partial<Record<Exclude<CampoPlantilla, 'firma'>, string>>,
-  firmaPng?: Uint8Array | null,
+  firma?: FirmaParaPdf | null,
 ): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.load(bytesPlantilla)
   // Arial Negrita pedido: Arial no es una de las 14 fuentes estándar de PDF
@@ -20,19 +34,42 @@ export async function generarPdfConDatos(
   const fuente = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
   // Se embebe una sola vez (no en cada posición) aunque la plantilla tenga
   // más de un campo "firma" — no debería pasar, pero no hace falta repetirlo.
-  const imagenFirma = firmaPng ? await pdfDoc.embedPng(firmaPng) : null
+  const imagenFirma = firma ? await pdfDoc.embedPng(firma.png) : null
   const paginas = pdfDoc.getPages()
   for (const pos of posiciones) {
     const pagina = paginas[pos.pagina - 1]
     if (!pagina) continue
     if (pos.campo === 'firma') {
-      if (!imagenFirma) continue
+      if (!imagenFirma || !firma) continue
+      const ancho = pos.ancho ?? ANCHO_FIRMA_DEFAULT
+      const alto = pos.alto ?? ALTO_FIRMA_DEFAULT
+      const altoPie = Math.min(ALTO_PIE_FIRMA, alto - 10)
+      const yLinea = pos.y + altoPie
+      const altoDisponibleTrazo = alto - altoPie
+      // El trazo mantiene su proporción (no se estira): se escala para
+      // entrar en el ancho/alto disponible y se apoya justo sobre la línea,
+      // como una firma real.
+      const escala = Math.min(ancho / imagenFirma.width, altoDisponibleTrazo / imagenFirma.height)
+      const anchoTrazo = imagenFirma.width * escala
+      const altoTrazo = imagenFirma.height * escala
       pagina.drawImage(imagenFirma, {
-        x: pos.x,
-        y: pos.y,
-        width: pos.ancho ?? ANCHO_FIRMA_DEFAULT,
-        height: pos.alto ?? ALTO_FIRMA_DEFAULT,
+        x: pos.x + (ancho - anchoTrazo) / 2,
+        y: yLinea,
+        width: anchoTrazo,
+        height: altoTrazo,
       })
+      pagina.drawLine({
+        start: { x: pos.x, y: yLinea },
+        end: { x: pos.x + ancho, y: yLinea },
+        thickness: 0.75,
+        color: rgb(0, 0, 0),
+      })
+      const centrado = (texto: string, y: number) => {
+        const anchoTexto = fuente.widthOfTextAtSize(texto, TAMANO_PIE_FIRMA)
+        pagina.drawText(texto, { x: pos.x + (ancho - anchoTexto) / 2, y, size: TAMANO_PIE_FIRMA, font: fuente, color: rgb(0, 0, 0) })
+      }
+      centrado(firma.nombre.toUpperCase(), yLinea - INTERLINEA_PIE_FIRMA)
+      centrado(`DNI: ${firma.dni}`, yLinea - INTERLINEA_PIE_FIRMA * 2)
       continue
     }
     const texto = valores[pos.campo]

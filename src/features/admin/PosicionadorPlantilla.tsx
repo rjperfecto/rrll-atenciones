@@ -21,6 +21,10 @@ const ESCALA = 1.4
 const TAMANO_DEFAULT = 10.5
 const ANCHO_FIRMA_DEFAULT = 150
 const ALTO_FIRMA_DEFAULT = 60
+// Mismos valores que generarPdf.ts: la franja de abajo del recuadro de
+// firma siempre lleva línea + nombre + DNI del firmante (ver ese archivo).
+const ALTO_PIE_FIRMA = 26
+const INTERLINEA_PIE_FIRMA = 9.5
 
 // Edita dónde va cada dato dentro de la plantilla: se renderiza la página 1
 // con pdf.js en un <canvas>, y un click ahí coloca/mueve el marcador del
@@ -98,11 +102,14 @@ export function PosicionadorPlantilla({
       const activo = p.campo === campoActivo
       if (p.campo === 'firma') {
         // La firma no es texto: se previsualiza como un recuadro (mismo
-        // tamaño que se va a incrustar la imagen en el PDF final).
+        // tamaño que se va a incrustar la imagen en el PDF final), con la
+        // franja de línea + nombre + DNI simulada abajo (ver generarPdf.ts).
         const xCanvas = p.x * ESCALA
-        const anchoPx = (p.ancho ?? ANCHO_FIRMA_DEFAULT) * ESCALA
-        const altoPx = (p.alto ?? ALTO_FIRMA_DEFAULT) * ESCALA
-        const yCanvasSup = (alturaPaginaPt - p.y - (p.alto ?? ALTO_FIRMA_DEFAULT)) * ESCALA
+        const ancho = p.ancho ?? ANCHO_FIRMA_DEFAULT
+        const alto = p.alto ?? ALTO_FIRMA_DEFAULT
+        const anchoPx = ancho * ESCALA
+        const altoPx = alto * ESCALA
+        const yCanvasSup = (alturaPaginaPt - p.y - alto) * ESCALA
         ctx.fillStyle = activo ? 'rgba(103, 58, 183, 0.18)' : 'rgba(251, 191, 36, 0.3)'
         ctx.fillRect(xCanvas, yCanvasSup, anchoPx, altoPx)
         ctx.setLineDash([6, 4])
@@ -110,9 +117,24 @@ export function PosicionadorPlantilla({
         ctx.lineWidth = 1.5
         ctx.strokeRect(xCanvas, yCanvasSup, anchoPx, altoPx)
         ctx.setLineDash([])
+
+        const altoPie = Math.min(ALTO_PIE_FIRMA, alto - 10) * ESCALA
+        const yLinea = yCanvasSup + altoPx - altoPie
+        ctx.strokeStyle = '#111827'
+        ctx.lineWidth = 1
+        ctx.beginPath()
+        ctx.moveTo(xCanvas, yLinea)
+        ctx.lineTo(xCanvas + anchoPx, yLinea)
+        ctx.stroke()
+
         ctx.fillStyle = '#111827'
-        ctx.font = `bold ${13}px Arial, Helvetica, sans-serif`
-        ctx.fillText('FIRMA', xCanvas + 6, yCanvasSup + altoPx / 2 + 4)
+        ctx.textAlign = 'center'
+        ctx.font = 'bold 13px Arial, Helvetica, sans-serif'
+        ctx.fillText('FIRMA', xCanvas + anchoPx / 2, yCanvasSup + altoPx - altoPie - 10)
+        ctx.font = `${9 * ESCALA}px Arial, Helvetica, sans-serif`
+        ctx.fillText('NOMBRE COMPLETO', xCanvas + anchoPx / 2, yLinea + INTERLINEA_PIE_FIRMA * ESCALA)
+        ctx.fillText('DNI: 00000000', xCanvas + anchoPx / 2, yLinea + INTERLINEA_PIE_FIRMA * 2 * ESCALA)
+        ctx.textAlign = 'left'
         continue
       }
       const xCanvas = p.x * ESCALA

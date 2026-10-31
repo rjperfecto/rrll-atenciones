@@ -345,7 +345,11 @@ export function RegistrarCaminata() {
                 datos: textoDatos(datosLider.nombre_completo, datosLider.legajo ? dniDesdeLegajo(datosLider.legajo) : '', datosLider.telefono ?? ''),
                 fecha: textoFecha(values.fecha),
               },
-              firmaPng,
+              {
+                png: firmaPng,
+                nombre: datosLider.nombre_completo,
+                dni: datosLider.legajo ? dniDesdeLegajo(datosLider.legajo) : '',
+              },
             )
             const { path } = await subirDocumentoFirmado(atencion.id, pdfBytes)
             if (path) await editarAtencion(atencion.id, { documento_firmado_path: path })
