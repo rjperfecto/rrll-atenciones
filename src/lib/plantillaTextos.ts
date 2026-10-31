@@ -17,3 +17,9 @@ export function textoDatos(nombre: string, dni: string, celular: string): string
 export function textoFecha(fechaYyyyMmDd: string): string {
   return `CHAO, ${fechaLarga(fechaYyyyMmDd)}`.toUpperCase()
 }
+
+// Mensaje fijo al compartir el documento firmado por WhatsApp (ver
+// RegistrarCaminata y DetalleAtencionModal) — mismo texto en los dos
+// lugares desde donde se puede compartir.
+export const MENSAJE_WHATSAPP_DOCUMENTO_FIRMADO =
+  'Buen día te comparto el documento firmado en campo sobre: Compromisos de la caminata 360 laboral'

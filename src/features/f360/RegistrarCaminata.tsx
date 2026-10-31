@@ -33,7 +33,7 @@ import { buscarGrupoCompleto, type LiderGrupo } from '@/lib/busquedaApi'
 import { crearAtencion, editarAtencion } from '@/lib/atencionesApi'
 import { listarPlantillas, descargarBytesPlantilla } from '@/lib/plantillasApi'
 import { subirDocumentoFirmado } from '@/lib/documentosFirmadosApi'
-import { textoDatos, textoFecha } from '@/lib/plantillaTextos'
+import { textoDatos, textoFecha, MENSAJE_WHATSAPP_DOCUMENTO_FIRMADO } from '@/lib/plantillaTextos'
 import { dniDesdeLegajo } from '@/data/legajo'
 import { useAuth } from '@/features/auth/AuthContext'
 import { cn } from '@/lib/cn'
@@ -291,11 +291,10 @@ export function RegistrarCaminata() {
       const copia = new Uint8Array(pdfBytes.length)
       copia.set(pdfBytes)
       const archivo = new File([copia], 'Documento firmado.pdf', { type: 'application/pdf' })
-      const mensaje = 'Buen día te comparto el documento firmado en campo sobre: Compromisos de la caminata 360 laboral'
       if (!navigator.canShare?.({ files: [archivo] })) {
         throw new Error('Tu navegador no admite compartir archivos (disponible desde el celular).')
       }
-      await navigator.share({ files: [archivo], text: mensaje })
+      await navigator.share({ files: [archivo], text: MENSAJE_WHATSAPP_DOCUMENTO_FIRMADO })
     } catch (err) {
       // AbortError: el usuario cerró el selector sin elegir nada, no es un error real.
       if (err instanceof Error && err.name === 'AbortError') return

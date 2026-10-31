@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { Download, Loader2 } from 'lucide-react'
+import { AlertCircle, Download, Loader2, Share2 } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { GravedadBadge, EstadoBadge } from '@/components/ui/Badge'
 import { descargarDocumentoFirmado } from '@/lib/documentosFirmadosApi'
+import { MENSAJE_WHATSAPP_DOCUMENTO_FIRMADO } from '@/lib/plantillaTextos'
 import type { Atencion } from '@/types'
 
 function TablaAlertas({ atencion }: { atencion: Atencion }) {
@@ -55,6 +56,7 @@ function Dato({ label, value }: { label: string; value?: string | number | null 
 
 function DescargarDocumentoFirmado({ path }: { path: string }) {
   const [descargando, setDescargando] = useState(false)
+  const [compartiendo, setCompartiendo] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   async function descargar() {
@@ -73,13 +75,45 @@ function DescargarDocumentoFirmado({ path }: { path: string }) {
     descargarPdf(new Uint8Array(bytes), 'Documento firmado.pdf')
   }
 
+  // Igual que al firmar en RegistrarCaminata: usa el selector nativo de
+  // compartir del celular (adjunta el PDF + mensaje, el usuario elige
+  // WhatsApp y el contacto ahí) — la web no puede preseleccionar el
+  // contacto sin la API de WhatsApp Business.
+  async function compartir() {
+    setError(null)
+    setCompartiendo(true)
+    try {
+      const { bytes, error: err } = await descargarDocumentoFirmado(path)
+      if (err || !bytes) throw new Error(err ?? 'No se pudo descargar el documento.')
+      const archivo = new File([new Uint8Array(bytes)], 'Documento firmado.pdf', { type: 'application/pdf' })
+      if (!navigator.canShare?.({ files: [archivo] })) {
+        throw new Error('Tu navegador no admite compartir archivos (disponible desde el celular).')
+      }
+      await navigator.share({ files: [archivo], text: MENSAJE_WHATSAPP_DOCUMENTO_FIRMADO })
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return
+      setError(err instanceof Error ? err.message : 'No se pudo compartir el documento.')
+    } finally {
+      setCompartiendo(false)
+    }
+  }
+
   return (
-    <div className="mt-4 pt-4 border-t border-neutral-200">
+    <div className="mt-4 pt-4 border-t border-neutral-200 flex flex-wrap gap-2">
       <Button type="button" variant="secondary" onClick={descargar} loading={descargando}>
         {descargando ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
         Descargar documento firmado
       </Button>
-      {error && <p className="text-xs text-danger mt-1.5">{error}</p>}
+      <Button type="button" variant="secondary" onClick={compartir} loading={compartiendo}>
+        {compartiendo ? <Loader2 className="size-4 animate-spin" /> : <Share2 className="size-4" />}
+        Compartir por WhatsApp
+      </Button>
+      {error && (
+        <p className="text-xs text-danger w-full flex items-center gap-1.5">
+          <AlertCircle className="size-3.5 shrink-0" />
+          {error}
+        </p>
+      )}
     </div>
   )
 }
