@@ -15,6 +15,7 @@ import {
   MapPin,
   PenLine,
   Search,
+  Share2,
   StickyNote,
   UserSearch,
 } from 'lucide-react'
@@ -130,6 +131,8 @@ export function RegistrarCaminata() {
   const [datosLider, setDatosLider] = useState<LiderGrupo | null>(null)
   const [firmaPng, setFirmaPng] = useState<Uint8Array | null>(null)
   const [mostrarFirma, setMostrarFirma] = useState(false)
+  const [compartiendo, setCompartiendo] = useState(false)
+  const [errorCompartir, setErrorCompartir] = useState<string | null>(null)
 
   useEffect(() => {
     void listarPlantillas().then(({ data }) => setPlantillas(data))
@@ -244,7 +247,62 @@ export function RegistrarCaminata() {
     setPlantillaId('')
     setDatosLider(null)
     setFirmaPng(null)
+    setErrorCompartir(null)
     setFormKey((k) => k + 1)
+  }
+
+  // Compartido entre el guardado del caso (sube el PDF a Storage) y
+  // "Compartir por WhatsApp" (lo manda directo al share nativo del
+  // celular, sin pasar por Storage): arma el mismo PDF a partir de la
+  // plantilla elegida + datos del líder + firma ya capturada.
+  async function generarDocumentoFirmado(fechaDoc: string): Promise<Uint8Array | null> {
+    if (!plantillaId || !firmaPng || !datosLider) return null
+    const plantilla = plantillas?.find((p) => p.id === plantillaId)
+    if (!plantilla) return null
+    const { bytes } = await descargarBytesPlantilla(plantilla.storage_path)
+    if (!bytes) return null
+    // pdf-lib pesa ~2MB minificado: se importa dinámicamente para no
+    // meterlo en el chunk principal (RegistrarCaminata no es lazy, ver
+    // comentario de pdf-lib/pdfjs en App.tsx) solo por esta generación
+    // puntual, que además la mayoría de caminatas no usa.
+    const { generarPdfConDatos } = await import('@/lib/generarPdf')
+    const dni = datosLider.legajo ? dniDesdeLegajo(datosLider.legajo) : ''
+    return generarPdfConDatos(
+      bytes,
+      plantilla.posiciones,
+      {
+        datos: textoDatos(datosLider.nombre_completo, dni, datosLider.telefono ?? ''),
+        fecha: textoFecha(fechaDoc),
+      },
+      { png: firmaPng, nombre: datosLider.nombre_completo, dni },
+    )
+  }
+
+  // Compartir el documento firmado directo al selector nativo del celular
+  // (el usuario elige WhatsApp y el contacto ahí): no hay forma de adjuntar
+  // un archivo Y preseleccionar el contacto a la vez desde la web sin la
+  // API de WhatsApp Business (cuenta aprobada por Meta + backend propio).
+  async function compartirPorWhatsapp() {
+    setErrorCompartir(null)
+    setCompartiendo(true)
+    try {
+      const pdfBytes = await generarDocumentoFirmado(fecha || hoy())
+      if (!pdfBytes) throw new Error('No se pudo generar el documento. Revisa la plantilla y la firma.')
+      const copia = new Uint8Array(pdfBytes.length)
+      copia.set(pdfBytes)
+      const archivo = new File([copia], 'Documento firmado.pdf', { type: 'application/pdf' })
+      const mensaje = 'Buen día te comparto el documento firmado en campo sobre: Compromisos de la caminata 360 laboral'
+      if (!navigator.canShare?.({ files: [archivo] })) {
+        throw new Error('Tu navegador no admite compartir archivos (disponible desde el celular).')
+      }
+      await navigator.share({ files: [archivo], text: mensaje })
+    } catch (err) {
+      // AbortError: el usuario cerró el selector sin elegir nada, no es un error real.
+      if (err instanceof Error && err.name === 'AbortError') return
+      setErrorCompartir(err instanceof Error ? err.message : 'No se pudo compartir el documento.')
+    } finally {
+      setCompartiendo(false)
+    }
   }
 
   async function onSubmit(values: Atencion360FormValues) {
@@ -328,35 +386,14 @@ export function RegistrarCaminata() {
     // bloquea el registro de la caminata si algo falla acá — ya quedó
     // guardada, solo no queda el PDF adjunto.
     if (plantillaId && firmaPng && datosLider) {
-      const plantilla = plantillas?.find((p) => p.id === plantillaId)
-      if (plantilla) {
-        try {
-          const { bytes } = await descargarBytesPlantilla(plantilla.storage_path)
-          if (bytes) {
-            // pdf-lib pesa ~2MB minificado: se importa dinámicamente para no
-            // meterlo en el chunk principal (RegistrarCaminata no es lazy,
-            // ver comentario de pdf-lib/pdfjs en App.tsx) solo por esta
-            // generación puntual, que además la mayoría de caminatas no usa.
-            const { generarPdfConDatos } = await import('@/lib/generarPdf')
-            const pdfBytes = await generarPdfConDatos(
-              bytes,
-              plantilla.posiciones,
-              {
-                datos: textoDatos(datosLider.nombre_completo, datosLider.legajo ? dniDesdeLegajo(datosLider.legajo) : '', datosLider.telefono ?? ''),
-                fecha: textoFecha(values.fecha),
-              },
-              {
-                png: firmaPng,
-                nombre: datosLider.nombre_completo,
-                dni: datosLider.legajo ? dniDesdeLegajo(datosLider.legajo) : '',
-              },
-            )
-            const { path } = await subirDocumentoFirmado(atencion.id, pdfBytes)
-            if (path) await editarAtencion(atencion.id, { documento_firmado_path: path })
-          }
-        } catch {
-          // Ver comentario arriba: falla en silencio, no afecta el registro.
+      try {
+        const pdfBytes = await generarDocumentoFirmado(values.fecha)
+        if (pdfBytes) {
+          const { path } = await subirDocumentoFirmado(atencion.id, pdfBytes)
+          if (path) await editarAtencion(atencion.id, { documento_firmado_path: path })
         }
+      } catch {
+        // Ver comentario arriba: falla en silencio, no afecta el registro.
       }
     }
 
@@ -560,10 +597,25 @@ export function RegistrarCaminata() {
             {firmaPng ? 'Firma lista — volver a firmar' : 'Firmar documento'}
           </Button>
           {firmaPng && (
-            <p className="text-xs text-success flex items-center gap-1.5">
-              <CheckCircle2 className="size-3.5 shrink-0" />
-              El documento firmado se adjuntará al caso al guardar.
-            </p>
+            <>
+              <p className="text-xs text-success flex items-center gap-1.5">
+                <CheckCircle2 className="size-3.5 shrink-0" />
+                El documento firmado se adjuntará al caso al guardar.
+              </p>
+              <Button type="button" variant="secondary" onClick={compartirPorWhatsapp} loading={compartiendo}>
+                <Share2 className="size-4" />
+                {compartiendo ? 'Generando...' : 'Compartir por WhatsApp'}
+              </Button>
+              <p className="text-xs text-neutral-400">
+                Se abre el selector de compartir del celular con el documento y el mensaje ya listos — elige WhatsApp y el contacto del líder ahí.
+              </p>
+              {errorCompartir && (
+                <p className="text-xs text-danger flex items-center gap-1.5">
+                  <AlertCircle className="size-3.5 shrink-0" />
+                  {errorCompartir}
+                </p>
+              )}
+            </>
           )}
         </CardSection>
 
