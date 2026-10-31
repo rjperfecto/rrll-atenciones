@@ -23,3 +23,9 @@ export function textoFecha(fechaYyyyMmDd: string): string {
 // lugares desde donde se puede compartir.
 export const MENSAJE_WHATSAPP_DOCUMENTO_FIRMADO =
   'Buen día te comparto el documento firmado en campo sobre: Compromisos de la caminata 360 laboral'
+
+// Nombre de archivo del documento firmado (descarga y compartir), mismo
+// formato en los dos lugares desde donde sale.
+export function nombreArchivoFirmado(nombreLider: string | null): string {
+  return `360LABORAL_${(nombreLider || 'SIN LIDER').toUpperCase()}.pdf`
+}

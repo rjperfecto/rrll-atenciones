@@ -4,7 +4,8 @@ import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { GravedadBadge, EstadoBadge } from '@/components/ui/Badge'
 import { descargarDocumentoFirmado } from '@/lib/documentosFirmadosApi'
-import { MENSAJE_WHATSAPP_DOCUMENTO_FIRMADO } from '@/lib/plantillaTextos'
+import { compartirDocumentoFirmado } from '@/lib/compartirWhatsapp'
+import { nombreArchivoFirmado } from '@/lib/plantillaTextos'
 import type { Atencion } from '@/types'
 
 function TablaAlertas({ atencion }: { atencion: Atencion }) {
@@ -54,7 +55,7 @@ function Dato({ label, value }: { label: string; value?: string | number | null 
   )
 }
 
-function DescargarDocumentoFirmado({ path }: { path: string }) {
+function DescargarDocumentoFirmado({ path, nombreLider }: { path: string; nombreLider: string | null }) {
   const [descargando, setDescargando] = useState(false)
   const [compartiendo, setCompartiendo] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -72,24 +73,16 @@ function DescargarDocumentoFirmado({ path }: { path: string }) {
     // del chunk principal (no es lazy) y la mayoría de casos no tiene
     // documento firmado, no vale la pena cargarlo siempre.
     const { descargarPdf } = await import('@/lib/generarPdf')
-    descargarPdf(new Uint8Array(bytes), 'Documento firmado.pdf')
+    descargarPdf(new Uint8Array(bytes), nombreArchivoFirmado(nombreLider))
   }
 
-  // Igual que al firmar en RegistrarCaminata: usa el selector nativo de
-  // compartir del celular (adjunta el PDF + mensaje, el usuario elige
-  // WhatsApp y el contacto ahí) — la web no puede preseleccionar el
-  // contacto sin la API de WhatsApp Business.
   async function compartir() {
     setError(null)
     setCompartiendo(true)
     try {
       const { bytes, error: err } = await descargarDocumentoFirmado(path)
       if (err || !bytes) throw new Error(err ?? 'No se pudo descargar el documento.')
-      const archivo = new File([new Uint8Array(bytes)], 'Documento firmado.pdf', { type: 'application/pdf' })
-      if (!navigator.canShare?.({ files: [archivo] })) {
-        throw new Error('Tu navegador no admite compartir archivos (disponible desde el celular).')
-      }
-      await navigator.share({ files: [archivo], text: MENSAJE_WHATSAPP_DOCUMENTO_FIRMADO })
+      await compartirDocumentoFirmado(new Uint8Array(bytes), nombreLider)
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') return
       setError(err instanceof Error ? err.message : 'No se pudo compartir el documento.')
@@ -108,6 +101,9 @@ function DescargarDocumentoFirmado({ path }: { path: string }) {
         {compartiendo ? <Loader2 className="size-4 animate-spin" /> : <Share2 className="size-4" />}
         Compartir por WhatsApp
       </Button>
+      <p className="text-xs text-neutral-400 w-full">
+        El mensaje se copia solo; si no aparece junto al archivo, pégalo en el chat (mantén presionado el cuadro de texto → Pegar).
+      </p>
       {error && (
         <p className="text-xs text-danger w-full flex items-center gap-1.5">
           <AlertCircle className="size-3.5 shrink-0" />
@@ -156,7 +152,7 @@ export function DetalleAtencionModal({ atencion, onClose }: { atencion: Atencion
       ) : null}
 
       {atencion.tipo_registro === '360 LABORAL' && atencion.documento_firmado_path && (
-        <DescargarDocumentoFirmado path={atencion.documento_firmado_path} />
+        <DescargarDocumentoFirmado path={atencion.documento_firmado_path} nombreLider={atencion.lider_cosecha} />
       )}
 
       {atencion.tipo_registro !== '360 LABORAL' && (

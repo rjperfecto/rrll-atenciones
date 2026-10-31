@@ -33,7 +33,8 @@ import { buscarGrupoCompleto, type LiderGrupo } from '@/lib/busquedaApi'
 import { crearAtencion, editarAtencion } from '@/lib/atencionesApi'
 import { listarPlantillas, descargarBytesPlantilla } from '@/lib/plantillasApi'
 import { subirDocumentoFirmado } from '@/lib/documentosFirmadosApi'
-import { textoDatos, textoFecha, MENSAJE_WHATSAPP_DOCUMENTO_FIRMADO } from '@/lib/plantillaTextos'
+import { textoDatos, textoFecha } from '@/lib/plantillaTextos'
+import { compartirDocumentoFirmado } from '@/lib/compartirWhatsapp'
 import { dniDesdeLegajo } from '@/data/legajo'
 import { useAuth } from '@/features/auth/AuthContext'
 import { cn } from '@/lib/cn'
@@ -278,23 +279,13 @@ export function RegistrarCaminata() {
     )
   }
 
-  // Compartir el documento firmado directo al selector nativo del celular
-  // (el usuario elige WhatsApp y el contacto ahí): no hay forma de adjuntar
-  // un archivo Y preseleccionar el contacto a la vez desde la web sin la
-  // API de WhatsApp Business (cuenta aprobada por Meta + backend propio).
   async function compartirPorWhatsapp() {
     setErrorCompartir(null)
     setCompartiendo(true)
     try {
       const pdfBytes = await generarDocumentoFirmado(fecha || hoy())
       if (!pdfBytes) throw new Error('No se pudo generar el documento. Revisa la plantilla y la firma.')
-      const copia = new Uint8Array(pdfBytes.length)
-      copia.set(pdfBytes)
-      const archivo = new File([copia], 'Documento firmado.pdf', { type: 'application/pdf' })
-      if (!navigator.canShare?.({ files: [archivo] })) {
-        throw new Error('Tu navegador no admite compartir archivos (disponible desde el celular).')
-      }
-      await navigator.share({ files: [archivo], text: MENSAJE_WHATSAPP_DOCUMENTO_FIRMADO })
+      await compartirDocumentoFirmado(pdfBytes, datosLider?.nombre_completo ?? null)
     } catch (err) {
       // AbortError: el usuario cerró el selector sin elegir nada, no es un error real.
       if (err instanceof Error && err.name === 'AbortError') return
@@ -606,7 +597,7 @@ export function RegistrarCaminata() {
                 {compartiendo ? 'Generando...' : 'Compartir por WhatsApp'}
               </Button>
               <p className="text-xs text-neutral-400">
-                Se abre el selector de compartir del celular con el documento y el mensaje ya listos — elige WhatsApp y el contacto del líder ahí.
+                Se abre el selector de compartir del celular con el documento adjunto — elige WhatsApp y el contacto del líder ahí. El mensaje se copia solo; si no aparece junto al archivo, pégalo en el chat (mantén presionado el cuadro de texto → Pegar).
               </p>
               {errorCompartir && (
                 <p className="text-xs text-danger flex items-center gap-1.5">
