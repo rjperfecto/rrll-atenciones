@@ -9,7 +9,7 @@ import { SelectorPlantilla } from './SelectorPlantilla'
 import { CardSection, Card } from '@/components/ui/Card'
 import { Field } from '@/components/ui/Field'
 import { Button } from '@/components/ui/Button'
-import type { PlantillaPdf, CampoPlantilla } from '@/types'
+import type { PlantillaPdf } from '@/types'
 
 function hoy() {
   return new Date().toISOString().slice(0, 10)
@@ -56,7 +56,7 @@ export function DocumentoIndividual({ plantillas }: { plantillas: PlantillaPdf[]
     try {
       const { bytes, error: err } = await descargarBytesPlantilla(plantilla.storage_path)
       if (err || !bytes) throw new Error(err ?? 'No se pudo descargar la plantilla.')
-      const valores: Record<CampoPlantilla, string> = {
+      const valores = {
         datos: textoDatos(trabajador.nombre_completo, dniDesdeLegajo(trabajador.legajo), trabajador.telefono ?? ''),
         fecha: textoFecha(fecha),
       }

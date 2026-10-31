@@ -9,7 +9,7 @@ import { SelectorPlantilla } from './SelectorPlantilla'
 import { CardSection } from '@/components/ui/Card'
 import { Field } from '@/components/ui/Field'
 import { Button } from '@/components/ui/Button'
-import type { PlantillaPdf, CampoPlantilla } from '@/types'
+import type { PlantillaPdf } from '@/types'
 
 function hoy() {
   return new Date().toISOString().slice(0, 10)
@@ -69,7 +69,7 @@ export function DocumentoMasivo({ plantillas }: { plantillas: PlantillaPdf[] | n
       if (err || !bytes) throw new Error(err ?? 'No se pudo descargar la plantilla.')
       const archivos: Record<string, Uint8Array> = {}
       for (const t of seleccionados) {
-        const valores: Record<CampoPlantilla, string> = {
+        const valores = {
           datos: textoDatos(t.nombre_completo, dniDesdeLegajo(t.legajo), t.telefono ?? ''),
           fecha: textoFecha(fecha),
         }

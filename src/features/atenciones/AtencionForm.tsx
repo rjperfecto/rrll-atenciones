@@ -139,6 +139,7 @@ export function AtencionForm() {
       fecha_fin_compromiso: values.accionCorrectiva === 'GENERAR COMPROMISO' ? (values.fechaCompromiso ?? null) : null,
       evidencia_360: null,
       resultado_compromiso: null,
+      documento_firmado_path: null,
       created_at: now,
       updated_at: now,
     }

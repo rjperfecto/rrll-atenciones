@@ -3,21 +3,40 @@ import { zipSync } from 'fflate'
 import { INTERLINEADO_PLANTILLA } from './plantillaTextos'
 import type { CampoPlantilla, PosicionCampoPlantilla } from '@/types'
 
+const ANCHO_FIRMA_DEFAULT = 150
+const ALTO_FIRMA_DEFAULT = 60
+
 export async function generarPdfConDatos(
   bytesPlantilla: ArrayBuffer,
   posiciones: PosicionCampoPlantilla[],
-  valores: Record<CampoPlantilla, string>,
+  // "firma" no entra acá (no es texto): va aparte en firmaPng.
+  valores: Partial<Record<Exclude<CampoPlantilla, 'firma'>, string>>,
+  firmaPng?: Uint8Array | null,
 ): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.load(bytesPlantilla)
   // Arial Negrita pedido: Arial no es una de las 14 fuentes estándar de PDF
   // embebibles sin licencia, así que se usa Helvetica-Bold (métricamente
   // igual a Arial Bold, es la sustitución estándar de la industria).
   const fuente = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
+  // Se embebe una sola vez (no en cada posición) aunque la plantilla tenga
+  // más de un campo "firma" — no debería pasar, pero no hace falta repetirlo.
+  const imagenFirma = firmaPng ? await pdfDoc.embedPng(firmaPng) : null
   const paginas = pdfDoc.getPages()
   for (const pos of posiciones) {
     const pagina = paginas[pos.pagina - 1]
+    if (!pagina) continue
+    if (pos.campo === 'firma') {
+      if (!imagenFirma) continue
+      pagina.drawImage(imagenFirma, {
+        x: pos.x,
+        y: pos.y,
+        width: pos.ancho ?? ANCHO_FIRMA_DEFAULT,
+        height: pos.alto ?? ALTO_FIRMA_DEFAULT,
+      })
+      continue
+    }
     const texto = valores[pos.campo]
-    if (!pagina || !texto) continue
+    if (!texto) continue
     // lineHeight: por si el texto trae "\n" (ej. "datos", 3 líneas); en un
     // texto de una sola línea (ej. "fecha") pdf-lib simplemente lo ignora.
     pagina.drawText(texto, {

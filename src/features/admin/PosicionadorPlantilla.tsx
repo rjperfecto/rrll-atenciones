@@ -12,10 +12,15 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker
 const CAMPOS: { id: CampoPlantilla; etiqueta: string; muestra: string }[] = [
   { id: 'datos', etiqueta: 'Datos (Señor/DNI/Celular)', muestra: textoDatos('JUAN PÉREZ LÓPEZ', '12345678', '987654321') },
   { id: 'fecha', etiqueta: 'Fecha', muestra: textoFecha('2026-10-16') },
+  // "firma" no tiene texto de muestra: es una imagen, se previsualiza como
+  // un recuadro punteado (ver el otro useEffect más abajo).
+  { id: 'firma', etiqueta: 'Firma', muestra: '' },
 ]
 
 const ESCALA = 1.4
 const TAMANO_DEFAULT = 10.5
+const ANCHO_FIRMA_DEFAULT = 150
+const ALTO_FIRMA_DEFAULT = 60
 
 // Edita dónde va cada dato dentro de la plantilla: se renderiza la página 1
 // con pdf.js en un <canvas>, y un click ahí coloca/mueve el marcador del
@@ -90,13 +95,32 @@ export function PosicionadorPlantilla({
     for (const p of posiciones) {
       const campo = CAMPOS.find((c) => c.id === p.campo)
       if (!campo) continue
+      const activo = p.campo === campoActivo
+      if (p.campo === 'firma') {
+        // La firma no es texto: se previsualiza como un recuadro (mismo
+        // tamaño que se va a incrustar la imagen en el PDF final).
+        const xCanvas = p.x * ESCALA
+        const anchoPx = (p.ancho ?? ANCHO_FIRMA_DEFAULT) * ESCALA
+        const altoPx = (p.alto ?? ALTO_FIRMA_DEFAULT) * ESCALA
+        const yCanvasSup = (alturaPaginaPt - p.y - (p.alto ?? ALTO_FIRMA_DEFAULT)) * ESCALA
+        ctx.fillStyle = activo ? 'rgba(103, 58, 183, 0.18)' : 'rgba(251, 191, 36, 0.3)'
+        ctx.fillRect(xCanvas, yCanvasSup, anchoPx, altoPx)
+        ctx.setLineDash([6, 4])
+        ctx.strokeStyle = activo ? '#673ab7' : '#b45309'
+        ctx.lineWidth = 1.5
+        ctx.strokeRect(xCanvas, yCanvasSup, anchoPx, altoPx)
+        ctx.setLineDash([])
+        ctx.fillStyle = '#111827'
+        ctx.font = `bold ${13}px Arial, Helvetica, sans-serif`
+        ctx.fillText('FIRMA', xCanvas + 6, yCanvasSup + altoPx / 2 + 4)
+        continue
+      }
       const xCanvas = p.x * ESCALA
       const yCanvas = (alturaPaginaPt - p.y) * ESCALA
       const tamanoPx = p.tamano * ESCALA
       const interlineadoPx = tamanoPx * INTERLINEADO_PLANTILLA
       ctx.font = `bold ${tamanoPx}px Arial, Helvetica, sans-serif`
       const lineas = campo.muestra.split('\n')
-      const activo = p.campo === campoActivo
       const anchoMax = Math.max(...lineas.map((l) => ctx.measureText(l).width))
       const alto = tamanoPx + (lineas.length - 1) * interlineadoPx
       ctx.fillStyle = activo ? 'rgba(103, 58, 183, 0.18)' : 'rgba(251, 191, 36, 0.3)'
@@ -117,16 +141,41 @@ export function PosicionadorPlantilla({
     const xCanvas = e.clientX - rect.left
     const yCanvas = e.clientY - rect.top
     const x = xCanvas / ESCALA
-    const y = alturaPaginaPt - yCanvas / ESCALA
+    const yClick = alturaPaginaPt - yCanvas / ESCALA
     setPosiciones((prev) => {
+      const actual = prev.find((p) => p.campo === campoActivo)
       const sinEsteCampo = prev.filter((p) => p.campo !== campoActivo)
-      const tamano = prev.find((p) => p.campo === campoActivo)?.tamano ?? TAMANO_DEFAULT
-      return [...sinEsteCampo, { campo: campoActivo, pagina: 1, x, y, tamano }]
+      if (campoActivo === 'firma') {
+        // El click marca la esquina superior-izquierda del recuadro; pdf-lib
+        // ancla drawImage por la esquina inferior-izquierda, así que "y" acá
+        // es yClick menos el alto (ver generarPdf.ts).
+        const ancho = actual?.ancho ?? ANCHO_FIRMA_DEFAULT
+        const alto = actual?.alto ?? ALTO_FIRMA_DEFAULT
+        return [...sinEsteCampo, { campo: campoActivo, pagina: 1, x, y: yClick - alto, tamano: TAMANO_DEFAULT, ancho, alto }]
+      }
+      const tamano = actual?.tamano ?? TAMANO_DEFAULT
+      return [...sinEsteCampo, { campo: campoActivo, pagina: 1, x, y: yClick, tamano }]
     })
   }
 
   function cambiarTamano(campo: CampoPlantilla, tamano: number) {
     setPosiciones((prev) => prev.map((p) => (p.campo === campo ? { ...p, tamano } : p)))
+  }
+
+  function cambiarAncho(campo: CampoPlantilla, ancho: number) {
+    setPosiciones((prev) => prev.map((p) => (p.campo === campo ? { ...p, ancho } : p)))
+  }
+
+  function cambiarAlto(campo: CampoPlantilla, alto: number) {
+    setPosiciones((prev) =>
+      prev.map((p) => {
+        if (p.campo !== campo) return p
+        // Mantiene fija la esquina superior (donde se hizo click) al cambiar
+        // el alto: ajusta "y" (esquina inferior) para compensar.
+        const altoAnterior = p.alto ?? ALTO_FIRMA_DEFAULT
+        return { ...p, alto, y: p.y + altoAnterior - alto }
+      }),
+    )
   }
 
   function quitarCampo(campo: CampoPlantilla) {
@@ -156,18 +205,47 @@ export function PosicionadorPlantilla({
       </div>
 
       <div className="flex items-center gap-3 flex-wrap">
-        <label className="text-xs text-neutral-500 flex items-center gap-1.5">
-          Tamaño de letra ({CAMPOS.find((c) => c.id === campoActivo)?.etiqueta}):
-          <input
-            type="number"
-            min={6}
-            max={48}
-            step={0.5}
-            value={posiciones.find((p) => p.campo === campoActivo)?.tamano ?? TAMANO_DEFAULT}
-            onChange={(e) => cambiarTamano(campoActivo, Number(e.target.value))}
-            className="input w-16 py-1"
-          />
-        </label>
+        {campoActivo === 'firma' ? (
+          <>
+            <label className="text-xs text-neutral-500 flex items-center gap-1.5">
+              Ancho (pt):
+              <input
+                type="number"
+                min={40}
+                max={400}
+                step={5}
+                value={posiciones.find((p) => p.campo === 'firma')?.ancho ?? ANCHO_FIRMA_DEFAULT}
+                onChange={(e) => cambiarAncho('firma', Number(e.target.value))}
+                className="input w-20 py-1"
+              />
+            </label>
+            <label className="text-xs text-neutral-500 flex items-center gap-1.5">
+              Alto (pt):
+              <input
+                type="number"
+                min={20}
+                max={200}
+                step={5}
+                value={posiciones.find((p) => p.campo === 'firma')?.alto ?? ALTO_FIRMA_DEFAULT}
+                onChange={(e) => cambiarAlto('firma', Number(e.target.value))}
+                className="input w-20 py-1"
+              />
+            </label>
+          </>
+        ) : (
+          <label className="text-xs text-neutral-500 flex items-center gap-1.5">
+            Tamaño de letra ({CAMPOS.find((c) => c.id === campoActivo)?.etiqueta}):
+            <input
+              type="number"
+              min={6}
+              max={48}
+              step={0.5}
+              value={posiciones.find((p) => p.campo === campoActivo)?.tamano ?? TAMANO_DEFAULT}
+              onChange={(e) => cambiarTamano(campoActivo, Number(e.target.value))}
+              className="input w-16 py-1"
+            />
+          </label>
+        )}
         {posiciones.some((p) => p.campo === campoActivo) && (
           <button type="button" onClick={() => quitarCampo(campoActivo)} className="text-xs text-danger hover:underline">
             Quitar este campo

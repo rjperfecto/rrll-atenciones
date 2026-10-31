@@ -9,9 +9,11 @@ import {
   CalendarDays,
   CheckCircle2,
   ClipboardCheck,
+  FileSignature,
   FileWarning,
   Loader2,
   MapPin,
+  PenLine,
   Search,
   StickyNote,
   UserSearch,
@@ -26,7 +28,12 @@ import { supRrllPorZona } from '@/data/supervisoresRrll'
 import { moduloDesdeFundo } from '@/lib/modulo'
 import { zonaDesdeFundo } from '@/lib/zonaFundo'
 import { buscarTrabajadorPorGrupo } from '@/lib/trabajadoresApi'
-import { crearAtencion } from '@/lib/atencionesApi'
+import { buscarGrupoCompleto, type LiderGrupo } from '@/lib/busquedaApi'
+import { crearAtencion, editarAtencion } from '@/lib/atencionesApi'
+import { listarPlantillas, descargarBytesPlantilla } from '@/lib/plantillasApi'
+import { subirDocumentoFirmado } from '@/lib/documentosFirmadosApi'
+import { textoDatos, textoFecha } from '@/lib/plantillaTextos'
+import { dniDesdeLegajo } from '@/data/legajo'
 import { useAuth } from '@/features/auth/AuthContext'
 import { cn } from '@/lib/cn'
 import { Button } from '@/components/ui/Button'
@@ -34,8 +41,10 @@ import { CardSection } from '@/components/ui/Card'
 import { Field } from '@/components/ui/Field'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { GRAVEDAD_COLORES } from '@/components/ui/Badge'
+import { FirmaCanvas } from '@/components/ui/FirmaCanvas'
 import { AlertasReportadas } from '@/features/f360/AlertasReportadas'
-import type { Atencion, AlertaReportada360 } from '@/types'
+import { SelectorPlantilla } from '@/features/herramientas/SelectorPlantilla'
+import type { Atencion, AlertaReportada360, PlantillaPdf } from '@/types'
 
 type EstadoBusqueda = 'idle' | 'buscando' | 'encontrado' | 'no_encontrado' | 'formato_invalido'
 
@@ -113,6 +122,19 @@ export function RegistrarCaminata() {
   const zonaUsuario = profile?.zona_asignada ?? null
   const [searchParams, setSearchParams] = useSearchParams()
 
+  // Documento firmado (opcional): plantilla a usar, datos del líder del
+  // grupo (traídos junto con la búsqueda por grupo) y la imagen de la firma
+  // ya capturada con el dedo (ver FirmaCanvas).
+  const [plantillas, setPlantillas] = useState<PlantillaPdf[] | null>(null)
+  const [plantillaId, setPlantillaId] = useState('')
+  const [datosLider, setDatosLider] = useState<LiderGrupo | null>(null)
+  const [firmaPng, setFirmaPng] = useState<Uint8Array | null>(null)
+  const [mostrarFirma, setMostrarFirma] = useState(false)
+
+  useEffect(() => {
+    void listarPlantillas().then(({ data }) => setPlantillas(data))
+  }, [])
+
   // Si el usuario logueado tiene Zona fija (Administración > Personal por
   // zona), el formulario arranca con esa zona (el campo queda deshabilitado
   // más abajo).
@@ -158,13 +180,16 @@ export function RegistrarCaminata() {
     async (valorGrupo: string, fechaOverride?: string) => {
       const grupoLimpio = valorGrupo.trim().toUpperCase()
       if (grupoLimpio !== valorGrupo) setValue('grupo', grupoLimpio)
+      setDatosLider(null)
+      setFirmaPng(null)
       if (!grupoLimpio) {
         setBusqueda('formato_invalido')
         void trigger('grupo')
         return
       }
       setBusqueda('buscando')
-      const trabajador = await buscarTrabajadorPorGrupo(grupoLimpio, fechaOverride || fecha || hoy())
+      const fechaBusqueda = fechaOverride || fecha || hoy()
+      const trabajador = await buscarTrabajadorPorGrupo(grupoLimpio, fechaBusqueda)
       if (!trabajador) {
         setBusqueda('no_encontrado')
         return
@@ -181,6 +206,11 @@ export function RegistrarCaminata() {
         if (zonaDetectada) setValue('zona', zonaDetectada)
       }
       setBusqueda('encontrado')
+      // Datos del líder (legajo/DNI/celular) para el documento firmado: no
+      // los trae buscarTrabajadorPorGrupo, así que se pide aparte (mismo
+      // patrón que Documento masivo, ver busquedaApi.ts).
+      const grupoCompleto = await buscarGrupoCompleto(grupoLimpio, fechaBusqueda)
+      setDatosLider(grupoCompleto?.lider ?? null)
     },
     [fecha, setValue, trigger, zonaUsuario],
   )
@@ -211,6 +241,9 @@ export function RegistrarCaminata() {
     setValue('tipoAtencion360', [])
     setValue('alertasReportadas', [])
     setBusqueda('idle')
+    setPlantillaId('')
+    setDatosLider(null)
+    setFirmaPng(null)
     setFormKey((k) => k + 1)
   }
 
@@ -275,6 +308,10 @@ export function RegistrarCaminata() {
       fecha_fin_compromiso: null,
       evidencia_360: null,
       resultado_compromiso: null,
+      // Si se firmó un documento (ver sección "Documento firmado" abajo), se
+      // sube y se completa con un update recién después de crear el caso
+      // (necesita el id ya generado para nombrar el archivo).
+      documento_firmado_path: null,
       created_at: now,
       updated_at: now,
     }
@@ -285,6 +322,40 @@ export function RegistrarCaminata() {
       setErrorGuardado(`No se pudo guardar: ${error}. Verifica tu conexión e intenta de nuevo.`)
       return
     }
+
+    // Documento firmado (opcional): se genera y sube DESPUÉS de crear el
+    // caso (el nombre del archivo en Storage usa el id ya generado). No
+    // bloquea el registro de la caminata si algo falla acá — ya quedó
+    // guardada, solo no queda el PDF adjunto.
+    if (plantillaId && firmaPng && datosLider) {
+      const plantilla = plantillas?.find((p) => p.id === plantillaId)
+      if (plantilla) {
+        try {
+          const { bytes } = await descargarBytesPlantilla(plantilla.storage_path)
+          if (bytes) {
+            // pdf-lib pesa ~2MB minificado: se importa dinámicamente para no
+            // meterlo en el chunk principal (RegistrarCaminata no es lazy,
+            // ver comentario de pdf-lib/pdfjs en App.tsx) solo por esta
+            // generación puntual, que además la mayoría de caminatas no usa.
+            const { generarPdfConDatos } = await import('@/lib/generarPdf')
+            const pdfBytes = await generarPdfConDatos(
+              bytes,
+              plantilla.posiciones,
+              {
+                datos: textoDatos(datosLider.nombre_completo, datosLider.legajo ? dniDesdeLegajo(datosLider.legajo) : '', datosLider.telefono ?? ''),
+                fecha: textoFecha(values.fecha),
+              },
+              firmaPng,
+            )
+            const { path } = await subirDocumentoFirmado(atencion.id, pdfBytes)
+            if (path) await editarAtencion(atencion.id, { documento_firmado_path: path })
+          }
+        } catch {
+          // Ver comentario arriba: falla en silencio, no afecta el registro.
+        }
+      }
+    }
+
     setEstadoGuardado('guardado')
     limpiarFormulario()
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -463,6 +534,35 @@ export function RegistrarCaminata() {
           </Field>
         </CardSection>
 
+        <SelectorPlantilla plantillas={plantillas} plantillaId={plantillaId} onChange={setPlantillaId} />
+
+        <CardSection title="Documento firmado (opcional)" icon={<FileSignature className="size-4 text-brand" />}>
+          {datosLider ? (
+            <div className="rounded-md bg-neutral-50 border border-neutral-200 p-3 text-sm space-y-0.5">
+              <p className="font-medium text-neutral-800">{datosLider.nombre_completo}</p>
+              <p className="text-xs text-neutral-500">DNI: {datosLider.legajo ? dniDesdeLegajo(datosLider.legajo) : 'sin ubicar'}</p>
+              <p className="text-xs text-neutral-500">Celular: {datosLider.telefono ?? 'sin registrar'}</p>
+            </div>
+          ) : (
+            <p className="text-xs text-neutral-400">Busca el grupo arriba para traer los datos del líder que va a firmar.</p>
+          )}
+          <Button
+            type="button"
+            variant={firmaPng ? 'secondary' : 'primary'}
+            onClick={() => setMostrarFirma(true)}
+            disabled={!plantillaId || !datosLider?.legajo}
+          >
+            <PenLine className="size-4" />
+            {firmaPng ? 'Firma lista — volver a firmar' : 'Firmar documento'}
+          </Button>
+          {firmaPng && (
+            <p className="text-xs text-success flex items-center gap-1.5">
+              <CheckCircle2 className="size-3.5 shrink-0" />
+              El documento firmado se adjuntará al caso al guardar.
+            </p>
+          )}
+        </CardSection>
+
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <span className={cn('text-xs font-medium transition-opacity duration-200 text-amber-700', isDirty && estadoGuardado === 'idle' ? 'opacity-100' : 'opacity-0')}>
             ● Cambios sin guardar
@@ -477,6 +577,18 @@ export function RegistrarCaminata() {
           </div>
         </div>
       </form>
+
+      {mostrarFirma && datosLider && (
+        <FirmaCanvas
+          titulo="Firma del líder"
+          descripcion={`${datosLider.nombre_completo} firma para confirmar el documento.`}
+          onGuardar={(png) => {
+            setFirmaPng(png)
+            setMostrarFirma(false)
+          }}
+          onCancelar={() => setMostrarFirma(false)}
+        />
+      )}
 
       {estadoGuardado !== 'idle' && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">

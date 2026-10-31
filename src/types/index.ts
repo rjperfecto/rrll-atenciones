@@ -136,6 +136,10 @@ export interface Atencion {
   // Se llena al cerrar un compromiso pendiente (ver CerrarCompromisoModal),
   // igual que accion_correctiva/detalle_cierre para Atenciones normales.
   resultado_compromiso: string | null
+  // Documento firmado por el líder al registrar la caminata (ver migración
+  // 0039 y RegistrarCaminata.tsx): ruta dentro del bucket privado
+  // "documentos-firmados", null si no se firmó nada.
+  documento_firmado_path: string | null
   created_at: string
   updated_at: string
 }
@@ -161,17 +165,19 @@ export interface Capacitacion {
 // Plantillas PDF (ver migración 0029): un PDF cargado una vez, con
 // posiciones configuradas para superponer los datos de un trabajador
 // puntual al generarlo (ver Documento / PosicionadorPlantilla).
-// Solo dos bloques para ubicar (no uno por dato suelto):
 // "datos" = SEÑOR(A)/DNI/CELULAR concatenados en 3 líneas, "fecha" = "CHAO,
-// <fecha larga>".
-export type CampoPlantilla = 'datos' | 'fecha'
+// <fecha larga>", "firma" = imagen de una firma táctil (ver migración 0039
+// y FirmaCanvas) — a diferencia de los otros dos, no es texto.
+export type CampoPlantilla = 'datos' | 'fecha' | 'firma'
 
 export interface PosicionCampoPlantilla {
   campo: CampoPlantilla
   pagina: number // 1-indexed; por ahora siempre 1 (ver migración 0029)
   x: number // puntos PDF, origen abajo-izquierda
   y: number
-  tamano: number // tamaño de fuente en puntos
+  tamano: number // tamaño de fuente en puntos; ignorado si campo es "firma"
+  ancho?: number // puntos PDF; solo si campo es "firma"
+  alto?: number // puntos PDF; solo si campo es "firma"
 }
 
 export interface PlantillaPdf {

@@ -1,5 +1,9 @@
+import { useState } from 'react'
+import { Download, Loader2 } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
+import { Button } from '@/components/ui/Button'
 import { GravedadBadge, EstadoBadge } from '@/components/ui/Badge'
+import { descargarDocumentoFirmado } from '@/lib/documentosFirmadosApi'
 import type { Atencion } from '@/types'
 
 function TablaAlertas({ atencion }: { atencion: Atencion }) {
@@ -49,6 +53,37 @@ function Dato({ label, value }: { label: string; value?: string | number | null 
   )
 }
 
+function DescargarDocumentoFirmado({ path }: { path: string }) {
+  const [descargando, setDescargando] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function descargar() {
+    setError(null)
+    setDescargando(true)
+    const { bytes, error: err } = await descargarDocumentoFirmado(path)
+    setDescargando(false)
+    if (err || !bytes) {
+      setError(err ?? 'No se pudo descargar el documento.')
+      return
+    }
+    // pdf-lib (generarPdf.ts) se importa dinámicamente: este modal es parte
+    // del chunk principal (no es lazy) y la mayoría de casos no tiene
+    // documento firmado, no vale la pena cargarlo siempre.
+    const { descargarPdf } = await import('@/lib/generarPdf')
+    descargarPdf(new Uint8Array(bytes), 'Documento firmado.pdf')
+  }
+
+  return (
+    <div className="mt-4 pt-4 border-t border-neutral-200">
+      <Button type="button" variant="secondary" onClick={descargar} loading={descargando}>
+        {descargando ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
+        Descargar documento firmado
+      </Button>
+      {error && <p className="text-xs text-danger mt-1.5">{error}</p>}
+    </div>
+  )
+}
+
 export function DetalleAtencionModal({ atencion, onClose }: { atencion: Atencion; onClose: () => void }) {
   const involucrado = atencion.involucrados[0]
 
@@ -84,7 +119,13 @@ export function DetalleAtencionModal({ atencion, onClose }: { atencion: Atencion
           <Dato label="Fecha fin compromiso" value={atencion.fecha_fin_compromiso} />
           <Dato label="Observaciones" value={atencion.comentarios} />
         </dl>
-      ) : (
+      ) : null}
+
+      {atencion.tipo_registro === '360 LABORAL' && atencion.documento_firmado_path && (
+        <DescargarDocumentoFirmado path={atencion.documento_firmado_path} />
+      )}
+
+      {atencion.tipo_registro !== '360 LABORAL' && (
         <>
           <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
             <Dato label="Nombre completo" value={involucrado?.nombre_completo} />
