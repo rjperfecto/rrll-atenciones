@@ -23,6 +23,7 @@ function TablaAlertas({ atencion }: { atencion: Atencion }) {
                   </span>
                   {a.detalle && <p className="text-xs text-neutral-500 mt-0.5">{a.detalle}</p>}
                   {a.accion && <p className="text-xs text-neutral-500 mt-0.5">Compromiso: {a.accion}</p>}
+                  {a.accion_rrll && <p className="text-xs text-neutral-500 mt-0.5">Compromiso RRLL: {a.accion_rrll}</p>}
                 </div>
                 <span className="flex items-center gap-2 shrink-0">
                   <GravedadBadge gravedad={a.nivel} />

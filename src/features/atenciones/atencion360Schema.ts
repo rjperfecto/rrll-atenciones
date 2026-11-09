@@ -8,10 +8,11 @@ export const alertaReportadaSchema = z.object({
   nivel: z.enum(['ALTO', 'MEDIO', 'BAJO']),
   cantidad: z.number().int().min(1, 'La cantidad debe ser al menos 1'),
   detalle: z.string().min(1, 'El detalle es obligatorio'),
-  // Compromiso de esta alerta: si no se generó ninguno, el formulario obliga
-  // a dejar la frase fija "NO SE GENERÓ COMPROMISO" (ver AlertasReportadas),
-  // nunca a dejarlo vacío.
+  // Compromiso de esta alerta (del trabajador y de RRLL): si no se generó
+  // ninguno, el formulario obliga a dejar la frase fija "NO SE GENERÓ
+  // COMPROMISO" (ver AlertasReportadas), nunca a dejarlo vacío.
   accion: z.string().min(1, 'El compromiso es obligatorio'),
+  accion_rrll: z.string().min(1, 'El compromiso RRLL es obligatorio'),
 })
 
 // "360 Laboral" es un registro de sesión/grupo (conversatorio/seguimiento/

@@ -8,15 +8,18 @@ import type { AlertaReportada360 } from '@/types'
 
 // Editor de alertas de 360 Laboral: Categoría -> Subcategoría (el nivel se
 // deriva del catálogo, no lo elige el usuario) + cantidad de personal que
-// reportó esa alerta, su detalle y el compromiso asumido (reemplaza la
-// antigua sección "Compromiso" única del formulario, ver RegistrarCaminata).
-// Compartido entre RegistrarCaminata (react-hook-form) y EditarAtencionModal
-// (useState) via valores/onChange controlados.
+// reportó esa alerta, su detalle y los dos compromisos asumidos — el del
+// trabajador/líder (Compromiso) y el del equipo de RRLL (Compromiso RRLL) —
+// que reemplazan a la antigua sección "Compromiso" única del formulario
+// (ver RegistrarCaminata). Compartido entre RegistrarCaminata
+// (react-hook-form) y EditarAtencionModal (useState) via valores/onChange
+// controlados.
 
-// Toda alerta requiere un compromiso: si no se generó ninguno, en vez de
+// Toda alerta requiere ambos compromisos: si alguno no se generó, en vez de
 // dejarlo vacío o con texto libre variado ("NINGUNO", "N/A", ...) se marca
-// el checkbox y queda esta frase fija, para no acumular variantes (mismo
-// criterio que ACCIONES_CORRECTIVAS en src/data/accionCorrectiva.ts).
+// el checkbox correspondiente y queda esta frase fija, para no acumular
+// variantes (mismo criterio que ACCIONES_CORRECTIVAS en
+// src/data/accionCorrectiva.ts).
 const SIN_COMPROMISO = 'NO SE GENERÓ COMPROMISO'
 
 export function AlertasReportadas({
@@ -31,27 +34,47 @@ export function AlertasReportadas({
   const [cantidad, setCantidad] = useState('')
   const [detalle, setDetalle] = useState('')
   const [accion, setAccion] = useState('')
+  const [accionRrll, setAccionRrll] = useState('')
   const sinCompromiso = accion === SIN_COMPROMISO
+  const sinCompromisoRrll = accionRrll === SIN_COMPROMISO
 
   const categorias = categoriasAlerta360()
   const yaAgregadas = new Set(valores.map((v) => `${v.categoria}::${v.subcategoria}`))
   const subcategorias = categoria ? subcategoriasAlerta360(categoria).filter((s) => !yaAgregadas.has(`${categoria}::${s}`)) : []
-  const faltaAlgo = !categoria || !subcategoria || !cantidad || !detalle.trim() || !accion.trim()
+  const faltaAlgo = !categoria || !subcategoria || !cantidad || !detalle.trim() || !accion.trim() || !accionRrll.trim()
 
   function alternarSinCompromiso(marcado: boolean) {
     setAccion(marcado ? SIN_COMPROMISO : '')
   }
 
+  function alternarSinCompromisoRrll(marcado: boolean) {
+    setAccionRrll(marcado ? SIN_COMPROMISO : '')
+  }
+
   function agregar() {
     const cantidadNum = Number(cantidad)
     const nivel = nivelAlerta360(categoria, subcategoria)
-    if (!categoria || !subcategoria || !nivel || !Number.isFinite(cantidadNum) || cantidadNum < 1 || !detalle.trim() || !accion.trim()) return
-    onChange([...valores, { categoria, subcategoria, nivel, cantidad: cantidadNum, detalle: detalle.trim(), accion: accion.trim() }])
+    if (
+      !categoria ||
+      !subcategoria ||
+      !nivel ||
+      !Number.isFinite(cantidadNum) ||
+      cantidadNum < 1 ||
+      !detalle.trim() ||
+      !accion.trim() ||
+      !accionRrll.trim()
+    )
+      return
+    onChange([
+      ...valores,
+      { categoria, subcategoria, nivel, cantidad: cantidadNum, detalle: detalle.trim(), accion: accion.trim(), accion_rrll: accionRrll.trim() },
+    ])
     setCategoria('')
     setSubcategoria('')
     setCantidad('')
     setDetalle('')
     setAccion('')
+    setAccionRrll('')
   }
 
   function quitar(index: number) {
@@ -100,11 +123,11 @@ export function AlertasReportadas({
           <input type="number" min={1} value={cantidad} onChange={(e) => setCantidad(e.target.value)} className="input" />
         </div>
       </div>
+      <div>
+        <label className="block text-[13px] font-medium text-neutral-700 mb-1.5">Detalle de esta alerta</label>
+        <input type="text" value={detalle} onChange={(e) => setDetalle(e.target.value.toUpperCase())} className="input" />
+      </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-        <div>
-          <label className="block text-[13px] font-medium text-neutral-700 mb-1.5">Detalle de esta alerta</label>
-          <input type="text" value={detalle} onChange={(e) => setDetalle(e.target.value.toUpperCase())} className="input" />
-        </div>
         <div>
           <label className="block text-[13px] font-medium text-neutral-700 mb-1.5">Compromiso</label>
           <input
@@ -116,6 +139,20 @@ export function AlertasReportadas({
           />
           <label className="flex items-center gap-1.5 mt-1.5 text-xs text-neutral-500">
             <input type="checkbox" checked={sinCompromiso} onChange={(e) => alternarSinCompromiso(e.target.checked)} />
+            No se generó compromiso
+          </label>
+        </div>
+        <div>
+          <label className="block text-[13px] font-medium text-neutral-700 mb-1.5">Compromiso RRLL</label>
+          <input
+            type="text"
+            value={accionRrll}
+            onChange={(e) => setAccionRrll(e.target.value.toUpperCase())}
+            disabled={sinCompromisoRrll}
+            className={cn('input', sinCompromisoRrll && 'bg-neutral-100 text-neutral-500 cursor-not-allowed')}
+          />
+          <label className="flex items-center gap-1.5 mt-1.5 text-xs text-neutral-500">
+            <input type="checkbox" checked={sinCompromisoRrll} onChange={(e) => alternarSinCompromisoRrll(e.target.checked)} />
             No se generó compromiso
           </label>
         </div>
@@ -143,6 +180,7 @@ export function AlertasReportadas({
                 </div>
                 {v.detalle && <p className="text-xs text-neutral-500 mt-1">{v.detalle}</p>}
                 {v.accion && <p className="text-xs text-neutral-500 mt-0.5">Compromiso: {v.accion}</p>}
+                {v.accion_rrll && <p className="text-xs text-neutral-500 mt-0.5">Compromiso RRLL: {v.accion_rrll}</p>}
               </div>
               <button
                 type="button"

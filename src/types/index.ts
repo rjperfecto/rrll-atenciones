@@ -74,11 +74,17 @@ export interface AlertaReportada360 {
   // Detalle y compromiso propios de esta alerta (reemplazan, respectivamente,
   // al antiguo "Detalle de la alerta" general y a la sección "Compromiso"
   // del formulario — ver detalle_alerta y compromiso_generado más abajo).
-  // accion es obligatorio: si la alerta no generó compromiso, el formulario
-  // fuerza la frase fija "NO SE GENERÓ COMPROMISO" en vez de dejarlo vacío
-  // (ver SIN_COMPROMISO en AlertasReportadas.tsx).
+  // accion/accion_rrll son obligatorios: si la alerta no generó compromiso
+  // (del trabajador o de RRLL), el formulario fuerza la frase fija "NO SE
+  // GENERÓ COMPROMISO" en vez de dejarlo vacío (ver SIN_COMPROMISO en
+  // AlertasReportadas.tsx). accion_rrll puede venir vacío/ausente en tiempo
+  // de ejecución en registros creados antes de que existiera este campo,
+  // aunque el tipo lo marque como string (mismo caso que detalle/accion en
+  // registros legado) — por eso el detalle y los componentes lo muestran
+  // con un chequeo truthy, no asumen que siempre viene con texto.
   detalle: string
   accion: string
+  accion_rrll: string
 }
 
 export interface Atencion {
