@@ -71,9 +71,12 @@ export interface AlertaReportada360 {
   subcategoria: string
   nivel: 'ALTO' | 'MEDIO' | 'BAJO'
   cantidad: number
-  // Detalle y acción propios de esta alerta (reemplazan, respectivamente,
+  // Detalle y compromiso propios de esta alerta (reemplazan, respectivamente,
   // al antiguo "Detalle de la alerta" general y a la sección "Compromiso"
   // del formulario — ver detalle_alerta y compromiso_generado más abajo).
+  // accion es obligatorio: si la alerta no generó compromiso, el formulario
+  // fuerza la frase fija "NO SE GENERÓ COMPROMISO" en vez de dejarlo vacío
+  // (ver SIN_COMPROMISO en AlertasReportadas.tsx).
   detalle: string
   accion: string
 }

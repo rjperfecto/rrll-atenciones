@@ -8,10 +8,17 @@ import type { AlertaReportada360 } from '@/types'
 
 // Editor de alertas de 360 Laboral: Categoría -> Subcategoría (el nivel se
 // deriva del catálogo, no lo elige el usuario) + cantidad de personal que
-// reportó esa alerta, su detalle y la acción tomada (reemplaza la antigua
-// sección "Compromiso" única del formulario, ver RegistrarCaminata).
+// reportó esa alerta, su detalle y el compromiso asumido (reemplaza la
+// antigua sección "Compromiso" única del formulario, ver RegistrarCaminata).
 // Compartido entre RegistrarCaminata (react-hook-form) y EditarAtencionModal
 // (useState) via valores/onChange controlados.
+
+// Toda alerta requiere un compromiso: si no se generó ninguno, en vez de
+// dejarlo vacío o con texto libre variado ("NINGUNO", "N/A", ...) se marca
+// el checkbox y queda esta frase fija, para no acumular variantes (mismo
+// criterio que ACCIONES_CORRECTIVAS en src/data/accionCorrectiva.ts).
+const SIN_COMPROMISO = 'NO SE GENERÓ COMPROMISO'
+
 export function AlertasReportadas({
   valores,
   onChange,
@@ -24,11 +31,16 @@ export function AlertasReportadas({
   const [cantidad, setCantidad] = useState('')
   const [detalle, setDetalle] = useState('')
   const [accion, setAccion] = useState('')
+  const sinCompromiso = accion === SIN_COMPROMISO
 
   const categorias = categoriasAlerta360()
   const yaAgregadas = new Set(valores.map((v) => `${v.categoria}::${v.subcategoria}`))
   const subcategorias = categoria ? subcategoriasAlerta360(categoria).filter((s) => !yaAgregadas.has(`${categoria}::${s}`)) : []
   const faltaAlgo = !categoria || !subcategoria || !cantidad || !detalle.trim() || !accion.trim()
+
+  function alternarSinCompromiso(marcado: boolean) {
+    setAccion(marcado ? SIN_COMPROMISO : '')
+  }
 
   function agregar() {
     const cantidadNum = Number(cantidad)
@@ -94,8 +106,18 @@ export function AlertasReportadas({
           <input type="text" value={detalle} onChange={(e) => setDetalle(e.target.value.toUpperCase())} className="input" />
         </div>
         <div>
-          <label className="block text-[13px] font-medium text-neutral-700 mb-1.5">Acción</label>
-          <input type="text" value={accion} onChange={(e) => setAccion(e.target.value.toUpperCase())} className="input" />
+          <label className="block text-[13px] font-medium text-neutral-700 mb-1.5">Compromiso</label>
+          <input
+            type="text"
+            value={accion}
+            onChange={(e) => setAccion(e.target.value.toUpperCase())}
+            disabled={sinCompromiso}
+            className={cn('input', sinCompromiso && 'bg-neutral-100 text-neutral-500 cursor-not-allowed')}
+          />
+          <label className="flex items-center gap-1.5 mt-1.5 text-xs text-neutral-500">
+            <input type="checkbox" checked={sinCompromiso} onChange={(e) => alternarSinCompromiso(e.target.checked)} />
+            No se generó compromiso
+          </label>
         </div>
       </div>
       <div className="flex justify-end">
@@ -120,7 +142,7 @@ export function AlertasReportadas({
                   </span>
                 </div>
                 {v.detalle && <p className="text-xs text-neutral-500 mt-1">{v.detalle}</p>}
-                {v.accion && <p className="text-xs text-neutral-500 mt-0.5">Acción: {v.accion}</p>}
+                {v.accion && <p className="text-xs text-neutral-500 mt-0.5">Compromiso: {v.accion}</p>}
               </div>
               <button
                 type="button"

@@ -184,8 +184,10 @@ export function exportar360LaboralXlsx(atenciones: Atencion[]) {
 
 // Segundo reporte de 360 Laboral: una fila por cada alerta reportada (no por
 // caminata), para ver el detalle de categoría/subcategoría/cantidad/detalle/
-// acción que hoy queda resumido en una sola celda ("Alertas") del reporte
-// habitual. ACCION reemplaza al antiguo compromiso único de la caminata.
+// compromiso que hoy queda resumido en una sola celda ("Alertas") del
+// reporte habitual. COMPROMISO reemplaza al antiguo compromiso único de la
+// caminata; si la alerta no generó ninguno, llega como "NO SE GENERÓ
+// COMPROMISO" (ver SIN_COMPROMISO en AlertasReportadas.tsx), nunca vacío.
 const COLUMNAS_DETALLE_ALERTAS_360 = [
   'FECHA',
   'SEMANA',
@@ -198,7 +200,7 @@ const COLUMNAS_DETALLE_ALERTAS_360 = [
   'NIVEL',
   'CANTIDAD',
   'DETALLE',
-  'ACCION',
+  'COMPROMISO',
 ] as const
 
 export function exportarDetalleAlertas360Xlsx(atenciones: Atencion[]) {
@@ -217,7 +219,7 @@ export function exportarDetalleAlertas360Xlsx(atenciones: Atencion[]) {
         NIVEL: alerta.nivel,
         CANTIDAD: String(alerta.cantidad),
         DETALLE: alerta.detalle ?? '',
-        ACCION: alerta.accion ?? '',
+        COMPROMISO: alerta.accion ?? '',
       })
     }
   }
