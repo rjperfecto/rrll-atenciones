@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { AlertCircle, CheckCircle2, Download, Loader2, Plus, Trash2, Users } from 'lucide-react'
+import { AlertCircle, CheckCircle2, Download, Loader2, PenLine, Plus, Trash2, Users } from 'lucide-react'
 import { buscarGrupoCompleto, type PersonaGrupo } from '@/lib/busquedaApi'
 import { descargarBytesPlantilla } from '@/lib/plantillasApi'
-import { generarPdfConDatos, descargarZip } from '@/lib/generarPdf'
+import { firmasDeLegajos, descargarBytesFirmaPersonal, type FirmaPersonal } from '@/lib/firmasPersonalApi'
+import { generarPdfConDatos, descargarZip, type FirmaParaPdf } from '@/lib/generarPdf'
 import { textoDatos, textoFecha } from '@/lib/plantillaTextos'
 import { dniDesdeLegajo } from '@/data/legajo'
 import { SelectorPlantilla } from './SelectorPlantilla'
@@ -26,6 +27,7 @@ export function DocumentoMasivo({ plantillas }: { plantillas: PlantillaPdf[] | n
   const [buscandoGrupo, setBuscandoGrupo] = useState(false)
   const [errorGrupo, setErrorGrupo] = useState<string | null>(null)
   const [seleccionados, setSeleccionados] = useState<PersonaGrupo[]>([])
+  const [firmas, setFirmas] = useState<Map<string, FirmaPersonal>>(new Map())
   const [generando, setGenerando] = useState(false)
   const [errorGenerar, setErrorGenerar] = useState<string | null>(null)
   const [generado, setGenerado] = useState<number | null>(null)
@@ -49,14 +51,22 @@ export function DocumentoMasivo({ plantillas }: { plantillas: PlantillaPdf[] | n
     // Si alguno no tiene legajo propio ubicado (ej. líder sin su fila de
     // TAREO ese día), se descarta: sin legajo no se puede sacar su DNI.
     const nuevos = [...(r.lider ? [r.lider] : []), ...r.soportes, ...r.cosechadores].filter((p) => p.legajo)
-    setSeleccionados((prev) => {
-      const existentes = new Set(prev.map((p) => p.legajo))
-      return [...prev, ...nuevos.filter((p) => !existentes.has(p.legajo))]
-    })
+    const existentes = new Set(seleccionados.map((p) => p.legajo))
+    const agregados = nuevos.filter((p) => !existentes.has(p.legajo))
+    if (agregados.length === 0) return
+    setSeleccionados((prev) => [...prev, ...agregados])
+    const encontradas = await firmasDeLegajos(agregados.map((p) => p.legajo))
+    setFirmas((prev) => new Map([...prev, ...encontradas]))
   }
 
   function quitar(legajo: string) {
     setSeleccionados((prev) => prev.filter((p) => p.legajo !== legajo))
+    setFirmas((prev) => {
+      if (!prev.has(legajo)) return prev
+      const siguiente = new Map(prev)
+      siguiente.delete(legajo)
+      return siguiente
+    })
   }
 
   async function generarTodos() {
@@ -73,7 +83,17 @@ export function DocumentoMasivo({ plantillas }: { plantillas: PlantillaPdf[] | n
           datos: textoDatos(t.nombre_completo, dniDesdeLegajo(t.legajo), t.telefono ?? ''),
           fecha: textoFecha(fecha),
         }
-        const pdfBytes = await generarPdfConDatos(bytes, plantilla.posiciones, valores)
+        // Mismo criterio que Documento individual: si tiene firma guardada se
+        // inserta sola, si no, el campo queda vacío.
+        let datosFirma: FirmaParaPdf | null = null
+        const firma = firmas.get(t.legajo)
+        if (firma) {
+          const { bytes: firmaBytes } = await descargarBytesFirmaPersonal(firma.storage_path)
+          if (firmaBytes) {
+            datosFirma = { png: new Uint8Array(firmaBytes), nombre: t.nombre_completo, dni: dniDesdeLegajo(t.legajo) }
+          }
+        }
+        const pdfBytes = await generarPdfConDatos(bytes, plantilla.posiciones, valores, datosFirma)
         // Legajo en el nombre del archivo para no pisar PDFs entre sí si dos
         // trabajadores comparten nombre y apellido.
         archivos[`${t.nombre_completo} - ${t.legajo}.pdf`] = pdfBytes
@@ -127,7 +147,10 @@ export function DocumentoMasivo({ plantillas }: { plantillas: PlantillaPdf[] | n
             {seleccionados.map((t) => (
               <li key={t.legajo} className="flex items-center justify-between gap-3 py-2">
                 <div className="min-w-0">
-                  <p className="text-sm text-neutral-800 truncate">{t.nombre_completo}</p>
+                  <p className="text-sm text-neutral-800 truncate flex items-center gap-1.5">
+                    {t.nombre_completo}
+                    {firmas.has(t.legajo) && <PenLine className="size-3.5 text-success shrink-0" aria-label="Tiene firma guardada" />}
+                  </p>
                   <p className="text-xs text-neutral-400">
                     {t.legajo} · DNI {dniDesdeLegajo(t.legajo)}
                   </p>

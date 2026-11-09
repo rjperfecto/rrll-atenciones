@@ -16,6 +16,7 @@ import {
   LogOut,
   MapPinned,
   Menu,
+  PenLine,
   Search,
   Sprout,
   UserCheck,
@@ -41,6 +42,7 @@ import { ImportarAfiliados } from '@/features/admin/ImportarAfiliados'
 import { ImportarConflictividad } from '@/features/admin/ImportarConflictividad'
 import { PersonalPorZona } from '@/features/admin/PersonalPorZona'
 import { CrearUsuario } from '@/features/admin/CrearUsuario'
+import { FirmasPersonal } from '@/features/admin/FirmasPersonal'
 import { contarPendientes } from '@/lib/atencionesApi'
 import { cn } from '@/lib/cn'
 
@@ -225,6 +227,10 @@ function AppLayout() {
               <FileStack className="size-4" />
               Plantillas PDF
             </NavLink>
+            <NavLink to="/admin/firmas-personal" className={navClass} onClick={cerrarMenu}>
+              <PenLine className="size-4" />
+              Firmas de personal
+            </NavLink>
           </GrupoNav>
         </>
       )}
@@ -401,6 +407,10 @@ function AppLayout() {
             <Route
               path="/admin/plantillas-pdf"
               element={profile.rol === 'ADMIN' ? <PlantillasPdf /> : <Navigate to="/" />}
+            />
+            <Route
+              path="/admin/firmas-personal"
+              element={profile.rol === 'ADMIN' ? <FirmasPersonal /> : <Navigate to="/" />}
             />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>

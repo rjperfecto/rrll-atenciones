@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { AlertCircle, CheckCircle2, Download, Loader2, Search } from 'lucide-react'
+import { AlertCircle, CheckCircle2, Download, Loader2, PenLine, Search } from 'lucide-react'
 import { buscarPorLegajo, type ResultadoTrabajador } from '@/lib/busquedaApi'
 import { descargarBytesPlantilla } from '@/lib/plantillasApi'
-import { generarPdfConDatos, descargarPdf } from '@/lib/generarPdf'
+import { obtenerFirmaPersonal, descargarBytesFirmaPersonal, type FirmaPersonal } from '@/lib/firmasPersonalApi'
+import { generarPdfConDatos, descargarPdf, type FirmaParaPdf } from '@/lib/generarPdf'
 import { textoDatos, textoFecha } from '@/lib/plantillaTextos'
 import { LEGAJO_REGEX, dniDesdeLegajo } from '@/data/legajo'
 import { SelectorPlantilla } from './SelectorPlantilla'
@@ -20,6 +21,7 @@ export function DocumentoIndividual({ plantillas }: { plantillas: PlantillaPdf[]
   const [legajo, setLegajo] = useState('')
   const [fecha, setFecha] = useState(hoy())
   const [trabajador, setTrabajador] = useState<ResultadoTrabajador | null>(null)
+  const [firma, setFirma] = useState<FirmaPersonal | null>(null)
   const [buscando, setBuscando] = useState(false)
   const [errorBusqueda, setErrorBusqueda] = useState<string | null>(null)
   const [generando, setGenerando] = useState(false)
@@ -33,19 +35,21 @@ export function DocumentoIndividual({ plantillas }: { plantillas: PlantillaPdf[]
     const texto = legajo.trim()
     setErrorBusqueda(null)
     setTrabajador(null)
+    setFirma(null)
     setGenerado(false)
     if (!LEGAJO_REGEX.test(texto)) {
       setErrorBusqueda('El legajo debe empezar con "10" seguido del DNI (8 dígitos).')
       return
     }
     setBuscando(true)
-    const r = await buscarPorLegajo(texto)
+    const [r, firmaEncontrada] = await Promise.all([buscarPorLegajo(texto), obtenerFirmaPersonal(texto)])
     setBuscando(false)
     if (!r) {
       setErrorBusqueda(`No encontré personal registrado con el legajo "${texto}".`)
       return
     }
     setTrabajador(r)
+    setFirma(firmaEncontrada)
   }
 
   async function generar() {
@@ -60,7 +64,17 @@ export function DocumentoIndividual({ plantillas }: { plantillas: PlantillaPdf[]
         datos: textoDatos(trabajador.nombre_completo, dniDesdeLegajo(trabajador.legajo), trabajador.telefono ?? ''),
         fecha: textoFecha(fecha),
       }
-      const pdfBytes = await generarPdfConDatos(bytes, plantilla.posiciones, valores)
+      // Si el trabajador tiene una firma guardada (Administración > Firmas de
+      // personal), se inserta sola en el campo "firma" de la plantilla; si no
+      // tiene, ese campo queda vacío, igual que antes.
+      let datosFirma: FirmaParaPdf | null = null
+      if (firma) {
+        const { bytes: firmaBytes } = await descargarBytesFirmaPersonal(firma.storage_path)
+        if (firmaBytes) {
+          datosFirma = { png: new Uint8Array(firmaBytes), nombre: trabajador.nombre_completo, dni: dniDesdeLegajo(trabajador.legajo) }
+        }
+      }
+      const pdfBytes = await generarPdfConDatos(bytes, plantilla.posiciones, valores, datosFirma)
       descargarPdf(pdfBytes, `${plantilla.nombre} - ${trabajador.nombre_completo}.pdf`)
       setGenerado(true)
     } catch (err) {
@@ -113,6 +127,14 @@ export function DocumentoIndividual({ plantillas }: { plantillas: PlantillaPdf[]
             <p className="text-xs text-neutral-500">DNI: {dniDesdeLegajo(trabajador.legajo)}</p>
             <p className="text-xs text-neutral-500">
               Celular: {trabajador.telefono ?? <span className="italic text-neutral-400">sin registrar</span>}
+            </p>
+            <p className="text-xs flex items-center gap-1.5 pt-0.5">
+              <PenLine className="size-3.5 shrink-0" />
+              {firma ? (
+                <span className="text-success">Tiene firma guardada, se va a usar en el PDF.</span>
+              ) : (
+                <span className="text-neutral-400">Sin firma guardada (el campo de firma quedará vacío).</span>
+              )}
             </p>
           </Card>
         )}
