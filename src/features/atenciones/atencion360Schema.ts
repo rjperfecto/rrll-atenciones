@@ -13,6 +13,13 @@ export const alertaReportadaSchema = z.object({
   // COMPROMISO" (ver AlertasReportadas), nunca a dejarlo vacío.
   accion: z.string().min(1, 'El compromiso es obligatorio'),
   accion_rrll: z.string().min(1, 'El compromiso RRLL es obligatorio'),
+  // Obligatoria solo cuando el compromiso correspondiente sí se generó (no
+  // aplica a "NO SE GENERÓ COMPROMISO", ahí AlertasReportadas manda '');
+  // z.string() sin .min() porque la condición exacta ya la exige
+  // AlertasReportadas antes de dejar agregar la alerta, acá solo importa
+  // que el campo siempre esté presente (nunca undefined).
+  fecha_verificacion: z.string(),
+  fecha_verificacion_rrll: z.string(),
 })
 
 // "360 Laboral" es un registro de sesión/grupo (conversatorio/seguimiento/

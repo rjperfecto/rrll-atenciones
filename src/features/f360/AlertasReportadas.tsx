@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import { categoriasAlerta360, subcategoriasAlerta360, nivelAlerta360 } from '@/data/formulario360'
+import { fechaCorta } from '@/lib/fechaLarga'
 import { GravedadBadge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/cn'
@@ -35,20 +36,32 @@ export function AlertasReportadas({
   const [detalle, setDetalle] = useState('')
   const [accion, setAccion] = useState('')
   const [accionRrll, setAccionRrll] = useState('')
+  const [fechaVerificacion, setFechaVerificacion] = useState('')
+  const [fechaVerificacionRrll, setFechaVerificacionRrll] = useState('')
   const sinCompromiso = accion === SIN_COMPROMISO
   const sinCompromisoRrll = accionRrll === SIN_COMPROMISO
 
   const categorias = categoriasAlerta360()
   const yaAgregadas = new Set(valores.map((v) => `${v.categoria}::${v.subcategoria}`))
   const subcategorias = categoria ? subcategoriasAlerta360(categoria).filter((s) => !yaAgregadas.has(`${categoria}::${s}`)) : []
-  const faltaAlgo = !categoria || !subcategoria || !cantidad || !detalle.trim() || !accion.trim() || !accionRrll.trim()
+  const faltaAlgo =
+    !categoria ||
+    !subcategoria ||
+    !cantidad ||
+    !detalle.trim() ||
+    !accion.trim() ||
+    (!sinCompromiso && !fechaVerificacion) ||
+    !accionRrll.trim() ||
+    (!sinCompromisoRrll && !fechaVerificacionRrll)
 
   function alternarSinCompromiso(marcado: boolean) {
     setAccion(marcado ? SIN_COMPROMISO : '')
+    setFechaVerificacion('')
   }
 
   function alternarSinCompromisoRrll(marcado: boolean) {
     setAccionRrll(marcado ? SIN_COMPROMISO : '')
+    setFechaVerificacionRrll('')
   }
 
   function agregar() {
@@ -62,12 +75,24 @@ export function AlertasReportadas({
       cantidadNum < 1 ||
       !detalle.trim() ||
       !accion.trim() ||
-      !accionRrll.trim()
+      (!sinCompromiso && !fechaVerificacion) ||
+      !accionRrll.trim() ||
+      (!sinCompromisoRrll && !fechaVerificacionRrll)
     )
       return
     onChange([
       ...valores,
-      { categoria, subcategoria, nivel, cantidad: cantidadNum, detalle: detalle.trim(), accion: accion.trim(), accion_rrll: accionRrll.trim() },
+      {
+        categoria,
+        subcategoria,
+        nivel,
+        cantidad: cantidadNum,
+        detalle: detalle.trim(),
+        accion: accion.trim(),
+        accion_rrll: accionRrll.trim(),
+        fecha_verificacion: sinCompromiso ? '' : fechaVerificacion,
+        fecha_verificacion_rrll: sinCompromisoRrll ? '' : fechaVerificacionRrll,
+      },
     ])
     setCategoria('')
     setSubcategoria('')
@@ -75,6 +100,8 @@ export function AlertasReportadas({
     setDetalle('')
     setAccion('')
     setAccionRrll('')
+    setFechaVerificacion('')
+    setFechaVerificacionRrll('')
   }
 
   function quitar(index: number) {
@@ -141,6 +168,17 @@ export function AlertasReportadas({
             <input type="checkbox" checked={sinCompromiso} onChange={(e) => alternarSinCompromiso(e.target.checked)} />
             No se generó compromiso
           </label>
+          {!sinCompromiso && (
+            <div className="mt-1.5">
+              <label className="block text-[12px] text-neutral-500 mb-1">Fecha de verificación</label>
+              <input
+                type="date"
+                value={fechaVerificacion}
+                onChange={(e) => setFechaVerificacion(e.target.value)}
+                className="input"
+              />
+            </div>
+          )}
         </div>
         <div>
           <label className="block text-[13px] font-medium text-neutral-700 mb-1.5">Compromiso RRLL</label>
@@ -155,6 +193,17 @@ export function AlertasReportadas({
             <input type="checkbox" checked={sinCompromisoRrll} onChange={(e) => alternarSinCompromisoRrll(e.target.checked)} />
             No se generó compromiso
           </label>
+          {!sinCompromisoRrll && (
+            <div className="mt-1.5">
+              <label className="block text-[12px] text-neutral-500 mb-1">Fecha de verificación</label>
+              <input
+                type="date"
+                value={fechaVerificacionRrll}
+                onChange={(e) => setFechaVerificacionRrll(e.target.value)}
+                className="input"
+              />
+            </div>
+          )}
         </div>
       </div>
       <div className="flex justify-end">
@@ -179,8 +228,18 @@ export function AlertasReportadas({
                   </span>
                 </div>
                 {v.detalle && <p className="text-xs text-neutral-500 mt-1">{v.detalle}</p>}
-                {v.accion && <p className="text-xs text-neutral-500 mt-0.5">Compromiso: {v.accion}</p>}
-                {v.accion_rrll && <p className="text-xs text-neutral-500 mt-0.5">Compromiso RRLL: {v.accion_rrll}</p>}
+                {v.accion && (
+                  <p className="text-xs text-neutral-500 mt-0.5">
+                    Compromiso: {v.accion}
+                    {v.fecha_verificacion && ` — Verificación: ${fechaCorta(v.fecha_verificacion)}`}
+                  </p>
+                )}
+                {v.accion_rrll && (
+                  <p className="text-xs text-neutral-500 mt-0.5">
+                    Compromiso RRLL: {v.accion_rrll}
+                    {v.fecha_verificacion_rrll && ` — Verificación: ${fechaCorta(v.fecha_verificacion_rrll)}`}
+                  </p>
+                )}
               </div>
               <button
                 type="button"

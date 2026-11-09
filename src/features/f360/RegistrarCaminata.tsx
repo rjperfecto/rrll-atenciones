@@ -31,9 +31,7 @@ import { zonaDesdeFundo } from '@/lib/zonaFundo'
 import { buscarTrabajadorPorGrupo } from '@/lib/trabajadoresApi'
 import { buscarGrupoCompleto, type LiderGrupo } from '@/lib/busquedaApi'
 import { crearAtencion, editarAtencion } from '@/lib/atencionesApi'
-import { listarPlantillas, descargarBytesPlantilla } from '@/lib/plantillasApi'
 import { subirDocumentoFirmado } from '@/lib/documentosFirmadosApi'
-import { textoDatos, textoFecha } from '@/lib/plantillaTextos'
 import { compartirDocumentoFirmado } from '@/lib/compartirWhatsapp'
 import { dniDesdeLegajo } from '@/data/legajo'
 import { useAuth } from '@/features/auth/AuthContext'
@@ -45,8 +43,7 @@ import { PageHeader } from '@/components/ui/PageHeader'
 import { GRAVEDAD_COLORES } from '@/components/ui/Badge'
 import { FirmaCanvas } from '@/components/ui/FirmaCanvas'
 import { AlertasReportadas } from '@/features/f360/AlertasReportadas'
-import { SelectorPlantilla } from '@/features/herramientas/SelectorPlantilla'
-import type { Atencion, AlertaReportada360, PlantillaPdf } from '@/types'
+import type { Atencion, AlertaReportada360 } from '@/types'
 
 type EstadoBusqueda = 'idle' | 'buscando' | 'encontrado' | 'no_encontrado' | 'formato_invalido'
 
@@ -124,20 +121,16 @@ export function RegistrarCaminata() {
   const zonaUsuario = profile?.zona_asignada ?? null
   const [searchParams, setSearchParams] = useSearchParams()
 
-  // Documento firmado (opcional): plantilla a usar, datos del líder del
-  // grupo (traídos junto con la búsqueda por grupo) y la imagen de la firma
-  // ya capturada con el dedo (ver FirmaCanvas).
-  const [plantillas, setPlantillas] = useState<PlantillaPdf[] | null>(null)
-  const [plantillaId, setPlantillaId] = useState('')
+  // Documento firmado (opcional): datos del líder del grupo (traídos junto
+  // con la búsqueda por grupo) y la imagen de la firma ya capturada con el
+  // dedo (ver FirmaCanvas). La carta en sí se arma siempre con el mismo
+  // formato fijo (ver generarDocumentoFirmado/cartaCompromisos360.ts), no
+  // hay plantilla que elegir.
   const [datosLider, setDatosLider] = useState<LiderGrupo | null>(null)
   const [firmaPng, setFirmaPng] = useState<Uint8Array | null>(null)
   const [mostrarFirma, setMostrarFirma] = useState(false)
   const [compartiendo, setCompartiendo] = useState(false)
   const [errorCompartir, setErrorCompartir] = useState<string | null>(null)
-
-  useEffect(() => {
-    void listarPlantillas().then(({ data }) => setPlantillas(data))
-  }, [])
 
   // Si el usuario logueado tiene Zona fija (Administración > Personal por
   // zona), el formulario arranca con esa zona (el campo queda deshabilitado
@@ -245,7 +238,6 @@ export function RegistrarCaminata() {
     setValue('tipoAtencion360', [])
     setValue('alertasReportadas', [])
     setBusqueda('idle')
-    setPlantillaId('')
     setDatosLider(null)
     setFirmaPng(null)
     setErrorCompartir(null)
@@ -254,26 +246,24 @@ export function RegistrarCaminata() {
 
   // Compartido entre el guardado del caso (sube el PDF a Storage) y
   // "Compartir por WhatsApp" (lo manda directo al share nativo del
-  // celular, sin pasar por Storage): arma el mismo PDF a partir de la
-  // plantilla elegida + datos del líder + firma ya capturada.
+  // celular, sin pasar por Storage): arma la carta de compromisos a partir
+  // de los datos de la caminata + datos del líder + firma ya capturada.
   async function generarDocumentoFirmado(fechaDoc: string): Promise<Uint8Array | null> {
-    if (!plantillaId || !firmaPng || !datosLider) return null
-    const plantilla = plantillas?.find((p) => p.id === plantillaId)
-    if (!plantilla) return null
-    const { bytes } = await descargarBytesPlantilla(plantilla.storage_path)
-    if (!bytes) return null
+    if (!firmaPng || !datosLider?.legajo) return null
     // pdf-lib pesa ~2MB minificado: se importa dinámicamente para no
     // meterlo en el chunk principal (RegistrarCaminata no es lazy, ver
     // comentario de pdf-lib/pdfjs en App.tsx) solo por esta generación
     // puntual, que además la mayoría de caminatas no usa.
-    const { generarPdfConDatos } = await import('@/lib/generarPdf')
-    const dni = datosLider.legajo ? dniDesdeLegajo(datosLider.legajo) : ''
-    return generarPdfConDatos(
-      bytes,
-      plantilla.posiciones,
+    const { generarCartaCompromisos360 } = await import('@/lib/cartaCompromisos360')
+    const dni = dniDesdeLegajo(datosLider.legajo)
+    return generarCartaCompromisos360(
       {
-        datos: textoDatos(datosLider.nombre_completo, dni, datosLider.telefono ?? ''),
-        fecha: textoFecha(fechaDoc),
+        fecha: fechaDoc,
+        grupo: grupo || '',
+        fundo: fundo || '',
+        liderCosecha: datosLider.nombre_completo,
+        celularLider: datosLider.telefono,
+        alertas: alertasReportadas,
       },
       { png: firmaPng, nombre: datosLider.nombre_completo, dni },
     )
@@ -284,7 +274,7 @@ export function RegistrarCaminata() {
     setCompartiendo(true)
     try {
       const pdfBytes = await generarDocumentoFirmado(fecha || hoy())
-      if (!pdfBytes) throw new Error('No se pudo generar el documento. Revisa la plantilla y la firma.')
+      if (!pdfBytes) throw new Error('No se pudo generar el documento. Revisa que haya alertas cargadas y que hayas firmado.')
       await compartirDocumentoFirmado(pdfBytes, datosLider?.nombre_completo ?? null)
     } catch (err) {
       // AbortError: el usuario cerró el selector sin elegir nada, no es un error real.
@@ -375,7 +365,7 @@ export function RegistrarCaminata() {
     // caso (el nombre del archivo en Storage usa el id ya generado). No
     // bloquea el registro de la caminata si algo falla acá — ya quedó
     // guardada, solo no queda el PDF adjunto.
-    if (plantillaId && firmaPng && datosLider) {
+    if (firmaPng && datosLider) {
       try {
         const pdfBytes = await generarDocumentoFirmado(values.fecha)
         if (pdfBytes) {
@@ -565,8 +555,6 @@ export function RegistrarCaminata() {
           </Field>
         </CardSection>
 
-        <SelectorPlantilla plantillas={plantillas} plantillaId={plantillaId} onChange={setPlantillaId} />
-
         <CardSection title="Documento firmado (opcional)" icon={<FileSignature className="size-4 text-brand" />}>
           {datosLider ? (
             <div className="rounded-md bg-neutral-50 border border-neutral-200 p-3 text-sm space-y-0.5">
@@ -577,11 +565,14 @@ export function RegistrarCaminata() {
           ) : (
             <p className="text-xs text-neutral-400">Busca el grupo arriba para traer los datos del líder que va a firmar.</p>
           )}
+          <p className="text-xs text-neutral-400">
+            Se genera la Carta de compromisos con las alertas y los compromisos cargados arriba — agrégalos antes de firmar.
+          </p>
           <Button
             type="button"
             variant={firmaPng ? 'secondary' : 'primary'}
             onClick={() => setMostrarFirma(true)}
-            disabled={!plantillaId || !datosLider?.legajo}
+            disabled={!datosLider?.legajo || alertasReportadas.length === 0}
           >
             <PenLine className="size-4" />
             {firmaPng ? 'Firma lista — volver a firmar' : 'Firmar documento'}

@@ -1,4 +1,5 @@
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
+import type { PDFFont, PDFImage, PDFPage } from 'pdf-lib'
 import { zipSync } from 'fflate'
 import { INTERLINEADO_PLANTILLA } from './plantillaTextos'
 import type { CampoPlantilla, PosicionCampoPlantilla } from '@/types'
@@ -18,6 +19,44 @@ export interface FirmaParaPdf {
   png: Uint8Array
   nombre: string
   dni: string
+}
+
+// Trazo (escalado sin deformar, apoyado sobre una línea) + nombre + DNI
+// debajo, como una firma de papel. Reutilizado por generarPdfConDatos (campo
+// "firma" de una Plantilla PDF, posición fija del editor) y por
+// cartaCompromisos360.ts (posición dada por el cursor de armado de la
+// carta) — misma pieza visual, dos formas distintas de ubicarla en la página.
+export function dibujarBloqueFirma(
+  pagina: PDFPage,
+  fuente: PDFFont,
+  imagenFirma: PDFImage,
+  firma: FirmaParaPdf,
+  x: number,
+  yLinea: number,
+  ancho: number,
+  altoDisponibleTrazo: number,
+) {
+  const escala = Math.min(ancho / imagenFirma.width, altoDisponibleTrazo / imagenFirma.height)
+  const anchoTrazo = imagenFirma.width * escala
+  const altoTrazo = imagenFirma.height * escala
+  pagina.drawImage(imagenFirma, {
+    x: x + (ancho - anchoTrazo) / 2,
+    y: yLinea,
+    width: anchoTrazo,
+    height: altoTrazo,
+  })
+  pagina.drawLine({
+    start: { x, y: yLinea },
+    end: { x: x + ancho, y: yLinea },
+    thickness: 0.75,
+    color: rgb(0, 0, 0),
+  })
+  const centrado = (texto: string, y: number) => {
+    const anchoTexto = fuente.widthOfTextAtSize(texto, TAMANO_PIE_FIRMA)
+    pagina.drawText(texto, { x: x + (ancho - anchoTexto) / 2, y, size: TAMANO_PIE_FIRMA, font: fuente, color: rgb(0, 0, 0) })
+  }
+  centrado(firma.nombre.toUpperCase(), yLinea - INTERLINEA_PIE_FIRMA)
+  centrado(`DNI: ${firma.dni}`, yLinea - INTERLINEA_PIE_FIRMA * 2)
 }
 
 export async function generarPdfConDatos(
@@ -46,30 +85,7 @@ export async function generarPdfConDatos(
       const altoPie = Math.min(ALTO_PIE_FIRMA, alto - 10)
       const yLinea = pos.y + altoPie
       const altoDisponibleTrazo = alto - altoPie
-      // El trazo mantiene su proporción (no se estira): se escala para
-      // entrar en el ancho/alto disponible y se apoya justo sobre la línea,
-      // como una firma real.
-      const escala = Math.min(ancho / imagenFirma.width, altoDisponibleTrazo / imagenFirma.height)
-      const anchoTrazo = imagenFirma.width * escala
-      const altoTrazo = imagenFirma.height * escala
-      pagina.drawImage(imagenFirma, {
-        x: pos.x + (ancho - anchoTrazo) / 2,
-        y: yLinea,
-        width: anchoTrazo,
-        height: altoTrazo,
-      })
-      pagina.drawLine({
-        start: { x: pos.x, y: yLinea },
-        end: { x: pos.x + ancho, y: yLinea },
-        thickness: 0.75,
-        color: rgb(0, 0, 0),
-      })
-      const centrado = (texto: string, y: number) => {
-        const anchoTexto = fuente.widthOfTextAtSize(texto, TAMANO_PIE_FIRMA)
-        pagina.drawText(texto, { x: pos.x + (ancho - anchoTexto) / 2, y, size: TAMANO_PIE_FIRMA, font: fuente, color: rgb(0, 0, 0) })
-      }
-      centrado(firma.nombre.toUpperCase(), yLinea - INTERLINEA_PIE_FIRMA)
-      centrado(`DNI: ${firma.dni}`, yLinea - INTERLINEA_PIE_FIRMA * 2)
+      dibujarBloqueFirma(pagina, fuente, imagenFirma, firma, pos.x, yLinea, ancho, altoDisponibleTrazo)
       continue
     }
     const texto = valores[pos.campo]

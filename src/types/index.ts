@@ -77,14 +77,19 @@ export interface AlertaReportada360 {
   // accion/accion_rrll son obligatorios: si la alerta no generó compromiso
   // (del trabajador o de RRLL), el formulario fuerza la frase fija "NO SE
   // GENERÓ COMPROMISO" en vez de dejarlo vacío (ver SIN_COMPROMISO en
-  // AlertasReportadas.tsx). accion_rrll puede venir vacío/ausente en tiempo
-  // de ejecución en registros creados antes de que existiera este campo,
-  // aunque el tipo lo marque como string (mismo caso que detalle/accion en
-  // registros legado) — por eso el detalle y los componentes lo muestran
-  // con un chequeo truthy, no asumen que siempre viene con texto.
+  // AlertasReportadas.tsx). accion_rrll/fecha_verificacion(_rrll) pueden
+  // venir vacíos/ausentes en tiempo de ejecución en registros creados antes
+  // de que existiera cada campo, aunque el tipo los marque como string
+  // (mismo caso que detalle/accion en registros legado) — por eso el
+  // detalle y los componentes los muestran con un chequeo truthy, no
+  // asumen que siempre viene con texto.
   detalle: string
   accion: string
   accion_rrll: string
+  // Fecha de verificación de cada compromiso (YYYY-MM-DD): vacía cuando el
+  // compromiso correspondiente es "NO SE GENERÓ COMPROMISO" (no aplica).
+  fecha_verificacion: string
+  fecha_verificacion_rrll: string
 }
 
 export interface Atencion {

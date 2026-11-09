@@ -188,8 +188,9 @@ export function exportar360LaboralXlsx(atenciones: Atencion[]) {
 // reporte habitual. COMPROMISO/COMPROMISO RRLL reemplazan al antiguo
 // compromiso único de la caminata; si una alerta no generó alguno, llega
 // como "NO SE GENERÓ COMPROMISO" (ver SIN_COMPROMISO en
-// AlertasReportadas.tsx), nunca vacío. COMPROMISO RRLL puede venir vacío en
-// registros creados antes de que existiera ese campo.
+// AlertasReportadas.tsx), nunca vacío, y sin fecha de verificación.
+// COMPROMISO RRLL/FECHA VERIFICACION(_RRLL) pueden venir vacíos en
+// registros creados antes de que existiera cada campo.
 const COLUMNAS_DETALLE_ALERTAS_360 = [
   'FECHA',
   'SEMANA',
@@ -203,7 +204,9 @@ const COLUMNAS_DETALLE_ALERTAS_360 = [
   'CANTIDAD',
   'DETALLE',
   'COMPROMISO',
+  'FECHA VERIFICACION',
   'COMPROMISO RRLL',
+  'FECHA VERIFICACION RRLL',
 ] as const
 
 export function exportarDetalleAlertas360Xlsx(atenciones: Atencion[]) {
@@ -223,7 +226,9 @@ export function exportarDetalleAlertas360Xlsx(atenciones: Atencion[]) {
         CANTIDAD: String(alerta.cantidad),
         DETALLE: alerta.detalle ?? '',
         COMPROMISO: alerta.accion ?? '',
+        'FECHA VERIFICACION': alerta.fecha_verificacion ?? '',
         'COMPROMISO RRLL': alerta.accion_rrll ?? '',
+        'FECHA VERIFICACION RRLL': alerta.fecha_verificacion_rrll ?? '',
       })
     }
   }
