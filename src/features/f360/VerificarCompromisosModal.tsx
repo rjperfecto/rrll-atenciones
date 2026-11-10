@@ -92,6 +92,15 @@ export function VerificarCompromisosModal({ atencion, onClose }: { atencion: Ate
   const faltaNuevaFecha = resultado === 'SEGUIMIENTO_ADICIONAL' && !nuevaFecha
   const listoParaFirmar = items.length > 0 && !faltaAlgunEstado && Boolean(resultado) && !faltaNuevaFecha && Boolean(lider?.legajo)
 
+  // El botón de firmar exige todo esto junto: sin este detalle, si faltaba
+  // cualquier cosa que no fuera el líder (el único caso que ya avisaba), el
+  // botón quedaba bloqueado sin ninguna explicación.
+  const motivosFaltantes: string[] = []
+  if (faltaAlgunEstado) motivosFaltantes.push('Selecciona el estado de cada compromiso')
+  if (!resultado) motivosFaltantes.push('Elige el resultado general')
+  if (faltaNuevaFecha) motivosFaltantes.push('Completa la nueva fecha de verificación')
+  if (!lider?.legajo) motivosFaltantes.push('No se encontró al líder en el tareo de esa fecha')
+
   async function guardar() {
     if (!profile || !raiz || !firmaPng || !lider?.legajo || !resultado) return
     setError(null)
@@ -276,11 +285,19 @@ export function VerificarCompromisosModal({ atencion, onClose }: { atencion: Ate
             </Field>
           )}
 
-          {!lider?.legajo && raiz.grupo && (
-            <p className="text-xs text-amber-600 flex items-center gap-1.5">
-              <AlertCircle className="size-3.5 shrink-0" />
-              No se encontró al líder en el tareo de esa fecha, no se puede firmar. Prueba con otra fecha de verificación.
-            </p>
+          {motivosFaltantes.length > 0 && (
+            <div className="rounded-md bg-amber-50 border border-amber-200 p-3">
+              <p className="text-xs font-medium text-amber-700 mb-1 flex items-center gap-1.5">
+                <AlertCircle className="size-3.5 shrink-0" />
+                Antes de firmar:
+              </p>
+              <ul className="text-xs text-amber-700 list-disc list-inside space-y-0.5">
+                {motivosFaltantes.map((m) => (
+                  <li key={m}>{m}</li>
+                ))}
+              </ul>
+              {!lider?.legajo && <p className="text-xs text-amber-700 mt-1">Prueba con otra fecha de verificación.</p>}
+            </div>
           )}
 
           <div className="pt-2 border-t border-neutral-200">
