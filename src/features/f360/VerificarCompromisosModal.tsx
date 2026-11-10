@@ -67,8 +67,19 @@ export function VerificarCompromisosModal({ atencion, onClose }: { atencion: Ate
       if (r) {
         const nuevos: ItemVerificacion[] = []
         r.alertas_reportadas.forEach((a, idx) => {
-          if (a.accion && a.accion !== SIN_COMPROMISO) nuevos.push({ idx, tipo: 'LIDER', texto: a.accion, estado: '', detalle: '' })
-          if (a.accion_rrll && a.accion_rrll !== SIN_COMPROMISO) nuevos.push({ idx, tipo: 'RRLL', texto: a.accion_rrll, estado: '', detalle: '' })
+          // `atencion` es la ronda que se está verificando ahora (la raíz en
+          // la primera verificación, o la ronda anterior en las
+          // siguientes): un compromiso que ya quedó CUMPLIDO ahí no se
+          // vuelve a listar — ya está resuelto, no hace falta verificarlo
+          // de nuevo en cada ronda posterior.
+          const previoLider = atencion.alertas_reportadas[idx]?.verificacion_lider
+          const previoRrll = atencion.alertas_reportadas[idx]?.verificacion_rrll
+          if (a.accion && a.accion !== SIN_COMPROMISO && previoLider !== 'CUMPLIDO') {
+            nuevos.push({ idx, tipo: 'LIDER', texto: a.accion, estado: '', detalle: '' })
+          }
+          if (a.accion_rrll && a.accion_rrll !== SIN_COMPROMISO && previoRrll !== 'CUMPLIDO') {
+            nuevos.push({ idx, tipo: 'RRLL', texto: a.accion_rrll, estado: '', detalle: '' })
+          }
         })
         setItems(nuevos)
       }
@@ -110,12 +121,17 @@ export function VerificarCompromisosModal({ atencion, onClose }: { atencion: Ate
       const alertasConVerificacion: AlertaReportada360[] = raiz.alertas_reportadas.map((a, idx) => {
         const itemLider = items.find((it) => it.idx === idx && it.tipo === 'LIDER')
         const itemRrll = items.find((it) => it.idx === idx && it.tipo === 'RRLL')
+        // Un compromiso ya CUMPLIDO en una ronda anterior no aparece en
+        // `items` de esta ronda (ver useEffect de arriba) — hay que
+        // arrastrar ese resultado anterior, si no se perdería al guardar
+        // esta ronda nueva.
+        const previo = atencion.alertas_reportadas[idx]
         return {
           ...a,
-          verificacion_lider: itemLider?.estado || undefined,
-          verificacion_lider_detalle: itemLider?.detalle || undefined,
-          verificacion_rrll: itemRrll?.estado || undefined,
-          verificacion_rrll_detalle: itemRrll?.detalle || undefined,
+          verificacion_lider: itemLider?.estado || previo?.verificacion_lider || undefined,
+          verificacion_lider_detalle: itemLider?.detalle || previo?.verificacion_lider_detalle || undefined,
+          verificacion_rrll: itemRrll?.estado || previo?.verificacion_rrll || undefined,
+          verificacion_rrll_detalle: itemRrll?.detalle || previo?.verificacion_rrll_detalle || undefined,
         }
       })
 
@@ -224,7 +240,11 @@ export function VerificarCompromisosModal({ atencion, onClose }: { atencion: Ate
       ) : !raiz ? (
         <p className="text-sm text-danger">No se pudo cargar la caminata original de este compromiso.</p>
       ) : items.length === 0 ? (
-        <p className="text-sm text-neutral-500">Esta caminata no tiene compromisos reales que verificar.</p>
+        <p className="text-sm text-neutral-500">
+          {raiz.alertas_reportadas.some((a) => (a.accion && a.accion !== SIN_COMPROMISO) || (a.accion_rrll && a.accion_rrll !== SIN_COMPROMISO))
+            ? 'Todos los compromisos ya quedaron verificados como cumplidos en una ronda anterior.'
+            : 'Esta caminata no tiene compromisos reales que verificar.'}
+        </p>
       ) : (
         <div className="space-y-4">
           <Field label="Fecha de esta verificación">
