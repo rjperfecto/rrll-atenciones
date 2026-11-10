@@ -1,9 +1,11 @@
-import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
+import { PDFDocument, rgb } from 'pdf-lib'
 import { fechaCorta } from './fechaLarga'
 import { dibujarBloqueFirma, type FirmaParaPdf } from './generarPdf'
 import { dibujarEncabezadoCarta } from './encabezadoCarta'
+import { embeberFuentesCarta } from './fuentesCarta'
 import {
   MARGEN,
+  ANCHO_PAGINA,
   ANCHO_UTIL,
   TAMANO_BASE,
   TAMANO_TITULO,
@@ -41,7 +43,7 @@ export interface DatosCartaVerificacion360 {
   observaciones: string
   resultado: ResultadoVerificacion
   nuevaFechaVerificacion: string | null // solo si resultado === SEGUIMIENTO_ADICIONAL
-  responsableNombre: string
+  supervisorNombre: string // SUP. RRLL de la zona, ver supervisoresRrll.ts
   fechaRecepcion: string // YYYY-MM-DD: cuándo firma el trabajador
 }
 
@@ -74,13 +76,15 @@ function listaVerificacion(
 
 export async function generarCartaVerificacion360(
   datos: DatosCartaVerificacion360,
-  firmaResponsable: FirmaParaPdf | null,
+  // Firma guardada (Administración > Firmas de personal) del supervisor
+  // RRLL de la zona — null si ese usuario todavía no tiene una guardada, en
+  // cuyo caso se imprime solo el nombre.
+  firmaSupervisor: FirmaParaPdf | null,
   firmaTrabajador: FirmaParaPdf,
 ): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.create()
-  const fuente = await pdfDoc.embedFont(StandardFonts.Helvetica)
-  const fuenteNegrita = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
-  const imagenFirmaResponsable = firmaResponsable ? await pdfDoc.embedPng(firmaResponsable.png) : null
+  const { regular: fuente, negrita: fuenteNegrita } = await embeberFuentesCarta(pdfDoc)
+  const imagenFirmaSupervisor = firmaSupervisor ? await pdfDoc.embedPng(firmaSupervisor.png) : null
   const imagenFirmaTrabajador = await pdfDoc.embedPng(firmaTrabajador.png)
 
   const cursor = crearCursor(pdfDoc)
@@ -153,23 +157,23 @@ export async function generarCartaVerificacion360(
   )
   espacio(cursor, 20)
 
-  linea(pdfDoc, cursor, 'Atentamente,', fuente, TAMANO_BASE, ALTURA_LINEA)
+  // Firma de cierre de la carta: el supervisor RRLL de la zona, abajo a la
+  // derecha — con trazo guardado si tiene firma cargada en Administración >
+  // Firmas de personal, o solo el nombre en texto si todavía no la tiene.
+  const ANCHO_FIRMA_SUP = 160
+  const ALTO_TRAZO_SUP = 40
+  const xFirmaSup = ANCHO_PAGINA - MARGEN - ANCHO_FIRMA_SUP
+  linea(pdfDoc, cursor, 'Atentamente,', fuente, TAMANO_BASE, ALTURA_LINEA, xFirmaSup)
   espacio(cursor, 4)
-
-  // Firma del responsable de RRLL que verifica: si tiene una firma guardada
-  // (Administración > Firmas de personal) se dibuja el trazo, si no, solo
-  // el nombre en texto — no bloquea la generación de la carta.
-  if (imagenFirmaResponsable && firmaResponsable) {
-    const ANCHO_FIRMA = 160
-    const ALTO_TRAZO = 40
-    saltarPaginaSiNoEntra(pdfDoc, cursor, ALTO_TRAZO + 20)
-    const yLineaFirma = cursor.y - ALTO_TRAZO
-    dibujarBloqueFirma(cursor.pagina, fuenteNegrita, imagenFirmaResponsable, firmaResponsable, MARGEN, yLineaFirma, ANCHO_FIRMA, ALTO_TRAZO)
-    cursor.y = yLineaFirma - 20
+  if (imagenFirmaSupervisor && firmaSupervisor) {
+    saltarPaginaSiNoEntra(pdfDoc, cursor, ALTO_TRAZO_SUP + 20)
+    const yLineaFirmaSup = cursor.y - ALTO_TRAZO_SUP
+    dibujarBloqueFirma(cursor.pagina, fuenteNegrita, imagenFirmaSupervisor, firmaSupervisor, xFirmaSup, yLineaFirmaSup, ANCHO_FIRMA_SUP, ALTO_TRAZO_SUP)
+    cursor.y = yLineaFirmaSup - 20
   } else {
-    linea(pdfDoc, cursor, datos.responsableNombre.toUpperCase(), fuenteNegrita, TAMANO_BASE, ALTURA_LINEA)
+    linea(pdfDoc, cursor, datos.supervisorNombre.toUpperCase(), fuenteNegrita, TAMANO_BASE, ALTURA_LINEA, xFirmaSup)
+    linea(pdfDoc, cursor, 'Relaciones Laborales — Hortifrut Perú S.A.C.', fuente, TAMANO_BASE, ALTURA_LINEA, xFirmaSup)
   }
-  linea(pdfDoc, cursor, 'Relaciones Laborales — Hortifrut Perú S.A.C.', fuente, TAMANO_BASE, ALTURA_LINEA)
   espacio(cursor, 24)
 
   linea(pdfDoc, cursor, 'Tomé conocimiento del resultado de la verificación:', fuente, TAMANO_BASE, ALTURA_LINEA)

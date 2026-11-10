@@ -5,9 +5,10 @@ import { fechaLarga } from './fechaLarga'
 import { MARGEN, ANCHO_PAGINA, TAMANO_BASE, ALTURA_LINEA, saltarPaginaSiNoEntra, espacio, linea, type Cursor } from './pdfComposer'
 
 // Encabezado fijo de toda carta generada (Carta de compromisos, Carta de
-// verificación): logo de Hortifrut Perú + fecha a la derecha, datos del
-// destinatario y "Presente. -" / "De nuestra consideración:" — mismo
-// formato en los dos documentos, por eso vive acá y no en cada uno.
+// verificación): fecha arriba a la derecha, logo de Hortifrut Perú centrado
+// debajo, datos del destinatario y "Presente. -" / "De nuestra
+// consideración:" — mismo formato en los dos documentos, por eso vive acá y
+// no en cada uno.
 
 // El logo no cambia entre cartas: se pide una sola vez por sesión, no en
 // cada PDF que se genera.
@@ -33,26 +34,27 @@ export async function dibujarEncabezadoCarta(
   fuenteNegrita: PDFFont,
   datos: DatosEncabezadoCarta,
 ): Promise<void> {
-  const imagenLogo = await pdfDoc.embedPng(await obtenerBytesLogo())
-  const anchoLogo = 64
-  const altoLogo = anchoLogo * (imagenLogo.height / imagenLogo.width)
-  const yLogo = cursor.y - altoLogo
-  cursor.pagina.drawImage(imagenLogo, { x: MARGEN, y: yLogo, width: anchoLogo, height: altoLogo })
-
   // "Chao, 26 de octubre de 2026" (no todo en mayúscula, a diferencia del
   // dato "fecha" de las Plantillas PDF — ver textoFecha en plantillaTextos.ts,
-  // que sigue en mayúscula para esos documentos), alineado a la derecha, a
-  // la altura del logo.
+  // que sigue en mayúscula para esos documentos), alineada arriba a la derecha.
   const textoChao = `Chao, ${fechaLarga(datos.fecha)}`
   const anchoChao = fuenteNegrita.widthOfTextAtSize(textoChao, TAMANO_BASE)
   cursor.pagina.drawText(textoChao, {
     x: ANCHO_PAGINA - MARGEN - anchoChao,
-    y: yLogo + altoLogo / 2 - TAMANO_BASE / 2,
+    y: cursor.y,
     size: TAMANO_BASE,
     font: fuenteNegrita,
     color: rgb(0, 0, 0),
   })
+  cursor.y -= ALTURA_LINEA
+  espacio(cursor, 10)
 
+  // Logo centrado horizontalmente en la página.
+  const imagenLogo = await pdfDoc.embedPng(await obtenerBytesLogo())
+  const anchoLogo = 72
+  const altoLogo = anchoLogo * (imagenLogo.height / imagenLogo.width)
+  const yLogo = cursor.y - altoLogo
+  cursor.pagina.drawImage(imagenLogo, { x: (ANCHO_PAGINA - anchoLogo) / 2, y: yLogo, width: anchoLogo, height: altoLogo })
   cursor.y = yLogo - 18
 
   linea(pdfDoc, cursor, `Señor(a): ${datos.nombre}`, fuenteNegrita, TAMANO_BASE, ALTURA_LINEA)

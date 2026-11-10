@@ -1,8 +1,9 @@
-import { PDFDocument, StandardFonts } from 'pdf-lib'
+import { PDFDocument } from 'pdf-lib'
 import { fechaCorta } from './fechaLarga'
 import { dibujarBloqueFirma, type FirmaParaPdf } from './generarPdf'
 import { dibujarEncabezadoCarta } from './encabezadoCarta'
-import { MARGEN, TAMANO_BASE, TAMANO_TITULO, ALTURA_LINEA, ALTURA_LINEA_TITULO, crearCursor, saltarPaginaSiNoEntra, espacio, linea, parrafo, listaNumerada } from './pdfComposer'
+import { embeberFuentesCarta } from './fuentesCarta'
+import { ANCHO_PAGINA, MARGEN, TAMANO_BASE, TAMANO_TITULO, ALTURA_LINEA, ALTURA_LINEA_TITULO, crearCursor, saltarPaginaSiNoEntra, espacio, linea, parrafo, listaNumerada } from './pdfComposer'
 import { SIN_COMPROMISO } from '@/data/formulario360'
 import type { AlertaReportada360 } from '@/types'
 
@@ -20,6 +21,7 @@ export interface DatosCartaCompromisos360 {
   grupo: string
   fundo: string
   liderCosecha: string
+  supervisorNombre: string // SUP. RRLL de la zona, ver supervisoresRrll.ts
   alertas: AlertaReportada360[]
 }
 
@@ -28,18 +30,21 @@ function lineaCompromiso(texto: string, fechaVerificacion: string): string {
   return fechaVerificacion ? `${texto} — Fecha de verificación: ${fechaCorta(fechaVerificacion)}` : texto
 }
 
-export async function generarCartaCompromisos360(datos: DatosCartaCompromisos360, firma: FirmaParaPdf): Promise<Uint8Array> {
+export async function generarCartaCompromisos360(
+  datos: DatosCartaCompromisos360,
+  firmaLider: FirmaParaPdf,
+  // Firma guardada (Administración > Firmas de personal) del supervisor
+  // RRLL de la zona — null si ese usuario todavía no tiene una guardada, en
+  // cuyo caso se imprime solo el nombre.
+  firmaSupervisor: FirmaParaPdf | null,
+): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.create()
-  // Helvetica (regular) para el cuerpo de la carta, HelveticaBold para
-  // encabezados de dato y títulos de sección — mismo par de fuentes
-  // estándar (sin licencia) que ya usa el resto del sistema, ver comentario
-  // de generarPdf.ts sobre Arial/Helvetica-Bold.
-  const fuente = await pdfDoc.embedFont(StandardFonts.Helvetica)
-  const fuenteNegrita = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
-  const imagenFirma = await pdfDoc.embedPng(firma.png)
+  const { regular: fuente, negrita: fuenteNegrita } = await embeberFuentesCarta(pdfDoc)
+  const imagenFirmaLider = await pdfDoc.embedPng(firmaLider.png)
+  const imagenFirmaSupervisor = firmaSupervisor ? await pdfDoc.embedPng(firmaSupervisor.png) : null
 
   const cursor = crearCursor(pdfDoc)
-  await dibujarEncabezadoCarta(pdfDoc, cursor, fuente, fuenteNegrita, { fecha: datos.fecha, nombre: firma.nombre, dni: firma.dni ?? '' })
+  await dibujarEncabezadoCarta(pdfDoc, cursor, fuente, fuenteNegrita, { fecha: datos.fecha, nombre: firmaLider.nombre, dni: firmaLider.dni ?? '' })
 
   parrafo(
     pdfDoc,
@@ -107,18 +112,36 @@ export async function generarCartaCompromisos360(datos: DatosCartaCompromisos360
   )
   espacio(cursor, 20)
 
-  linea(pdfDoc, cursor, 'Atentamente,', fuente, TAMANO_BASE, ALTURA_LINEA)
-
-  // Firma: mismo bloque visual (trazo + línea + nombre + DNI) que el campo
-  // "firma" de una Plantilla PDF, ver dibujarBloqueFirma en generarPdf.ts —
-  // acá se ubica al cursor en vez de en una posición fija del editor.
-  const ANCHO_FIRMA = 180
-  const ALTO_TRAZO = 50
-  saltarPaginaSiNoEntra(pdfDoc, cursor, ALTO_TRAZO + 24 + 24)
+  // Firma de cierre de la carta: el supervisor RRLL de la zona, abajo a la
+  // derecha — con trazo guardado si tiene firma cargada en Administración >
+  // Firmas de personal, o solo el nombre en texto si todavía no la tiene.
+  const ANCHO_FIRMA_SUP = 160
+  const ALTO_TRAZO_SUP = 40
+  const xFirmaSup = ANCHO_PAGINA - MARGEN - ANCHO_FIRMA_SUP
+  linea(pdfDoc, cursor, 'Atentamente,', fuente, TAMANO_BASE, ALTURA_LINEA, xFirmaSup)
+  espacio(cursor, 4)
+  if (imagenFirmaSupervisor && firmaSupervisor) {
+    saltarPaginaSiNoEntra(pdfDoc, cursor, ALTO_TRAZO_SUP + 20)
+    const yLineaFirmaSup = cursor.y - ALTO_TRAZO_SUP
+    dibujarBloqueFirma(cursor.pagina, fuenteNegrita, imagenFirmaSupervisor, firmaSupervisor, xFirmaSup, yLineaFirmaSup, ANCHO_FIRMA_SUP, ALTO_TRAZO_SUP)
+    cursor.y = yLineaFirmaSup - 20
+  } else {
+    linea(pdfDoc, cursor, datos.supervisorNombre.toUpperCase(), fuenteNegrita, TAMANO_BASE, ALTURA_LINEA, xFirmaSup)
+    linea(pdfDoc, cursor, 'Relaciones Laborales — Hortifrut Perú S.A.C.', fuente, TAMANO_BASE, ALTURA_LINEA, xFirmaSup)
+    espacio(cursor, 6)
+  }
   espacio(cursor, 24)
-  const yLineaFirma = cursor.y - ALTO_TRAZO
-  dibujarBloqueFirma(cursor.pagina, fuenteNegrita, imagenFirma, firma, MARGEN, yLineaFirma, ANCHO_FIRMA, ALTO_TRAZO)
-  cursor.y = yLineaFirma - 24
+
+  // Firma en vivo del líder, al pie, como constancia de que tomó
+  // conocimiento y se compromete con lo firmado arriba por RRLL.
+  linea(pdfDoc, cursor, 'Tomé conocimiento y me comprometo con lo anterior:', fuente, TAMANO_BASE, ALTURA_LINEA)
+  const ANCHO_FIRMA_LIDER = 180
+  const ALTO_TRAZO_LIDER = 50
+  saltarPaginaSiNoEntra(pdfDoc, cursor, ALTO_TRAZO_LIDER + 24 + 24)
+  espacio(cursor, 24)
+  const yLineaFirmaLider = cursor.y - ALTO_TRAZO_LIDER
+  dibujarBloqueFirma(cursor.pagina, fuenteNegrita, imagenFirmaLider, firmaLider, MARGEN, yLineaFirmaLider, ANCHO_FIRMA_LIDER, ALTO_TRAZO_LIDER)
+  cursor.y = yLineaFirmaLider - 24
 
   return pdfDoc.save()
 }

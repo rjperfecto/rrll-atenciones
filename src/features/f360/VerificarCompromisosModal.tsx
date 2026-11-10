@@ -3,8 +3,7 @@ import { AlertCircle, CheckCircle2, PenLine } from 'lucide-react'
 import { obtenerAtencion, crearAtencion, editarAtencion } from '@/lib/atencionesApi'
 import { buscarGrupoCompleto, type LiderGrupo } from '@/lib/busquedaApi'
 import { subirDocumentoFirmado } from '@/lib/documentosFirmadosApi'
-import { obtenerFirmaPersonal, descargarBytesFirmaPersonal } from '@/lib/firmasPersonalApi'
-import { supRrllPorZona } from '@/data/supervisoresRrll'
+import { supRrllPorZona, obtenerFirmaSupervisorRrll } from '@/data/supervisoresRrll'
 import { dniDesdeLegajo } from '@/data/legajo'
 import {
   SIN_COMPROMISO,
@@ -135,14 +134,10 @@ export function VerificarCompromisosModal({ atencion, onClose }: { atencion: Ate
         }
       })
 
-      // Firma del responsable (Administración > Firmas de personal): si no
-      // tiene una guardada, la carta solo imprime su nombre, no bloquea.
-      const firmaResponsablePersonal = await obtenerFirmaPersonal(profile.id)
-      let firmaResponsable: { png: Uint8Array; nombre: string } | null = null
-      if (firmaResponsablePersonal) {
-        const { bytes } = await descargarBytesFirmaPersonal(firmaResponsablePersonal.storage_path)
-        if (bytes) firmaResponsable = { png: new Uint8Array(bytes), nombre: profile.nombre_completo }
-      }
+      // Firma del supervisor RRLL de la zona (Administración > Firmas de
+      // personal): si no tiene una guardada, la carta solo imprime su
+      // nombre, no bloquea.
+      const { firma: firmaSupervisor, nombre: supervisorNombre } = await obtenerFirmaSupervisorRrll(raiz.zona)
 
       // pdf-lib se importa dinámicamente, ver mismo comentario en
       // RegistrarCaminata.tsx (CompromisosList tampoco es lazy).
@@ -158,10 +153,10 @@ export function VerificarCompromisosModal({ atencion, onClose }: { atencion: Ate
           observaciones,
           resultado,
           nuevaFechaVerificacion: resultado === 'SEGUIMIENTO_ADICIONAL' ? nuevaFecha : null,
-          responsableNombre: profile.nombre_completo,
+          supervisorNombre,
           fechaRecepcion: fecha,
         },
-        firmaResponsable,
+        firmaSupervisor,
         { png: firmaPng, nombre: lider.nombre_completo, dni },
       )
 

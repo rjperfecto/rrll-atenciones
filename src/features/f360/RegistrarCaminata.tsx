@@ -25,7 +25,7 @@ import { conMayusculas } from '@/lib/conMayusculas'
 import { ZONAS } from '@/data/zonasFundos'
 import type { Zona } from '@/data/zonasFundos'
 import { PACKING_FUNDOS, TURNOS_360, TIPOS_ATENCION_360, SIN_COMPROMISO } from '@/data/formulario360'
-import { supRrllPorZona } from '@/data/supervisoresRrll'
+import { supRrllPorZona, obtenerFirmaSupervisorRrll } from '@/data/supervisoresRrll'
 import { moduloDesdeFundo } from '@/lib/modulo'
 import { zonaDesdeFundo } from '@/lib/zonaFundo'
 import { buscarTrabajadorPorGrupo } from '@/lib/trabajadoresApi'
@@ -256,15 +256,19 @@ export function RegistrarCaminata() {
     // puntual, que además la mayoría de caminatas no usa.
     const { generarCartaCompromisos360 } = await import('@/lib/cartaCompromisos360')
     const dni = dniDesdeLegajo(datosLider.legajo)
+    const zonaFinal = (profile?.zona_asignada as Zona | null) ?? zona ?? ''
+    const { firma: firmaSupervisor, nombre: supervisorNombre } = await obtenerFirmaSupervisorRrll(zonaFinal)
     return generarCartaCompromisos360(
       {
         fecha: fechaDoc,
         grupo: grupo || '',
         fundo: fundo || '',
         liderCosecha: datosLider.nombre_completo,
+        supervisorNombre,
         alertas: alertasReportadas,
       },
       { png: firmaPng, nombre: datosLider.nombre_completo, dni },
+      firmaSupervisor,
     )
   }
 
