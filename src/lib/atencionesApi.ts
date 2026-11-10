@@ -140,15 +140,21 @@ export async function cerrarCasoAtencion(
   return { error: error?.message ?? null }
 }
 
-// Cierra un compromiso pendiente de 360 Laboral (Compromisos > Cerrar
-// compromiso): a diferencia de "Cerrar caso" no usa un catálogo de acción
-// correctiva, solo el detalle de cómo se resolvió.
-export async function cerrarCompromiso(
-  id: string,
-  cambios: Pick<Atencion, 'resultado_compromiso' | 'fecha_cierre' | 'updated_at'>,
-): Promise<{ error: string | null }> {
-  const { error } = await supabase.from('atenciones').update({ ...cambios, estado: 'CERRADO' }).eq('id', id)
-  return { error: error?.message ?? null }
+// Una sola atención por id — usado por VerificarCompromisosModal para traer
+// la caminata 360 LABORAL raíz (alertas/compromisos originales a verificar)
+// cuando se verifica una ronda posterior, no la caminata original misma.
+export async function obtenerAtencion(id: string): Promise<Atencion | null> {
+  const { data, error } = await supabase.from('atenciones').select('*').eq('id', id).maybeSingle()
+  if (error || !data) return null
+  return data as Atencion
+}
+
+// Línea de tiempo de un compromiso de 360 Laboral (ver migración 0043):
+// la caminata original (id = raizId) + todas sus rondas de verificación
+// (caminata_origen_id = raizId), ordenadas por fecha.
+export async function listarCadenaCompromiso(raizId: string): Promise<Atencion[]> {
+  const { data } = await supabase.from('atenciones').select('*').or(`id.eq.${raizId},caminata_origen_id.eq.${raizId}`).order('fecha')
+  return (data as Atencion[]) ?? []
 }
 
 // Alcance automático de "Registrar caminata": cuenta legajos distintos

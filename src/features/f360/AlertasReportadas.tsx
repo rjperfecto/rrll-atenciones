@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
-import { categoriasAlerta360, subcategoriasAlerta360, nivelAlerta360 } from '@/data/formulario360'
+import { categoriasAlerta360, subcategoriasAlerta360, nivelAlerta360, SIN_COMPROMISO } from '@/data/formulario360'
 import { fechaCorta } from '@/lib/fechaLarga'
 import { GravedadBadge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
@@ -18,10 +18,9 @@ import type { AlertaReportada360 } from '@/types'
 
 // Toda alerta requiere ambos compromisos: si alguno no se generó, en vez de
 // dejarlo vacío o con texto libre variado ("NINGUNO", "N/A", ...) se marca
-// el checkbox correspondiente y queda esta frase fija, para no acumular
-// variantes (mismo criterio que ACCIONES_CORRECTIVAS en
+// el checkbox correspondiente y queda SIN_COMPROMISO (ver data/formulario360.ts),
+// para no acumular variantes (mismo criterio que ACCIONES_CORRECTIVAS en
 // src/data/accionCorrectiva.ts).
-const SIN_COMPROMISO = 'NO SE GENERÓ COMPROMISO'
 
 export function AlertasReportadas({
   valores,

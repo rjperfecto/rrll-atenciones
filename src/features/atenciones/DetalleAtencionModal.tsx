@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { AlertCircle, Download, Loader2, Share2 } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
@@ -7,6 +7,8 @@ import { descargarDocumentoFirmado } from '@/lib/documentosFirmadosApi'
 import { compartirDocumentoFirmado } from '@/lib/compartirWhatsapp'
 import { nombreArchivoFirmado } from '@/lib/plantillaTextos'
 import { fechaCorta } from '@/lib/fechaLarga'
+import { listarCadenaCompromiso } from '@/lib/atencionesApi'
+import { ETIQUETA_ESTADO_VERIFICACION } from '@/data/formulario360'
 import type { Atencion } from '@/types'
 
 function TablaAlertas({ atencion }: { atencion: Atencion }) {
@@ -27,12 +29,16 @@ function TablaAlertas({ atencion }: { atencion: Atencion }) {
                     <p className="text-xs text-neutral-500 mt-0.5">
                       Compromiso: {a.accion}
                       {a.fecha_verificacion && ` — Verificación: ${fechaCorta(a.fecha_verificacion)}`}
+                      {a.verificacion_lider && ` — ${ETIQUETA_ESTADO_VERIFICACION[a.verificacion_lider]}`}
+                      {a.verificacion_lider_detalle && `: ${a.verificacion_lider_detalle}`}
                     </p>
                   )}
                   {a.accion_rrll && (
                     <p className="text-xs text-neutral-500 mt-0.5">
                       Compromiso RRLL: {a.accion_rrll}
                       {a.fecha_verificacion_rrll && ` — Verificación: ${fechaCorta(a.fecha_verificacion_rrll)}`}
+                      {a.verificacion_rrll && ` — ${ETIQUETA_ESTADO_VERIFICACION[a.verificacion_rrll]}`}
+                      {a.verificacion_rrll_detalle && `: ${a.verificacion_rrll_detalle}`}
                     </p>
                   )}
                 </div>
@@ -126,6 +132,37 @@ function DescargarDocumentoFirmado({ path, nombreLider }: { path: string; nombre
   )
 }
 
+// Línea de tiempo del compromiso: la caminata original y cada ronda de
+// verificación posterior (ver migración 0043), para ver de un vistazo cómo
+// fue el seguimiento completo a este grupo, no solo el estado actual.
+function LineaTiempoCompromiso({ atencion }: { atencion: Atencion }) {
+  const [cadena, setCadena] = useState<Atencion[] | null>(null)
+
+  useEffect(() => {
+    const raizId = atencion.caminata_origen_id ?? atencion.id
+    void listarCadenaCompromiso(raizId).then(setCadena)
+  }, [atencion])
+
+  if (!cadena || cadena.length < 2) return null
+
+  return (
+    <div className="mt-4 pt-4 border-t border-neutral-200">
+      <p className="text-xs font-medium text-neutral-500 mb-2">Línea de tiempo del compromiso</p>
+      <ul className="space-y-2">
+        {cadena.map((paso) => (
+          <li key={paso.id} className="flex items-center gap-2 text-sm">
+            <span className={`size-2 rounded-full shrink-0 ${paso.id === atencion.id ? 'bg-brand' : 'bg-neutral-300'}`} />
+            <span className="text-neutral-800">{paso.fecha}</span>
+            <span className="text-xs text-neutral-500">{paso.caminata_origen_id ? 'Verificación' : 'Caminata'}</span>
+            <EstadoBadge estado={paso.estado} />
+            {paso.resultado_compromiso && <span className="text-xs text-neutral-500">· {paso.resultado_compromiso}</span>}
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
 export function DetalleAtencionModal({ atencion, onClose }: { atencion: Atencion; onClose: () => void }) {
   const involucrado = atencion.involucrados[0]
 
@@ -138,6 +175,9 @@ export function DetalleAtencionModal({ atencion, onClose }: { atencion: Atencion
     >
       <div className="flex items-center gap-2 mb-4">
         <span className="text-xs font-medium text-navy bg-navy-soft px-2 py-0.5 rounded-full">{atencion.tipo_registro}</span>
+        {atencion.caminata_origen_id && (
+          <span className="text-xs font-medium text-navy bg-navy-soft px-2 py-0.5 rounded-full">Verificación</span>
+        )}
         <GravedadBadge gravedad={atencion.gravedad} />
         <EstadoBadge estado={atencion.estado} />
       </div>
@@ -165,6 +205,10 @@ export function DetalleAtencionModal({ atencion, onClose }: { atencion: Atencion
 
       {atencion.tipo_registro === '360 LABORAL' && atencion.documento_firmado_path && (
         <DescargarDocumentoFirmado path={atencion.documento_firmado_path} nombreLider={atencion.lider_cosecha} />
+      )}
+
+      {atencion.tipo_registro === '360 LABORAL' && (atencion.compromiso_generado || atencion.caminata_origen_id) && (
+        <LineaTiempoCompromiso atencion={atencion} />
       )}
 
       {atencion.tipo_registro !== '360 LABORAL' && (

@@ -24,7 +24,7 @@ import { estadoDeCampo, CLASE_INPUT_POR_ESTADO } from '@/lib/campoEstado'
 import { conMayusculas } from '@/lib/conMayusculas'
 import { ZONAS } from '@/data/zonasFundos'
 import type { Zona } from '@/data/zonasFundos'
-import { PACKING_FUNDOS, TURNOS_360, TIPOS_ATENCION_360 } from '@/data/formulario360'
+import { PACKING_FUNDOS, TURNOS_360, TIPOS_ATENCION_360, SIN_COMPROMISO } from '@/data/formulario360'
 import { supRrllPorZona } from '@/data/supervisoresRrll'
 import { moduloDesdeFundo } from '@/lib/modulo'
 import { zonaDesdeFundo } from '@/lib/zonaFundo'
@@ -299,12 +299,19 @@ export function RegistrarCaminata() {
     const zonaFinal = (profile.zona_asignada as Zona | null) ?? values.zona
     const now = new Date().toISOString()
 
+    // Si al menos una alerta tiene un compromiso real del líder (no
+    // SIN_COMPROMISO), queda pendiente de verificación: nace ABIERTA en vez
+    // de CERRADA, con compromiso_generado=true para aparecer en Compromisos
+    // (ver contarCompromisosPendientes) hasta que se verifique (ver
+    // VerificarCompromisosModal).
+    const hayCompromisoLider = values.alertasReportadas.some((a) => a.accion && a.accion !== SIN_COMPROMISO)
+
     const atencion: Atencion = {
       id: crypto.randomUUID(),
       client_uuid: crypto.randomUUID(),
       tipo_registro: '360 LABORAL',
       fecha: values.fecha,
-      fecha_cierre: values.fecha,
+      fecha_cierre: hayCompromisoLider ? null : values.fecha,
       zona: zonaFinal,
       fundo: values.fundo,
       modulo: esPacking ? values.modulo || null : moduloDesdeFundo(values.fundo),
@@ -317,7 +324,7 @@ export function RegistrarCaminata() {
       gravedad: values.nivelConflictividad,
       comentarios: values.observaciones,
       involucrados: [],
-      estado: 'CERRADO',
+      estado: hayCompromisoLider ? 'ABIERTO' : 'CERRADO',
       accion_correctiva: null,
       dias_suspension: null,
       detalle_cierre: null,
@@ -334,14 +341,13 @@ export function RegistrarCaminata() {
       tipo_atencion_360: tipoAtencion,
       alertas_reportadas: values.alertasReportadas,
       alertas_360: null,
-      // Ya no se pide un detalle ni una acción general: cada alerta trae
-      // los suyos (ver AlertasReportadas). compromiso_generado/
-      // detalle_compromiso/fecha_fin_compromiso quedan null: la sección
-      // "Compromiso" se quitó del formulario (reemplazada por la Acción de
-      // cada alerta) y la caminata nace CERRADO. evidencia_360 queda null:
-      // la sección "Evidencia" se eliminó del formulario por no usarse.
+      // Ya no se pide un detalle ni una acción general: cada alerta trae los
+      // suyos (ver AlertasReportadas). detalle_compromiso/fecha_fin_compromiso
+      // quedan null acá (se llenan en la ronda de verificación si queda en
+      // seguimiento adicional). evidencia_360 queda null: la sección
+      // "Evidencia" se eliminó del formulario por no usarse.
       detalle_alerta: null,
-      compromiso_generado: null,
+      compromiso_generado: hayCompromisoLider,
       detalle_compromiso: null,
       fecha_fin_compromiso: null,
       evidencia_360: null,
@@ -350,6 +356,8 @@ export function RegistrarCaminata() {
       // sube y se completa con un update recién después de crear el caso
       // (necesita el id ya generado para nombrar el archivo).
       documento_firmado_path: null,
+      // Caminata original (no una ronda de verificación), ver migración 0043.
+      caminata_origen_id: null,
       created_at: now,
       updated_at: now,
     }

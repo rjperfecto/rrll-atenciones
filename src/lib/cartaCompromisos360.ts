@@ -1,35 +1,19 @@
-import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
-import type { PDFFont, PDFPage } from 'pdf-lib'
+import { PDFDocument, StandardFonts } from 'pdf-lib'
 import { fechaCorta } from './fechaLarga'
 import { textoFecha, textoDatos } from './plantillaTextos'
 import { dibujarBloqueFirma, type FirmaParaPdf } from './generarPdf'
+import { MARGEN, TAMANO_BASE, TAMANO_TITULO, ALTURA_LINEA, ALTURA_LINEA_TITULO, crearCursor, saltarPaginaSiNoEntra, espacio, linea, parrafo, listaNumerada } from './pdfComposer'
+import { SIN_COMPROMISO } from '@/data/formulario360'
 import type { AlertaReportada360 } from '@/types'
 
 // Carta de compromisos de la caminata 360 Laboral (reemplaza, para 360
 // Laboral, al documento firmado armado desde una Plantilla PDF subida a
 // mano): a diferencia de esa, acá no hay plantilla ni posiciones fijas —
-// la carta entera se arma desde cero con pdf-lib porque tiene 3 bloques de
-// largo variable (alertas, compromisos del líder, compromisos RRLL), según
-// cuántas alertas tenga la caminata, algo que un overlay de posiciones fijas
-// no puede representar. Si el contenido no entra en una página, se agregan
-// más automáticamente.
-
-const ANCHO_PAGINA = 595.28 // A4
-const ALTO_PAGINA = 841.89
-const MARGEN = 56
-const MARGEN_INFERIOR = 64
-const ANCHO_UTIL = ANCHO_PAGINA - MARGEN * 2
-
-const TAMANO_BASE = 10.5
-const TAMANO_TITULO = 11.5
-const ALTURA_LINEA = TAMANO_BASE * 1.35
-const ALTURA_LINEA_TITULO = TAMANO_TITULO * 1.35
-
-// Mismo texto exacto que el checkbox "No se generó compromiso" de
-// AlertasReportadas.tsx: así una alerta sin compromiso real queda listada
-// (mantiene la numeración 1:1 con "Alertas encontradas") pero sin el sufijo
-// de fecha de verificación, que no aplica.
-const SIN_COMPROMISO = 'NO SE GENERÓ COMPROMISO'
+// la carta entera se arma desde cero con pdf-lib (ver pdfComposer.ts)
+// porque tiene 3 bloques de largo variable (alertas, compromisos del
+// líder, compromisos RRLL), según cuántas alertas tenga la caminata, algo
+// que un overlay de posiciones fijas no puede representar. Si el contenido
+// no entra en una página, se agregan más automáticamente.
 
 export interface DatosCartaCompromisos360 {
   fecha: string // YYYY-MM-DD, fecha de la caminata
@@ -38,78 +22,6 @@ export interface DatosCartaCompromisos360 {
   liderCosecha: string
   celularLider: string | null
   alertas: AlertaReportada360[]
-}
-
-interface Cursor {
-  pagina: PDFPage
-  y: number
-}
-
-function nuevaPagina(pdfDoc: PDFDocument): PDFPage {
-  return pdfDoc.addPage([ANCHO_PAGINA, ALTO_PAGINA])
-}
-
-// Corta un texto en líneas que entran en anchoMax, midiendo con la fuente
-// real (no por cantidad de caracteres) — mismo criterio de medición que ya
-// usa el pie de firma (fuente.widthOfTextAtSize) en generarPdf.ts.
-function partirLineas(texto: string, fuente: PDFFont, tamano: number, anchoMax: number): string[] {
-  const palabras = texto.split(/\s+/).filter(Boolean)
-  const lineas: string[] = []
-  let actual = ''
-  for (const palabra of palabras) {
-    const candidato = actual ? `${actual} ${palabra}` : palabra
-    if (actual && fuente.widthOfTextAtSize(candidato, tamano) > anchoMax) {
-      lineas.push(actual)
-      actual = palabra
-    } else {
-      actual = candidato
-    }
-  }
-  if (actual) lineas.push(actual)
-  return lineas.length > 0 ? lineas : ['']
-}
-
-function saltarPaginaSiNoEntra(pdfDoc: PDFDocument, cursor: Cursor, alturaNecesaria: number) {
-  if (cursor.y - alturaNecesaria < MARGEN_INFERIOR) {
-    cursor.pagina = nuevaPagina(pdfDoc)
-    cursor.y = ALTO_PAGINA - MARGEN
-  }
-}
-
-function espacio(cursor: Cursor, alto: number) {
-  cursor.y -= alto
-}
-
-// Una línea simple (sin wrap: encabezados cortos tipo "CHAO, ..." o
-// "PRESENTE. -"), con su propio salto de página si no entra.
-function linea(pdfDoc: PDFDocument, cursor: Cursor, texto: string, fuente: PDFFont, tamano: number, alturaLinea: number) {
-  saltarPaginaSiNoEntra(pdfDoc, cursor, alturaLinea)
-  cursor.pagina.drawText(texto, { x: MARGEN, y: cursor.y, size: tamano, font: fuente, color: rgb(0, 0, 0) })
-  cursor.y -= alturaLinea
-}
-
-// Párrafo con salto de línea automático al ancho útil de la página.
-function parrafo(pdfDoc: PDFDocument, cursor: Cursor, texto: string, fuente: PDFFont, tamano: number, alturaLinea: number) {
-  for (const l of partirLineas(texto, fuente, tamano, ANCHO_UTIL)) {
-    linea(pdfDoc, cursor, l, fuente, tamano, alturaLinea)
-  }
-}
-
-// Lista numerada "1. texto..." con sangría colgante: si un ítem se parte en
-// varias líneas, las de continuación quedan alineadas bajo el texto, no
-// bajo el número.
-function listaNumerada(pdfDoc: PDFDocument, cursor: Cursor, items: string[], fuente: PDFFont, tamano: number) {
-  items.forEach((item, i) => {
-    const prefijo = `${i + 1}. `
-    const sangria = fuente.widthOfTextAtSize(prefijo, tamano)
-    const lineas = partirLineas(item, fuente, tamano, ANCHO_UTIL - sangria)
-    lineas.forEach((l, j) => {
-      saltarPaginaSiNoEntra(pdfDoc, cursor, ALTURA_LINEA)
-      const x = MARGEN + (j === 0 ? 0 : sangria)
-      cursor.pagina.drawText(j === 0 ? `${prefijo}${l}` : l, { x, y: cursor.y, size: tamano, font: fuente, color: rgb(0, 0, 0) })
-      cursor.y -= ALTURA_LINEA
-    })
-  })
 }
 
 function lineaCompromiso(texto: string, fechaVerificacion: string): string {
@@ -127,7 +39,7 @@ export async function generarCartaCompromisos360(datos: DatosCartaCompromisos360
   const fuenteNegrita = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
   const imagenFirma = await pdfDoc.embedPng(firma.png)
 
-  const cursor: Cursor = { pagina: nuevaPagina(pdfDoc), y: ALTO_PAGINA - MARGEN }
+  const cursor = crearCursor(pdfDoc)
 
   linea(pdfDoc, cursor, textoFecha(datos.fecha), fuenteNegrita, TAMANO_BASE, ALTURA_LINEA)
   espacio(cursor, 6)

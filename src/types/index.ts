@@ -1,4 +1,5 @@
 import type { Gravedad, Tipo } from '@/data/categorizacion'
+import type { EstadoVerificacionCompromiso } from '@/data/formulario360'
 
 export type Estado = 'ABIERTO' | 'CERRADO'
 export type Rol = 'CAMPO' | 'ADMIN' | 'SUPERVISOR'
@@ -90,6 +91,14 @@ export interface AlertaReportada360 {
   // compromiso correspondiente es "NO SE GENERÓ COMPROMISO" (no aplica).
   fecha_verificacion: string
   fecha_verificacion_rrll: string
+  // Resultado de verificar este compromiso en una ronda de verificación
+  // (ver caminata_origen_id en Atencion y VerificarCompromisosModal):
+  // ausentes en la caminata original y se completan recién en el registro
+  // de la ronda de verificación correspondiente.
+  verificacion_lider?: EstadoVerificacionCompromiso
+  verificacion_lider_detalle?: string
+  verificacion_rrll?: EstadoVerificacionCompromiso
+  verificacion_rrll_detalle?: string
 }
 
 export interface Atencion {
@@ -136,24 +145,35 @@ export interface Atencion {
   // ninguno de los dos.
   alertas_360: string[] | null
   detalle_alerta: string | null
-  // Legado: la sección "Compromiso" (generaba un caso pendiente hasta
-  // cerrarlo en Compromisos) se quitó del formulario — cada alerta trae su
-  // propia Acción (ver alertas_reportadas) y la caminata nace CERRADO. Los
-  // compromisos pendientes de antes de este cambio siguen viéndose y
-  // cerrándose igual (ver CompromisosList / CerrarCompromisoModal).
+  // compromiso_generado = true cuando alguna alerta tiene un compromiso real
+  // del líder (no "NO SE GENERÓ COMPROMISO"): la caminata nace ABIERTA en
+  // vez de CERRADA, y queda pendiente en Compromisos hasta verificarla (ver
+  // VerificarCompromisosModal). fecha_fin_compromiso se usa como "nueva
+  // fecha de verificación" cuando una ronda termina en seguimiento
+  // adicional (sigue ABIERTO). detalle_compromiso es legado, de antes de
+  // que el compromiso viviera en cada alerta.
   compromiso_generado: boolean | null
   detalle_compromiso: string | null
   fecha_fin_compromiso: string | null
   // Legado: la sección "Evidencia" se eliminó del formulario por no
   // usarse. Solo queda para no perder el dato de registros viejos.
   evidencia_360: string | null
-  // Se llena al cerrar un compromiso pendiente (ver CerrarCompromisoModal),
-  // igual que accion_correctiva/detalle_cierre para Atenciones normales.
+  // Resultado general de la última ronda de verificación de este caso
+  // ("CIERRE EFECTIVO" o "SEGUIMIENTO ADICIONAL", ver resultado_compromiso
+  // en VerificarCompromisosModal) — igual que accion_correctiva/
+  // detalle_cierre para Atenciones normales.
   resultado_compromiso: string | null
-  // Documento firmado por el líder al registrar la caminata (ver migración
-  // 0039 y RegistrarCaminata.tsx): ruta dentro del bucket privado
-  // "documentos-firmados", null si no se firmó nada.
+  // Documento firmado por el líder al registrar la caminata, o carta de
+  // verificación + firma del trabajador en una ronda de verificación (ver
+  // migración 0039 y RegistrarCaminata.tsx/VerificarCompromisosModal): ruta
+  // dentro del bucket privado "documentos-firmados", null si no se firmó nada.
   documento_firmado_path: string | null
+  // Si no es null, este registro es una RONDA DE VERIFICACIÓN de
+  // compromisos (no una caminata original): apunta siempre a la caminata
+  // 360 LABORAL raíz de la cadena (nunca a otra ronda intermedia), para
+  // poder armar la línea de tiempo completa con una sola consulta (ver
+  // listarCadenaCompromiso en atencionesApi.ts). Migración 0043.
+  caminata_origen_id: string | null
   created_at: string
   updated_at: string
 }

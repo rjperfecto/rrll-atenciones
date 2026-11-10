@@ -142,6 +142,7 @@ export function AtencionForm() {
       evidencia_360: null,
       resultado_compromiso: null,
       documento_firmado_path: null,
+      caminata_origen_id: null,
       created_at: now,
       updated_at: now,
     }

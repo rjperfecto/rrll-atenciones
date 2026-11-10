@@ -20,7 +20,7 @@ import {
 import { listarAtencionesPaginado, listarAtencionesParaExportar, eliminarAtencion, type FiltrosAtenciones } from '@/lib/atencionesApi'
 import { exportar360LaboralXlsx, exportarDetalleAlertas360Xlsx } from '@/lib/exportXlsx'
 import { useAuth } from '@/features/auth/AuthContext'
-import { CerrarCompromisoModal } from './CerrarCompromisoModal'
+import { VerificarCompromisosModal } from './VerificarCompromisosModal'
 import { DetalleAtencionModal } from '@/features/atenciones/DetalleAtencionModal'
 import { EditarAtencionModal } from '@/features/atenciones/EditarAtencionModal'
 import { ZONAS } from '@/data/zonasFundos'
@@ -39,7 +39,7 @@ const TIPOS_BASE = ['360 LABORAL']
 export function CompromisosList() {
   const { profile } = useAuth()
   const [searchParams] = useSearchParams()
-  const [cerrando, setCerrando] = useState<Atencion | null>(null)
+  const [verificando, setVerificando] = useState<Atencion | null>(null)
   const [viendoDetalle, setViendoDetalle] = useState<Atencion | null>(null)
   const [editando, setEditando] = useState<Atencion | null>(null)
   const [busqueda, setBusqueda] = useState(() => searchParams.get('q') ?? '')
@@ -296,6 +296,9 @@ export function CompromisosList() {
                       <span className="text-sm font-medium text-neutral-900">{a.fecha}</span>
                       <span className="text-xs text-neutral-500">{a.zona}</span>
                       {a.fundo && <span className="text-xs text-neutral-500">· {a.fundo}</span>}
+                      {a.caminata_origen_id && (
+                        <span className="text-[11px] font-medium text-navy bg-navy-soft px-2 py-0.5 rounded-full">Verificación</span>
+                      )}
                       <span className="ml-auto flex items-center gap-2">
                         <GravedadBadge gravedad={a.gravedad} />
                         <EstadoBadge estado={a.estado} />
@@ -312,9 +315,9 @@ export function CompromisosList() {
                         Ver detalles
                       </Button>
                       {compromisoPendiente && (
-                        <Button onClick={() => setCerrando(a)}>
+                        <Button onClick={() => setVerificando(a)}>
                           <Clock className="size-4" />
-                          Cerrar compromiso
+                          Verificar compromisos
                         </Button>
                       )}
                       {puedeGestionar && (
@@ -352,11 +355,11 @@ export function CompromisosList() {
         </>
       )}
 
-      {cerrando && (
-        <CerrarCompromisoModal
-          atencion={cerrando}
+      {verificando && (
+        <VerificarCompromisosModal
+          atencion={verificando}
           onClose={() => {
-            setCerrando(null)
+            setVerificando(null)
             void cargar()
           }}
         />

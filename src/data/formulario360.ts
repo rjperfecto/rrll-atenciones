@@ -14,6 +14,29 @@ export type Turno360 = (typeof TURNOS_360)[number]
 export const TIPOS_ATENCION_360 = ['CONVERSATORIO', 'SEGUIMIENTO', 'COMPROMISO'] as const
 export type TipoAtencion360 = (typeof TIPOS_ATENCION_360)[number]
 
+// Mismo texto exacto del checkbox "No se generó compromiso" de
+// AlertasReportadas.tsx y de la Carta de compromisos (cartaCompromisos360.ts):
+// centralizado acá porque también lo necesita la verificación de
+// compromisos (RegistrarCaminata, cartaVerificacion360.ts) para saber qué
+// alertas sí tienen un compromiso real que verificar.
+export const SIN_COMPROMISO = 'NO SE GENERÓ COMPROMISO'
+
+// Resultado de verificar un compromiso puntual (líder o RRLL) en una ronda
+// de verificación (ver VerificarCompromisosModal / migración 0043).
+export const ESTADOS_VERIFICACION_COMPROMISO = ['CUMPLIDO', 'PARCIAL', 'NO_CUMPLIDO'] as const
+export type EstadoVerificacionCompromiso = (typeof ESTADOS_VERIFICACION_COMPROMISO)[number]
+
+export const ETIQUETA_ESTADO_VERIFICACION: Record<EstadoVerificacionCompromiso, string> = {
+  CUMPLIDO: 'Cumplido',
+  PARCIAL: 'Parcial',
+  NO_CUMPLIDO: 'No cumplido',
+}
+
+// Resultado general de una ronda de verificación: si se cierra el
+// seguimiento o se mantiene abierto con una nueva fecha de verificación.
+export const RESULTADOS_VERIFICACION = ['CIERRE_EFECTIVO', 'SEGUIMIENTO_ADICIONAL'] as const
+export type ResultadoVerificacion = (typeof RESULTADOS_VERIFICACION)[number]
+
 // Catálogo Categoría -> Subcategoría -> Nivel de las alertas de 360 Laboral
 // (reemplaza el checkbox plano ALERTAS_360). Cada sesión puede reportar
 // varias alertas, cada una con la cantidad de personal que la reportó (ver
