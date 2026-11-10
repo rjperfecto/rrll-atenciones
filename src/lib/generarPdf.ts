@@ -18,7 +18,11 @@ const INTERLINEA_PIE_FIRMA = 9.5
 export interface FirmaParaPdf {
   png: Uint8Array
   nombre: string
-  dni: string
+  // Los trabajadores (firmas de la caminata 360) sí tienen DNI (se deriva
+  // del legajo); los usuarios de la plataforma (firmas de Herramientas >
+  // Documento, ver firmasPersonalApi.ts) no tienen DNI guardado en el
+  // sistema — en ese caso se omite la línea "DNI: ..." del pie de firma.
+  dni?: string
 }
 
 // Trazo (escalado sin deformar, apoyado sobre una línea) + nombre + DNI
@@ -56,7 +60,7 @@ export function dibujarBloqueFirma(
     pagina.drawText(texto, { x: x + (ancho - anchoTexto) / 2, y, size: TAMANO_PIE_FIRMA, font: fuente, color: rgb(0, 0, 0) })
   }
   centrado(firma.nombre.toUpperCase(), yLinea - INTERLINEA_PIE_FIRMA)
-  centrado(`DNI: ${firma.dni}`, yLinea - INTERLINEA_PIE_FIRMA * 2)
+  if (firma.dni) centrado(`DNI: ${firma.dni}`, yLinea - INTERLINEA_PIE_FIRMA * 2)
 }
 
 export async function generarPdfConDatos(

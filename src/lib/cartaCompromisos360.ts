@@ -131,7 +131,7 @@ export async function generarCartaCompromisos360(datos: DatosCartaCompromisos360
 
   linea(pdfDoc, cursor, textoFecha(datos.fecha), fuenteNegrita, TAMANO_BASE, ALTURA_LINEA)
   espacio(cursor, 6)
-  for (const l of textoDatos(firma.nombre, firma.dni, datos.celularLider || 'SIN REGISTRAR').split('\n')) {
+  for (const l of textoDatos(firma.nombre, firma.dni ?? '', datos.celularLider || 'SIN REGISTRAR').split('\n')) {
     linea(pdfDoc, cursor, l, fuenteNegrita, TAMANO_BASE, ALTURA_LINEA)
   }
   espacio(cursor, 14)

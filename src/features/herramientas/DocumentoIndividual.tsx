@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { AlertCircle, CheckCircle2, Download, Loader2, PenLine, Search } from 'lucide-react'
 import { buscarPorLegajo, type ResultadoTrabajador } from '@/lib/busquedaApi'
 import { descargarBytesPlantilla } from '@/lib/plantillasApi'
@@ -6,6 +6,7 @@ import { obtenerFirmaPersonal, descargarBytesFirmaPersonal, type FirmaPersonal }
 import { generarPdfConDatos, descargarPdf, type FirmaParaPdf } from '@/lib/generarPdf'
 import { textoDatos, textoFecha } from '@/lib/plantillaTextos'
 import { LEGAJO_REGEX, dniDesdeLegajo } from '@/data/legajo'
+import { useAuth } from '@/features/auth/AuthContext'
 import { SelectorPlantilla } from './SelectorPlantilla'
 import { CardSection, Card } from '@/components/ui/Card'
 import { Field } from '@/components/ui/Field'
@@ -17,10 +18,14 @@ function hoy() {
 }
 
 export function DocumentoIndividual({ plantillas }: { plantillas: PlantillaPdf[] | null }) {
+  const { profile } = useAuth()
   const [plantillaId, setPlantillaId] = useState('')
   const [legajo, setLegajo] = useState('')
   const [fecha, setFecha] = useState(hoy())
   const [trabajador, setTrabajador] = useState<ResultadoTrabajador | null>(null)
+  // Firma del responsable logueado (Administración > Firmas de personal),
+  // no del trabajador destinatario del documento — se trae una sola vez,
+  // no depende de a quién se le esté generando el PDF.
   const [firma, setFirma] = useState<FirmaPersonal | null>(null)
   const [buscando, setBuscando] = useState(false)
   const [errorBusqueda, setErrorBusqueda] = useState<string | null>(null)
@@ -31,25 +36,27 @@ export function DocumentoIndividual({ plantillas }: { plantillas: PlantillaPdf[]
   const plantilla = plantillas?.find((p) => p.id === plantillaId) ?? null
   const plantillaIncompleta = plantilla !== null && plantilla.posiciones.length === 0
 
+  useEffect(() => {
+    if (profile) void obtenerFirmaPersonal(profile.id).then(setFirma)
+  }, [profile])
+
   async function buscar() {
     const texto = legajo.trim()
     setErrorBusqueda(null)
     setTrabajador(null)
-    setFirma(null)
     setGenerado(false)
     if (!LEGAJO_REGEX.test(texto)) {
       setErrorBusqueda('El legajo debe empezar con "10" seguido del DNI (8 dígitos).')
       return
     }
     setBuscando(true)
-    const [r, firmaEncontrada] = await Promise.all([buscarPorLegajo(texto), obtenerFirmaPersonal(texto)])
+    const r = await buscarPorLegajo(texto)
     setBuscando(false)
     if (!r) {
       setErrorBusqueda(`No encontré personal registrado con el legajo "${texto}".`)
       return
     }
     setTrabajador(r)
-    setFirma(firmaEncontrada)
   }
 
   async function generar() {
@@ -64,14 +71,14 @@ export function DocumentoIndividual({ plantillas }: { plantillas: PlantillaPdf[]
         datos: textoDatos(trabajador.nombre_completo, dniDesdeLegajo(trabajador.legajo), trabajador.telefono ?? ''),
         fecha: textoFecha(fecha),
       }
-      // Si el trabajador tiene una firma guardada (Administración > Firmas de
-      // personal), se inserta sola en el campo "firma" de la plantilla; si no
-      // tiene, ese campo queda vacío, igual que antes.
+      // Si el responsable logueado tiene una firma guardada (Administración
+      // > Firmas de personal), se inserta sola en el campo "firma" de la
+      // plantilla; si no tiene, ese campo queda vacío, igual que antes.
       let datosFirma: FirmaParaPdf | null = null
-      if (firma) {
+      if (firma && profile) {
         const { bytes: firmaBytes } = await descargarBytesFirmaPersonal(firma.storage_path)
         if (firmaBytes) {
-          datosFirma = { png: new Uint8Array(firmaBytes), nombre: trabajador.nombre_completo, dni: dniDesdeLegajo(trabajador.legajo) }
+          datosFirma = { png: new Uint8Array(firmaBytes), nombre: profile.nombre_completo }
         }
       }
       const pdfBytes = await generarPdfConDatos(bytes, plantilla.posiciones, valores, datosFirma)
@@ -128,14 +135,6 @@ export function DocumentoIndividual({ plantillas }: { plantillas: PlantillaPdf[]
             <p className="text-xs text-neutral-500">
               Celular: {trabajador.telefono ?? <span className="italic text-neutral-400">sin registrar</span>}
             </p>
-            <p className="text-xs flex items-center gap-1.5 pt-0.5">
-              <PenLine className="size-3.5 shrink-0" />
-              {firma ? (
-                <span className="text-success">Tiene firma guardada, se va a usar en el PDF.</span>
-              ) : (
-                <span className="text-neutral-400">Sin firma guardada (el campo de firma quedará vacío).</span>
-              )}
-            </p>
           </Card>
         )}
 
@@ -144,6 +143,17 @@ export function DocumentoIndividual({ plantillas }: { plantillas: PlantillaPdf[]
         </Field>
         <p className="text-xs text-neutral-400">Se va a imprimir como "{textoFecha(fecha)}".</p>
       </CardSection>
+
+      <p className="text-xs flex items-center gap-1.5">
+        <PenLine className="size-3.5 shrink-0" />
+        {firma ? (
+          <span className="text-success">Tienes una firma guardada, se va a usar en el campo de firma del PDF.</span>
+        ) : (
+          <span className="text-neutral-400">
+            No tienes firma guardada (Administración &gt; Firmas de personal) — el campo de firma quedará vacío.
+          </span>
+        )}
+      </p>
 
       {errorGenerar && (
         <p className="text-sm text-danger flex items-center gap-1.5">
