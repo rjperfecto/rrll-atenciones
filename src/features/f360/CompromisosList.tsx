@@ -17,17 +17,18 @@ import {
   Trash2,
   X,
 } from 'lucide-react'
-import { listarAtencionesPaginado, listarAtencionesParaExportar, eliminarAtencion, type FiltrosAtenciones } from '@/lib/atencionesApi'
+import { listarAtencionesParaExportar, eliminarAtencion, type FiltrosAtenciones } from '@/lib/atencionesApi'
 import { exportar360LaboralXlsx, exportarDetalleAlertas360Xlsx } from '@/lib/exportXlsx'
 import { useAuth } from '@/features/auth/AuthContext'
 import { VerificarCompromisosModal } from './VerificarCompromisosModal'
 import { DetalleAtencionModal } from '@/features/atenciones/DetalleAtencionModal'
 import { EditarAtencionModal } from '@/features/atenciones/EditarAtencionModal'
 import { ZONAS } from '@/data/zonasFundos'
+import { SIN_COMPROMISO, type EstadoVerificacionCompromiso } from '@/data/formulario360'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { PageHeader } from '@/components/ui/PageHeader'
-import { GravedadBadge, EstadoBadge } from '@/components/ui/Badge'
+import { EstadoBadge } from '@/components/ui/Badge'
 import { cn } from '@/lib/cn'
 import { estadoDeCampo, CLASE_INPUT_POR_ESTADO } from '@/lib/campoEstado'
 import type { Atencion, Estado } from '@/types'
@@ -35,6 +36,54 @@ import type { Atencion, Estado } from '@/types'
 const PAGE_SIZE = 10
 const ESTADOS: Estado[] = ['ABIERTO', 'CERRADO']
 const TIPOS_BASE = ['360 LABORAL']
+
+// Un compromiso de 360 Laboral es una cadena de visitas al mismo grupo: la
+// caminata original (raiz) y cada ronda de verificación posterior (ver
+// migración 0043), ordenadas en el tiempo. "estadoActual" es el de la
+// última ronda (no el de la raíz, que siempre queda CERRADO apenas se
+// verifica — ver VerificarCompromisosModal), es el que importa para saber
+// si el compromiso sigue pendiente.
+interface CadenaCompromiso {
+  raizId: string
+  pasos: Atencion[]
+  ultimoPaso: Atencion
+  estadoActual: Estado
+}
+
+function agruparEnCadenas(atenciones: Atencion[]): CadenaCompromiso[] {
+  const mapa = new Map<string, Atencion[]>()
+  for (const a of atenciones) {
+    const raizId = a.caminata_origen_id ?? a.id
+    const lista = mapa.get(raizId) ?? []
+    lista.push(a)
+    mapa.set(raizId, lista)
+  }
+  const cadenas: CadenaCompromiso[] = []
+  for (const [raizId, pasos] of mapa) {
+    pasos.sort((a, b) => a.fecha.localeCompare(b.fecha) || a.created_at.localeCompare(b.created_at))
+    const ultimoPaso = pasos[pasos.length - 1]
+    cadenas.push({ raizId, pasos, ultimoPaso, estadoActual: ultimoPaso.estado })
+  }
+  // Más reciente actividad primero, mismo orden que el historial plano de antes.
+  cadenas.sort((a, b) => b.ultimoPaso.fecha.localeCompare(a.ultimoPaso.fecha))
+  return cadenas
+}
+
+function resumenPaso(a: Atencion): string {
+  if (!a.caminata_origen_id) {
+    const compromisos = a.alertas_reportadas.filter((al) => al.accion && al.accion !== SIN_COMPROMISO).length
+    return `${a.alertas_reportadas.length} alerta${a.alertas_reportadas.length === 1 ? '' : 's'}, ${compromisos} compromiso${compromisos === 1 ? '' : 's'} del líder`
+  }
+  const estados = a.alertas_reportadas
+    .flatMap((al) => [al.verificacion_lider, al.verificacion_rrll])
+    .filter((e): e is EstadoVerificacionCompromiso => Boolean(e))
+  const cumplidos = estados.filter((e) => e === 'CUMPLIDO').length
+  const pendientes = estados.length - cumplidos
+  let texto = `${cumplidos} cumplido${cumplidos === 1 ? '' : 's'}`
+  if (pendientes > 0) texto += `, ${pendientes} pendiente${pendientes === 1 ? '' : 's'}`
+  if (a.fecha_fin_compromiso) texto += ` — próxima verificación: ${a.fecha_fin_compromiso}`
+  return texto
+}
 
 export function CompromisosList() {
   const { profile } = useAuth()
@@ -49,8 +98,7 @@ export function CompromisosList() {
   const [filtroDesde, setFiltroDesde] = useState('')
   const [filtroHasta, setFiltroHasta] = useState('')
   const [pagina, setPagina] = useState(1)
-  const [atenciones, setAtenciones] = useState<Atencion[] | null>(null)
-  const [total, setTotal] = useState(0)
+  const [cadenas, setCadenas] = useState<CadenaCompromiso[] | null>(null)
   const [cargando, setCargando] = useState(false)
   const [exportando, setExportando] = useState(false)
   const [exportandoDetalle, setExportandoDetalle] = useState(false)
@@ -72,39 +120,47 @@ export function CompromisosList() {
   const rangoFechaInvalido = Boolean(filtroDesde && filtroHasta && filtroDesde > filtroHasta)
   const mensajeRango = rangoFechaInvalido ? '"Desde" no puede ser posterior a "Hasta"' : undefined
 
+  // El filtro de Estado no se manda al servidor: se aplica después de armar
+  // las cadenas, contra el estado de la ÚLTIMA ronda (la raíz casi siempre
+  // queda CERRADA apenas se verifica una vez, ver VerificarCompromisosModal).
   const filtros: FiltrosAtenciones = {
     busqueda: busquedaDebounced || undefined,
-    estado: filtroEstado || undefined,
     zona: filtroZona || undefined,
     desde: filtroDesde || undefined,
     hasta: filtroHasta || undefined,
   }
   const filtrosClave = JSON.stringify(filtros)
 
+  // Compromisos se arma como línea de tiempo por grupo (caminata original +
+  // sus rondas de verificación, ver agruparEnCadenas): a diferencia del
+  // Historial de Atenciones, acá no alcanza con paginar filas sueltas en el
+  // servidor porque una ronda y su caminata original tienen que verse
+  // juntas. 360 Laboral es un subconjunto acotado de la tabla, así que se
+  // trae todo lo que matchea los filtros de una vez y se pagina por cadena
+  // (no por fila) en el navegador.
   const cargar = useCallback(async () => {
     if (!profile || rangoFechaInvalido) return
     setCargando(true)
-    const { data, total: totalNuevo, error } = await listarAtencionesPaginado(
-      profile.id,
-      puedeVerTodo,
-      JSON.parse(filtrosClave),
-      pagina,
-      PAGE_SIZE,
-      TIPOS_BASE,
-    )
-    setAtenciones(data)
-    setTotal(totalNuevo)
-    setErrorCarga(error)
+    const { data, error } = await listarAtencionesParaExportar(profile.id, puedeVerTodo, JSON.parse(filtrosClave), TIPOS_BASE)
+    if (error) {
+      setErrorCarga(error)
+      setCargando(false)
+      return
+    }
+    setErrorCarga(null)
+    setCadenas(agruparEnCadenas(data))
     setCargando(false)
-    if (data.length === 0 && totalNuevo > 0 && pagina > 1) setPagina(1)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile, rangoFechaInvalido, filtrosClave, pagina])
+  }, [profile, puedeVerTodo, rangoFechaInvalido, filtrosClave])
 
   useEffect(() => {
     void cargar()
   }, [cargar])
 
+  const cadenasFiltradas = (cadenas ?? []).filter((c) => !filtroEstado || c.estadoActual === filtroEstado)
+  const total = cadenasFiltradas.length
   const totalPaginas = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  const cadenasPagina = cadenasFiltradas.slice((pagina - 1) * PAGE_SIZE, pagina * PAGE_SIZE)
   const hayFiltrosActivos = Boolean(busqueda || filtroEstado || filtroZona || filtroDesde || filtroHasta)
   const estadoBusqueda = estadoDeCampo(busqueda)
   const estadoFiltroEstado = estadoDeCampo(filtroEstado)
@@ -142,10 +198,13 @@ export function CompromisosList() {
     void cargar()
   }
 
+  // A diferencia de la vista agrupada (que filtra Estado por la última
+  // ronda), el Excel exporta filas sueltas: acá Estado sí se manda tal cual
+  // al servidor, filtra por el estado propio de cada fila.
   async function exportar() {
     if (!profile) return
     setExportando(true)
-    const { data, error } = await listarAtencionesParaExportar(profile.id, puedeVerTodo, filtros, TIPOS_BASE)
+    const { data, error } = await listarAtencionesParaExportar(profile.id, puedeVerTodo, { ...filtros, estado: filtroEstado || undefined }, TIPOS_BASE)
     if (!error) exportar360LaboralXlsx(data)
     setExportando(false)
   }
@@ -153,7 +212,7 @@ export function CompromisosList() {
   async function exportarDetalle() {
     if (!profile) return
     setExportandoDetalle(true)
-    const { data, error } = await listarAtencionesParaExportar(profile.id, puedeVerTodo, filtros, TIPOS_BASE)
+    const { data, error } = await listarAtencionesParaExportar(profile.id, puedeVerTodo, { ...filtros, estado: filtroEstado || undefined }, TIPOS_BASE)
     if (!error) exportarDetalleAlertas360Xlsx(data)
     setExportandoDetalle(false)
   }
@@ -172,13 +231,13 @@ export function CompromisosList() {
     )
   }
 
-  if (!atenciones) return <p className="text-sm text-neutral-500">Cargando...</p>
+  if (!cadenas) return <p className="text-sm text-neutral-500">Cargando...</p>
 
   return (
     <div>
       <div className="flex items-start justify-between gap-3 flex-wrap mb-4">
-        <PageHeader title="Compromisos" description={`${total} caminata${total === 1 ? '' : 's'} de 360 Laboral`} />
-        {total > 0 && (
+        <PageHeader title="Compromisos" description={`${total} grupo${total === 1 ? '' : 's'} en seguimiento de 360 Laboral`} />
+        {cadenas.length > 0 && (
           <div className="flex gap-2 flex-wrap">
             <Button variant="secondary" onClick={exportar} loading={exportando}>
               <Download className="size-4" />
@@ -192,7 +251,7 @@ export function CompromisosList() {
         )}
       </div>
 
-      {total === 0 && !hayFiltrosActivos ? (
+      {cadenas.length === 0 && !hayFiltrosActivos ? (
         <Card className="p-10 flex flex-col items-center text-center gap-2">
           <Inbox className="size-10 text-neutral-300" />
           <p className="text-sm font-medium text-neutral-700">Todavía no hay caminatas registradas</p>
@@ -281,56 +340,78 @@ export function CompromisosList() {
           ) : total === 0 ? (
             <Card className="p-10 flex flex-col items-center text-center gap-2">
               <SearchX className="size-10 text-neutral-300" />
-              <p className="text-sm font-medium text-neutral-700">Ninguna caminata coincide con los filtros</p>
+              <p className="text-sm font-medium text-neutral-700">Ningún compromiso coincide con los filtros</p>
               <button onClick={limpiarFiltros} className="text-sm text-brand hover:underline">
                 Limpiar filtros
               </button>
             </Card>
           ) : (
-            <div className="space-y-3">
-              {atenciones.map((a) => {
-                const compromisoPendiente = a.compromiso_generado && a.estado !== 'CERRADO'
+            <div className="space-y-4">
+              {cadenasPagina.map((cadena) => {
+                const raiz = cadena.pasos[0]
+                const esFinal = (paso: Atencion) => paso.id === cadena.ultimoPaso.id
                 return (
-                  <div key={a.id} className="rounded-lg border border-neutral-200 bg-white p-4 shadow-sm">
-                    <div className="flex flex-wrap items-center gap-2 mb-2">
-                      <span className="text-sm font-medium text-neutral-900">{a.fecha}</span>
-                      <span className="text-xs text-neutral-500">{a.zona}</span>
-                      {a.fundo && <span className="text-xs text-neutral-500">· {a.fundo}</span>}
-                      {a.caminata_origen_id && (
-                        <span className="text-[11px] font-medium text-navy bg-navy-soft px-2 py-0.5 rounded-full">Verificación</span>
-                      )}
-                      <span className="ml-auto flex items-center gap-2">
-                        <GravedadBadge gravedad={a.gravedad} />
-                        <EstadoBadge estado={a.estado} />
+                  <div key={cadena.raizId} className="rounded-lg border border-neutral-200 bg-white p-4 shadow-sm">
+                    <div className="flex flex-wrap items-center gap-2 mb-3">
+                      <span className="text-sm font-semibold text-neutral-900">
+                        {raiz.zona === 'PACKING' ? `Packing: ${raiz.fundo ?? ''}` : raiz.lider_cosecha || raiz.fundo || raiz.grupo}
+                      </span>
+                      <span className="text-xs text-neutral-500">{raiz.zona}</span>
+                      {raiz.grupo && <span className="text-xs text-neutral-500">· Grupo {raiz.grupo}</span>}
+                      <span className="ml-auto">
+                        <EstadoBadge estado={cadena.estadoActual} />
                       </span>
                     </div>
-                    <p className="text-sm text-neutral-600">
-                      {a.zona === 'PACKING' ? `Packing: ${a.fundo ?? ''} · Turno ${a.modulo ?? ''}` : `Líder de cosecha: ${a.lider_cosecha ?? ''}`}
-                    </p>
-                    <p className="text-sm font-medium text-neutral-900 mt-1">{a.area}</p>
 
-                    <div className="flex items-center gap-2 mt-3">
-                      <Button variant="secondary" onClick={() => setViendoDetalle(a)}>
-                        <Eye className="size-4" />
-                        Ver detalles
-                      </Button>
-                      {compromisoPendiente && (
-                        <Button onClick={() => setVerificando(a)}>
-                          <Clock className="size-4" />
-                          Verificar compromisos
-                        </Button>
-                      )}
-                      {puedeGestionar && (
-                        <>
-                          <Button variant="secondary" onClick={() => setEditando(a)} className="p-2.5 ml-auto" aria-label="Editar">
-                            <Pencil className="size-4" />
-                          </Button>
-                          <Button variant="danger" onClick={() => eliminar(a)} loading={eliminandoId === a.id} className="p-2.5" aria-label="Eliminar">
-                            <Trash2 className="size-4" />
-                          </Button>
-                        </>
-                      )}
-                    </div>
+                    <ul>
+                      {cadena.pasos.map((paso, i) => {
+                        const pendiente = paso.compromiso_generado && paso.estado !== 'CERRADO'
+                        return (
+                          <li key={paso.id} className="flex gap-3">
+                            <div className="flex flex-col items-center">
+                              <span className={cn('size-2.5 rounded-full shrink-0 mt-1.5', esFinal(paso) ? 'bg-brand' : 'bg-neutral-300')} />
+                              {i < cadena.pasos.length - 1 && <span className="w-px flex-1 bg-neutral-200" />}
+                            </div>
+                            <div className="flex-1 pb-4 min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="text-sm font-medium text-neutral-900">{paso.fecha}</span>
+                                <span className="text-xs text-neutral-500">{paso.caminata_origen_id ? 'Verificación de compromisos' : 'Caminata 360'}</span>
+                                <EstadoBadge estado={paso.estado} />
+                              </div>
+                              <p className="text-xs text-neutral-500 mt-0.5">{resumenPaso(paso)}</p>
+                              <div className="flex items-center gap-2 mt-2 flex-wrap">
+                                <Button variant="secondary" onClick={() => setViendoDetalle(paso)}>
+                                  <Eye className="size-4" />
+                                  Ver detalles
+                                </Button>
+                                {pendiente && (
+                                  <Button onClick={() => setVerificando(paso)}>
+                                    <Clock className="size-4" />
+                                    Verificar compromisos
+                                  </Button>
+                                )}
+                                {puedeGestionar && (
+                                  <>
+                                    <Button variant="secondary" onClick={() => setEditando(paso)} className="p-2.5" aria-label="Editar">
+                                      <Pencil className="size-4" />
+                                    </Button>
+                                    <Button
+                                      variant="danger"
+                                      onClick={() => eliminar(paso)}
+                                      loading={eliminandoId === paso.id}
+                                      className="p-2.5"
+                                      aria-label="Eliminar"
+                                    >
+                                      <Trash2 className="size-4" />
+                                    </Button>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </li>
+                        )
+                      })}
+                    </ul>
                   </div>
                 )
               })}
