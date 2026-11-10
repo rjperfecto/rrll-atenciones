@@ -33,3 +33,14 @@ if ('serviceWorker' in navigator) {
     window.location.reload()
   })
 }
+
+// Caso aparte del de arriba: entre que un deploy nuevo queda publicado y
+// que esta pestaña se entera (chequea sw.js cada 60s), si en el medio se
+// dispara un import() dinámico (ej. generarCartaVerificacion360 al
+// "Guardar verificación") el navegador pide un chunk con el hash viejo que
+// el deploy nuevo ya no sirve — "Failed to fetch dynamically imported
+// module". Vite dispara este evento en ese caso puntual: recargar basta,
+// la próxima carga ya pide los archivos correctos.
+window.addEventListener('vite:preloadError', () => {
+  window.location.reload()
+})
