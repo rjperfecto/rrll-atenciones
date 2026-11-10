@@ -73,28 +73,30 @@ export interface ResultadoGrupo {
 }
 
 // fechaDeseada (opcional): para Documento masivo, donde el usuario elige a
-// mano qué día del grupo quiere (no siempre "el más reciente"). Sin ella,
-// se comporta como antes.
+// mano qué día del grupo quiere (no siempre "el más reciente"), y para el
+// "Documento firmado" de RegistrarCaminata, que la pasa siempre. En los dos
+// casos se resuelve como "la fecha con datos más reciente, hasta esa fecha
+// inclusive" (nunca exige esa fecha exacta) — mismo criterio "más reciente
+// a esa fecha o antes" que buscarTrabajadorPorGrupo/buscarPorLegajo, para
+// que no quede desalineado con ellas: si no, cuando el TAREO del día exacto
+// todavía no se cargó, buscarTrabajadorPorGrupo encontraba el grupo (cae al
+// día anterior) pero esta función devolvía null, dejando a RegistrarCaminata
+// sin legajo del líder para firmar aunque la búsqueda de arriba hubiera
+// "funcionado".
 export async function buscarGrupoCompleto(grupo: string, fechaDeseada?: string): Promise<ResultadoGrupo | null> {
   const grupoLimpio = grupo.trim().toUpperCase()
   if (!grupoLimpio) return null
 
-  let fecha: string
-  if (fechaDeseada) {
-    fecha = fechaDeseada
-  } else {
-    // Última fecha con datos de este grupo (no más allá de hoy).
-    const { data: ultima } = await supabase
-      .from('trabajadores_historial')
-      .select('fecha')
-      .eq('grupo', grupoLimpio)
-      .lte('fecha', hoy())
-      .order('fecha', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-    if (!ultima) return null
-    fecha = (ultima as { fecha: string }).fecha
-  }
+  const { data: ultima } = await supabase
+    .from('trabajadores_historial')
+    .select('fecha')
+    .eq('grupo', grupoLimpio)
+    .lte('fecha', fechaDeseada || hoy())
+    .order('fecha', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (!ultima) return null
+  const fecha = (ultima as { fecha: string }).fecha
 
   // 2) Foto completa del grupo ese día.
   const { data: filas } = await supabase
