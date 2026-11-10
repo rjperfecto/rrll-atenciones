@@ -1,7 +1,7 @@
 import { PDFDocument, StandardFonts } from 'pdf-lib'
 import { fechaCorta } from './fechaLarga'
-import { textoFecha, textoDatos } from './plantillaTextos'
 import { dibujarBloqueFirma, type FirmaParaPdf } from './generarPdf'
+import { dibujarEncabezadoCarta } from './encabezadoCarta'
 import { MARGEN, TAMANO_BASE, TAMANO_TITULO, ALTURA_LINEA, ALTURA_LINEA_TITULO, crearCursor, saltarPaginaSiNoEntra, espacio, linea, parrafo, listaNumerada } from './pdfComposer'
 import { SIN_COMPROMISO } from '@/data/formulario360'
 import type { AlertaReportada360 } from '@/types'
@@ -20,7 +20,6 @@ export interface DatosCartaCompromisos360 {
   grupo: string
   fundo: string
   liderCosecha: string
-  celularLider: string | null
   alertas: AlertaReportada360[]
 }
 
@@ -40,17 +39,7 @@ export async function generarCartaCompromisos360(datos: DatosCartaCompromisos360
   const imagenFirma = await pdfDoc.embedPng(firma.png)
 
   const cursor = crearCursor(pdfDoc)
-
-  linea(pdfDoc, cursor, textoFecha(datos.fecha), fuenteNegrita, TAMANO_BASE, ALTURA_LINEA)
-  espacio(cursor, 6)
-  for (const l of textoDatos(firma.nombre, firma.dni ?? '', datos.celularLider || 'SIN REGISTRAR').split('\n')) {
-    linea(pdfDoc, cursor, l, fuenteNegrita, TAMANO_BASE, ALTURA_LINEA)
-  }
-  espacio(cursor, 14)
-  linea(pdfDoc, cursor, 'PRESENTE. -', fuenteNegrita, TAMANO_BASE, ALTURA_LINEA)
-  espacio(cursor, 14)
-  linea(pdfDoc, cursor, 'De nuestra consideración:', fuente, TAMANO_BASE, ALTURA_LINEA)
-  espacio(cursor, 14)
+  await dibujarEncabezadoCarta(pdfDoc, cursor, fuente, fuenteNegrita, { fecha: datos.fecha, nombre: firma.nombre, dni: firma.dni ?? '' })
 
   parrafo(
     pdfDoc,

@@ -1,6 +1,7 @@
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
 import { fechaCorta } from './fechaLarga'
 import { dibujarBloqueFirma, type FirmaParaPdf } from './generarPdf'
+import { dibujarEncabezadoCarta } from './encabezadoCarta'
 import {
   MARGEN,
   ANCHO_UTIL,
@@ -83,11 +84,11 @@ export async function generarCartaVerificacion360(
   const imagenFirmaTrabajador = await pdfDoc.embedPng(firmaTrabajador.png)
 
   const cursor = crearCursor(pdfDoc)
-
-  linea(pdfDoc, cursor, 'PRESENTE. -', fuenteNegrita, TAMANO_BASE, ALTURA_LINEA)
-  espacio(cursor, 14)
-  linea(pdfDoc, cursor, 'De nuestra consideración:', fuente, TAMANO_BASE, ALTURA_LINEA)
-  espacio(cursor, 14)
+  await dibujarEncabezadoCarta(pdfDoc, cursor, fuente, fuenteNegrita, {
+    fecha: datos.fechaRecepcion,
+    nombre: firmaTrabajador.nombre,
+    dni: firmaTrabajador.dni ?? '',
+  })
 
   parrafo(
     pdfDoc,

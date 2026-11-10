@@ -262,7 +262,6 @@ export function RegistrarCaminata() {
         grupo: grupo || '',
         fundo: fundo || '',
         liderCosecha: datosLider.nombre_completo,
-        celularLider: datosLider.telefono,
         alertas: alertasReportadas,
       },
       { png: firmaPng, nombre: datosLider.nombre_completo, dni },
