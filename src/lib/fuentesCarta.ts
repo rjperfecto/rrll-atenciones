@@ -21,7 +21,12 @@ export async function embeberFuentesCarta(pdfDoc: PDFDocument): Promise<FuentesC
   pdfDoc.registerFontkit(fontkit)
   if (!bytesRegularCache) bytesRegularCache = await (await fetch(fuenteRegularUrl)).arrayBuffer()
   if (!bytesNegritaCache) bytesNegritaCache = await (await fetch(fuenteNegritaUrl)).arrayBuffer()
-  const regular = await pdfDoc.embedFont(bytesRegularCache, { subset: true })
-  const negrita = await pdfDoc.embedFont(bytesNegritaCache, { subset: true })
+  // subset: false — con subset: true, pdf-lib arma mal el subconjunto de
+  // glifos de esta fuente (TrueType) y varias letras salen en blanco al
+  // renderizar (se ve bien en el texto copiable del PDF, mal en pantalla/al
+  // imprimir). Embeber la fuente completa pesa más (~250 KB cada una) pero
+  // se genera una sola vez por carta, no por carácter.
+  const regular = await pdfDoc.embedFont(bytesRegularCache, { subset: false })
+  const negrita = await pdfDoc.embedFont(bytesNegritaCache, { subset: false })
   return { regular, negrita }
 }
