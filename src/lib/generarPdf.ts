@@ -39,6 +39,13 @@ export function dibujarBloqueFirma(
   yLinea: number,
   ancho: number,
   altoDisponibleTrazo: number,
+  // Las cartas de 360 Laboral (sin el límite de un recuadro fijo de
+  // plantilla) piden un pie de firma más grande que el de por defecto, para
+  // que las dos firmas de cierre (trabajador/líder y supervisor RRLL, que
+  // puede caer en el texto sin imagen de abajo) se vean con el mismo
+  // tamaño de letra — ver cartaCompromisos360.ts/cartaVerificacion360.ts.
+  tamanoPie: number = TAMANO_PIE_FIRMA,
+  interlineaPie: number = INTERLINEA_PIE_FIRMA,
 ) {
   const escala = Math.min(ancho / imagenFirma.width, altoDisponibleTrazo / imagenFirma.height)
   const anchoTrazo = imagenFirma.width * escala
@@ -56,11 +63,11 @@ export function dibujarBloqueFirma(
     color: rgb(0, 0, 0),
   })
   const centrado = (texto: string, y: number) => {
-    const anchoTexto = fuente.widthOfTextAtSize(texto, TAMANO_PIE_FIRMA)
-    pagina.drawText(texto, { x: x + (ancho - anchoTexto) / 2, y, size: TAMANO_PIE_FIRMA, font: fuente, color: rgb(0, 0, 0) })
+    const anchoTexto = fuente.widthOfTextAtSize(texto, tamanoPie)
+    pagina.drawText(texto, { x: x + (ancho - anchoTexto) / 2, y, size: tamanoPie, font: fuente, color: rgb(0, 0, 0) })
   }
-  centrado(firma.nombre.toUpperCase(), yLinea - INTERLINEA_PIE_FIRMA)
-  if (firma.dni) centrado(`DNI: ${firma.dni}`, yLinea - INTERLINEA_PIE_FIRMA * 2)
+  centrado(firma.nombre.toUpperCase(), yLinea - interlineaPie)
+  if (firma.dni) centrado(`DNI: ${firma.dni}`, yLinea - interlineaPie * 2)
 }
 
 export async function generarPdfConDatos(

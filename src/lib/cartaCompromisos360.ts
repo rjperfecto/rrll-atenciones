@@ -122,22 +122,64 @@ export async function generarCartaCompromisos360(
   const ANCHO_FIRMA_LIDER = 180
   const ANCHO_FIRMA_SUP = 160
   const ALTO_TRAZO = 45
+  // Mismo tamaño de letra en las dos firmas de cierre, tenga o no imagen la
+  // del supervisor (ver dibujarBloqueFirma en generarPdf.ts): el de por
+  // defecto (pensado para el recuadro chico de una Plantilla PDF) se ve
+  // muy chico acá, donde no hay ese límite de espacio.
+  const TAMANO_PIE_CARTA = TAMANO_BASE
+  const INTERLINEA_PIE_CARTA = 13
   const xFirmaSup = ANCHO_PAGINA - MARGEN - ANCHO_FIRMA_SUP
-  saltarPaginaSiNoEntra(pdfDoc, cursor, ALTO_TRAZO + 40)
+  saltarPaginaSiNoEntra(pdfDoc, cursor, ALTO_TRAZO + 50)
   const yLineaFirmas = cursor.y - ALTO_TRAZO
-  dibujarBloqueFirma(cursor.pagina, fuenteNegrita, imagenFirmaLider, firmaLider, MARGEN, yLineaFirmas, ANCHO_FIRMA_LIDER, ALTO_TRAZO)
+  dibujarBloqueFirma(
+    cursor.pagina,
+    fuenteNegrita,
+    imagenFirmaLider,
+    firmaLider,
+    MARGEN,
+    yLineaFirmas,
+    ANCHO_FIRMA_LIDER,
+    ALTO_TRAZO,
+    TAMANO_PIE_CARTA,
+    INTERLINEA_PIE_CARTA,
+  )
   if (imagenFirmaSupervisor && firmaSupervisor) {
-    dibujarBloqueFirma(cursor.pagina, fuenteNegrita, imagenFirmaSupervisor, firmaSupervisor, xFirmaSup, yLineaFirmas, ANCHO_FIRMA_SUP, ALTO_TRAZO)
+    dibujarBloqueFirma(
+      cursor.pagina,
+      fuenteNegrita,
+      imagenFirmaSupervisor,
+      firmaSupervisor,
+      xFirmaSup,
+      yLineaFirmas,
+      ANCHO_FIRMA_SUP,
+      ALTO_TRAZO,
+      TAMANO_PIE_CARTA,
+      INTERLINEA_PIE_CARTA,
+    )
   } else {
+    // Sin firma guardada: mismo formato y tamaño de letra que el pie de la
+    // firma de al lado (centrado bajo la columna, nombre en negrita y
+    // debajo el área), solo que sin trazo ni línea porque no hay imagen.
     const textoNombre = datos.supervisorNombre.toUpperCase()
     const textoOrg = 'Relaciones Laborales — Hortifrut Perú S.A.C.'
-    const anchoNombre = fuenteNegrita.widthOfTextAtSize(textoNombre, TAMANO_BASE)
-    const anchoOrg = fuente.widthOfTextAtSize(textoOrg, TAMANO_BASE)
-    const yTexto = yLineaFirmas + ALTO_TRAZO / 2
-    cursor.pagina.drawText(textoNombre, { x: ANCHO_PAGINA - MARGEN - anchoNombre, y: yTexto, size: TAMANO_BASE, font: fuenteNegrita, color: rgb(0, 0, 0) })
-    cursor.pagina.drawText(textoOrg, { x: ANCHO_PAGINA - MARGEN - anchoOrg, y: yTexto - ALTURA_LINEA, size: TAMANO_BASE, font: fuente, color: rgb(0, 0, 0) })
+    const anchoNombre = fuenteNegrita.widthOfTextAtSize(textoNombre, TAMANO_PIE_CARTA)
+    const anchoOrg = fuente.widthOfTextAtSize(textoOrg, TAMANO_PIE_CARTA)
+    cursor.pagina.drawText(textoNombre, {
+      x: xFirmaSup + (ANCHO_FIRMA_SUP - anchoNombre) / 2,
+      y: yLineaFirmas - INTERLINEA_PIE_CARTA,
+      size: TAMANO_PIE_CARTA,
+      font: fuenteNegrita,
+      color: rgb(0, 0, 0),
+    })
+    cursor.pagina.drawText(textoOrg, {
+      x: xFirmaSup + (ANCHO_FIRMA_SUP - anchoOrg) / 2,
+      y: yLineaFirmas - INTERLINEA_PIE_CARTA * 2,
+      size: TAMANO_PIE_CARTA,
+      font: fuente,
+      color: rgb(0, 0, 0),
+    })
   }
-  cursor.y = yLineaFirmas - 24
+  cursor.y = yLineaFirmas - INTERLINEA_PIE_CARTA * 2 - 14
 
   return pdfDoc.save()
 }
