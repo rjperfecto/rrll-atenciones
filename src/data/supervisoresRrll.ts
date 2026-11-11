@@ -17,24 +17,36 @@ export function supRrllPorZona(zona: string): string | null {
   return ZONA_A_SUP_RRLL[zona] ?? null
 }
 
+function normalizarNombre(nombre: string): string {
+  return nombre.trim().replace(/\s+/g, ' ').toUpperCase()
+}
+
 // Para firmar las cartas de 360 Laboral (compromisos/verificación) con la
-// firma guardada del supervisor RRLL, hace falta su cuenta de la plataforma
-// (profiles.id), no solo el nombre fijo de arriba — se busca por rol
-// SUPERVISOR + zona_asignada (ver migración 0044, que habilita el select
-// para cualquier usuario autenticado, no solo el propio perfil o un admin).
+// firma guardada del supervisor RRLL, hace falta su cuenta de la
+// plataforma (profiles.id) — se busca por NOMBRE contra el mapeo fijo de
+// arriba (no por zona_asignada): la firma siempre tiene que corresponder a
+// quien el equipo de RRLL definió como supervisor de esa zona (GABRIELA
+// URQUIAGA en ZONA 1, etc.), sin depender de cómo esté configurada la zona
+// asignada de su cuenta, que puede usarse para otras cosas (alcance de
+// datos). Ver migración 0044, que habilita el select para cualquier
+// usuario autenticado, no solo el propio perfil o un admin.
 export async function buscarSupervisorRrllDeZona(zona: string): Promise<Profile | null> {
-  const { data } = await supabase.from('profiles').select('*').eq('rol', 'SUPERVISOR').eq('zona_asignada', zona).limit(1).maybeSingle()
-  return (data as Profile | null) ?? null
+  const nombreEsperado = supRrllPorZona(zona)
+  if (!nombreEsperado) return null
+  const { data } = await supabase.from('profiles').select('*').eq('rol', 'SUPERVISOR')
+  const perfiles = (data as Profile[] | null) ?? []
+  return perfiles.find((p) => normalizarNombre(p.nombre_completo) === normalizarNombre(nombreEsperado)) ?? null
 }
 
 // Nombre + firma (si tiene una guardada en Administración > Firmas de
 // personal) del supervisor RRLL de la zona, listos para las cartas de 360
-// Laboral. Si no hay ningún usuario de la plataforma asignado a esa zona
-// como SUPERVISOR todavía, cae al nombre fijo de arriba, sin firma (la
-// carta igual se genera, solo queda el nombre en texto).
+// Laboral. El nombre siempre es el del mapeo fijo de arriba; si todavía no
+// hay una cuenta de la plataforma con ese nombre y rol SUPERVISOR, o esa
+// cuenta no tiene firma guardada, la carta igual se genera, solo queda el
+// nombre en texto, sin firma.
 export async function obtenerFirmaSupervisorRrll(zona: string): Promise<{ firma: FirmaParaPdf | null; nombre: string }> {
+  const nombre = supRrllPorZona(zona) ?? ''
   const supervisor = await buscarSupervisorRrllDeZona(zona)
-  const nombre = supervisor?.nombre_completo ?? supRrllPorZona(zona) ?? ''
   if (!supervisor) return { firma: null, nombre }
   const firmaGuardada = await obtenerFirmaPersonal(supervisor.id)
   if (!firmaGuardada) return { firma: null, nombre }
