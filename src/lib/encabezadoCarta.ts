@@ -34,9 +34,18 @@ export async function dibujarEncabezadoCarta(
   fuenteNegrita: PDFFont,
   datos: DatosEncabezadoCarta,
 ): Promise<void> {
+  // Logo centrado horizontalmente en la página.
+  const imagenLogo = await pdfDoc.embedPng(await obtenerBytesLogo())
+  const anchoLogo = 72
+  const altoLogo = anchoLogo * (imagenLogo.height / imagenLogo.width)
+  const yLogo = cursor.y - altoLogo
+  cursor.pagina.drawImage(imagenLogo, { x: (ANCHO_PAGINA - anchoLogo) / 2, y: yLogo, width: anchoLogo, height: altoLogo })
+  cursor.y = yLogo - 10
+
   // "Chao, 26 de octubre de 2026" (no todo en mayúscula, a diferencia del
   // dato "fecha" de las Plantillas PDF — ver textoFecha en plantillaTextos.ts,
-  // que sigue en mayúscula para esos documentos), alineada arriba a la derecha.
+  // que sigue en mayúscula para esos documentos), alineada a la derecha,
+  // debajo del logo.
   const textoChao = `Chao, ${fechaLarga(datos.fecha)}`
   const anchoChao = fuenteNegrita.widthOfTextAtSize(textoChao, TAMANO_BASE)
   cursor.pagina.drawText(textoChao, {
@@ -47,15 +56,7 @@ export async function dibujarEncabezadoCarta(
     color: rgb(0, 0, 0),
   })
   cursor.y -= ALTURA_LINEA
-  espacio(cursor, 10)
-
-  // Logo centrado horizontalmente en la página.
-  const imagenLogo = await pdfDoc.embedPng(await obtenerBytesLogo())
-  const anchoLogo = 72
-  const altoLogo = anchoLogo * (imagenLogo.height / imagenLogo.width)
-  const yLogo = cursor.y - altoLogo
-  cursor.pagina.drawImage(imagenLogo, { x: (ANCHO_PAGINA - anchoLogo) / 2, y: yLogo, width: anchoLogo, height: altoLogo })
-  cursor.y = yLogo - 18
+  espacio(cursor, 18)
 
   linea(pdfDoc, cursor, `Señor(a): ${datos.nombre}`, fuenteNegrita, TAMANO_BASE, ALTURA_LINEA)
   linea(pdfDoc, cursor, `DNI: ${datos.dni}`, fuenteNegrita, TAMANO_BASE, ALTURA_LINEA)

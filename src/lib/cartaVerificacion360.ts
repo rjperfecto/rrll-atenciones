@@ -157,34 +157,33 @@ export async function generarCartaVerificacion360(
   )
   espacio(cursor, 20)
 
-  // Firma de cierre de la carta: el supervisor RRLL de la zona, abajo a la
-  // derecha — con trazo guardado si tiene firma cargada en Administración >
-  // Firmas de personal, o solo el nombre en texto si todavía no la tiene.
-  const ANCHO_FIRMA_SUP = 160
-  const ALTO_TRAZO_SUP = 40
-  const xFirmaSup = ANCHO_PAGINA - MARGEN - ANCHO_FIRMA_SUP
-  linea(pdfDoc, cursor, 'Atentamente,', fuente, TAMANO_BASE, ALTURA_LINEA, xFirmaSup)
+  // Firmas de cierre, una al lado de la otra y a la misma altura: el
+  // trabajador (firma en vivo) a la izquierda, el supervisor RRLL de la
+  // zona a la derecha — con trazo guardado si tiene firma cargada en
+  // Administración > Firmas de personal, o solo el nombre en texto si
+  // todavía no la tiene.
+  linea(pdfDoc, cursor, 'Atentamente,', fuente, TAMANO_BASE, ALTURA_LINEA)
   espacio(cursor, 4)
-  if (imagenFirmaSupervisor && firmaSupervisor) {
-    saltarPaginaSiNoEntra(pdfDoc, cursor, ALTO_TRAZO_SUP + 20)
-    const yLineaFirmaSup = cursor.y - ALTO_TRAZO_SUP
-    dibujarBloqueFirma(cursor.pagina, fuenteNegrita, imagenFirmaSupervisor, firmaSupervisor, xFirmaSup, yLineaFirmaSup, ANCHO_FIRMA_SUP, ALTO_TRAZO_SUP)
-    cursor.y = yLineaFirmaSup - 20
-  } else {
-    linea(pdfDoc, cursor, datos.supervisorNombre.toUpperCase(), fuenteNegrita, TAMANO_BASE, ALTURA_LINEA, xFirmaSup)
-    linea(pdfDoc, cursor, 'Relaciones Laborales — Hortifrut Perú S.A.C.', fuente, TAMANO_BASE, ALTURA_LINEA, xFirmaSup)
-  }
-  espacio(cursor, 24)
-
-  linea(pdfDoc, cursor, 'Tomé conocimiento del resultado de la verificación:', fuente, TAMANO_BASE, ALTURA_LINEA)
 
   const ANCHO_FIRMA_TRABAJADOR = 180
-  const ALTO_TRAZO_TRABAJADOR = 50
-  saltarPaginaSiNoEntra(pdfDoc, cursor, ALTO_TRAZO_TRABAJADOR + 44)
-  espacio(cursor, 20)
-  const yLineaFirmaTrabajador = cursor.y - ALTO_TRAZO_TRABAJADOR
-  dibujarBloqueFirma(cursor.pagina, fuenteNegrita, imagenFirmaTrabajador, firmaTrabajador, MARGEN, yLineaFirmaTrabajador, ANCHO_FIRMA_TRABAJADOR, ALTO_TRAZO_TRABAJADOR)
-  cursor.y = yLineaFirmaTrabajador - 22
+  const ANCHO_FIRMA_SUP = 160
+  const ALTO_TRAZO = 45
+  const xFirmaSup = ANCHO_PAGINA - MARGEN - ANCHO_FIRMA_SUP
+  saltarPaginaSiNoEntra(pdfDoc, cursor, ALTO_TRAZO + 40)
+  const yLineaFirmas = cursor.y - ALTO_TRAZO
+  dibujarBloqueFirma(cursor.pagina, fuenteNegrita, imagenFirmaTrabajador, firmaTrabajador, MARGEN, yLineaFirmas, ANCHO_FIRMA_TRABAJADOR, ALTO_TRAZO)
+  if (imagenFirmaSupervisor && firmaSupervisor) {
+    dibujarBloqueFirma(cursor.pagina, fuenteNegrita, imagenFirmaSupervisor, firmaSupervisor, xFirmaSup, yLineaFirmas, ANCHO_FIRMA_SUP, ALTO_TRAZO)
+  } else {
+    const textoNombre = datos.supervisorNombre.toUpperCase()
+    const textoOrg = 'Relaciones Laborales — Hortifrut Perú S.A.C.'
+    const anchoNombre = fuenteNegrita.widthOfTextAtSize(textoNombre, TAMANO_BASE)
+    const anchoOrg = fuente.widthOfTextAtSize(textoOrg, TAMANO_BASE)
+    const yTexto = yLineaFirmas + ALTO_TRAZO / 2
+    cursor.pagina.drawText(textoNombre, { x: ANCHO_PAGINA - MARGEN - anchoNombre, y: yTexto, size: TAMANO_BASE, font: fuenteNegrita, color: rgb(0, 0, 0) })
+    cursor.pagina.drawText(textoOrg, { x: ANCHO_PAGINA - MARGEN - anchoOrg, y: yTexto - ALTURA_LINEA, size: TAMANO_BASE, font: fuente, color: rgb(0, 0, 0) })
+  }
+  cursor.y = yLineaFirmas - 24
   linea(pdfDoc, cursor, `Fecha de recepción: ${fechaCorta(datos.fechaRecepcion)}`, fuente, TAMANO_BASE, ALTURA_LINEA)
 
   return pdfDoc.save()
