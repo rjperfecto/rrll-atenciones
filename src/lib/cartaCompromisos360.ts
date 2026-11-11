@@ -143,6 +143,20 @@ export async function generarCartaCompromisos360(
     TAMANO_PIE_CARTA,
     INTERLINEA_PIE_CARTA,
   )
+  // "Relaciones Laborales — Hortifrut Perú S.A.C." debajo del nombre del
+  // supervisor, con o sin firma guardada (antes solo salía en el caso sin
+  // firma) — mismo lugar que ocuparía el DNI en el bloque del líder, que acá
+  // queda libre porque un usuario de la plataforma no tiene DNI guardado.
+  const textoOrg = 'Relaciones Laborales — Hortifrut Perú S.A.C.'
+  const anchoOrg = fuente.widthOfTextAtSize(textoOrg, TAMANO_PIE_CARTA)
+  const dibujarOrg = () =>
+    cursor.pagina.drawText(textoOrg, {
+      x: xFirmaSup + (ANCHO_FIRMA_SUP - anchoOrg) / 2,
+      y: yLineaFirmas - INTERLINEA_PIE_CARTA * 2,
+      size: TAMANO_PIE_CARTA,
+      font: fuente,
+      color: rgb(0, 0, 0),
+    })
   if (imagenFirmaSupervisor && firmaSupervisor) {
     dibujarBloqueFirma(
       cursor.pagina,
@@ -156,14 +170,13 @@ export async function generarCartaCompromisos360(
       TAMANO_PIE_CARTA,
       INTERLINEA_PIE_CARTA,
     )
+    dibujarOrg()
   } else {
     // Sin firma guardada: mismo formato y tamaño de letra que el pie de la
     // firma de al lado (centrado bajo la columna, nombre en negrita y
     // debajo el área), solo que sin trazo ni línea porque no hay imagen.
     const textoNombre = datos.supervisorNombre.toUpperCase()
-    const textoOrg = 'Relaciones Laborales — Hortifrut Perú S.A.C.'
     const anchoNombre = fuenteNegrita.widthOfTextAtSize(textoNombre, TAMANO_PIE_CARTA)
-    const anchoOrg = fuente.widthOfTextAtSize(textoOrg, TAMANO_PIE_CARTA)
     cursor.pagina.drawText(textoNombre, {
       x: xFirmaSup + (ANCHO_FIRMA_SUP - anchoNombre) / 2,
       y: yLineaFirmas - INTERLINEA_PIE_CARTA,
@@ -171,13 +184,7 @@ export async function generarCartaCompromisos360(
       font: fuenteNegrita,
       color: rgb(0, 0, 0),
     })
-    cursor.pagina.drawText(textoOrg, {
-      x: xFirmaSup + (ANCHO_FIRMA_SUP - anchoOrg) / 2,
-      y: yLineaFirmas - INTERLINEA_PIE_CARTA * 2,
-      size: TAMANO_PIE_CARTA,
-      font: fuente,
-      color: rgb(0, 0, 0),
-    })
+    dibujarOrg()
   }
   cursor.y = yLineaFirmas - INTERLINEA_PIE_CARTA * 2 - 14
 
