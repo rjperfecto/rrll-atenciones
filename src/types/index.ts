@@ -146,8 +146,9 @@ export interface Atencion {
   alertas_360: string[] | null
   detalle_alerta: string | null
   // compromiso_generado = true cuando alguna alerta tiene un compromiso real
-  // del líder (no "NO SE GENERÓ COMPROMISO"): la caminata nace ABIERTA en
-  // vez de CERRADA, y queda pendiente en Compromisos hasta verificarla (ver
+  // (del líder o de RRLL, no "NO SE GENERÓ COMPROMISO"): la caminata nace
+  // ABIERTA en vez de CERRADA, y queda pendiente en Compromisos hasta
+  // verificarla (ver
   // VerificarCompromisosModal). fecha_fin_compromiso se usa como "nueva
   // fecha de verificación" cuando una ronda termina en seguimiento
   // adicional (sigue ABIERTO). detalle_compromiso es legado, de antes de

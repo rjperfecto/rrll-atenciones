@@ -302,19 +302,21 @@ export function RegistrarCaminata() {
     const zonaFinal = (profile.zona_asignada as Zona | null) ?? values.zona
     const now = new Date().toISOString()
 
-    // Si al menos una alerta tiene un compromiso real del líder (no
-    // SIN_COMPROMISO), queda pendiente de verificación: nace ABIERTA en vez
-    // de CERRADA, con compromiso_generado=true para aparecer en Compromisos
-    // (ver contarCompromisosPendientes) hasta que se verifique (ver
-    // VerificarCompromisosModal).
-    const hayCompromisoLider = values.alertasReportadas.some((a) => a.accion && a.accion !== SIN_COMPROMISO)
+    // Si al menos una alerta tiene un compromiso real (del líder o de
+    // RRLL, no SIN_COMPROMISO), queda pendiente de verificación: nace
+    // ABIERTA en vez de CERRADA, con compromiso_generado=true para
+    // aparecer en Compromisos (ver contarCompromisosPendientes) hasta que
+    // se verifique (ver VerificarCompromisosModal).
+    const hayCompromisoReal = values.alertasReportadas.some(
+      (a) => (a.accion && a.accion !== SIN_COMPROMISO) || (a.accion_rrll && a.accion_rrll !== SIN_COMPROMISO),
+    )
 
     const atencion: Atencion = {
       id: crypto.randomUUID(),
       client_uuid: crypto.randomUUID(),
       tipo_registro: '360 LABORAL',
       fecha: values.fecha,
-      fecha_cierre: hayCompromisoLider ? null : values.fecha,
+      fecha_cierre: hayCompromisoReal ? null : values.fecha,
       zona: zonaFinal,
       fundo: values.fundo,
       modulo: esPacking ? values.modulo || null : moduloDesdeFundo(values.fundo),
@@ -327,7 +329,7 @@ export function RegistrarCaminata() {
       gravedad: values.nivelConflictividad,
       comentarios: values.observaciones,
       involucrados: [],
-      estado: hayCompromisoLider ? 'ABIERTO' : 'CERRADO',
+      estado: hayCompromisoReal ? 'ABIERTO' : 'CERRADO',
       accion_correctiva: null,
       dias_suspension: null,
       detalle_cierre: null,
@@ -350,7 +352,7 @@ export function RegistrarCaminata() {
       // seguimiento adicional). evidencia_360 queda null: la sección
       // "Evidencia" se eliminó del formulario por no usarse.
       detalle_alerta: null,
-      compromiso_generado: hayCompromisoLider,
+      compromiso_generado: hayCompromisoReal,
       detalle_compromiso: null,
       fecha_fin_compromiso: null,
       evidencia_360: null,

@@ -71,8 +71,9 @@ function agruparEnCadenas(atenciones: Atencion[]): CadenaCompromiso[] {
 
 function resumenPaso(a: Atencion): string {
   if (!a.caminata_origen_id) {
-    const compromisos = a.alertas_reportadas.filter((al) => al.accion && al.accion !== SIN_COMPROMISO).length
-    return `${a.alertas_reportadas.length} alerta${a.alertas_reportadas.length === 1 ? '' : 's'}, ${compromisos} compromiso${compromisos === 1 ? '' : 's'} del líder`
+    const compromisosLider = a.alertas_reportadas.filter((al) => al.accion && al.accion !== SIN_COMPROMISO).length
+    const compromisosRrll = a.alertas_reportadas.filter((al) => al.accion_rrll && al.accion_rrll !== SIN_COMPROMISO).length
+    return `${a.alertas_reportadas.length} alerta${a.alertas_reportadas.length === 1 ? '' : 's'}, ${compromisosLider} compromiso${compromisosLider === 1 ? '' : 's'} del líder, ${compromisosRrll} de RRLL`
   }
   const estados = a.alertas_reportadas
     .flatMap((al) => [al.verificacion_lider, al.verificacion_rrll])
