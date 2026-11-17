@@ -4,6 +4,7 @@ import { obtenerAtencion, crearAtencion, editarAtencion } from '@/lib/atenciones
 import { buscarGrupoCompleto, type LiderGrupo } from '@/lib/busquedaApi'
 import { subirDocumentoFirmado } from '@/lib/documentosFirmadosApi'
 import { supRrllPorZona, obtenerFirmaSupervisorRrll } from '@/data/supervisoresRrll'
+import { obtenerTextosCarta } from '@/lib/textosCartasApi'
 import { dniDesdeLegajo } from '@/data/legajo'
 import {
   SIN_COMPROMISO,
@@ -138,6 +139,7 @@ export function VerificarCompromisosModal({ atencion, onClose }: { atencion: Ate
       // personal): si no tiene una guardada, la carta solo imprime su
       // nombre, no bloquea.
       const { firma: firmaSupervisor, nombre: supervisorNombre } = await obtenerFirmaSupervisorRrll(raiz.zona)
+      const textos = await obtenerTextosCarta('VERIFICACION')
 
       // pdf-lib se importa dinámicamente, ver mismo comentario en
       // RegistrarCaminata.tsx (CompromisosList tampoco es lazy).
@@ -158,6 +160,7 @@ export function VerificarCompromisosModal({ atencion, onClose }: { atencion: Ate
         },
         firmaSupervisor,
         { png: firmaPng, nombre: lider.nombre_completo, dni },
+        textos,
       )
 
       const now = new Date().toISOString()

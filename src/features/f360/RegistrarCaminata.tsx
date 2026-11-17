@@ -26,6 +26,7 @@ import { ZONAS } from '@/data/zonasFundos'
 import type { Zona } from '@/data/zonasFundos'
 import { PACKING_FUNDOS, TURNOS_360, TIPOS_ATENCION_360, SIN_COMPROMISO } from '@/data/formulario360'
 import { supRrllPorZona, obtenerFirmaSupervisorRrll } from '@/data/supervisoresRrll'
+import { obtenerTextosCarta } from '@/lib/textosCartasApi'
 import { moduloDesdeFundo } from '@/lib/modulo'
 import { zonaDesdeFundo } from '@/lib/zonaFundo'
 import { buscarTrabajadorPorGrupo } from '@/lib/trabajadoresApi'
@@ -258,6 +259,7 @@ export function RegistrarCaminata() {
     const dni = dniDesdeLegajo(datosLider.legajo)
     const zonaFinal = (profile?.zona_asignada as Zona | null) ?? zona ?? ''
     const { firma: firmaSupervisor, nombre: supervisorNombre } = await obtenerFirmaSupervisorRrll(zonaFinal)
+    const textos = await obtenerTextosCarta('COMPROMISOS')
     return generarCartaCompromisos360(
       {
         fecha: fechaDoc,
@@ -269,6 +271,7 @@ export function RegistrarCaminata() {
       },
       { png: firmaPng, nombre: datosLider.nombre_completo, dni },
       firmaSupervisor,
+      textos,
     )
   }
 

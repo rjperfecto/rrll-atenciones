@@ -43,6 +43,7 @@ import { ImportarConflictividad } from '@/features/admin/ImportarConflictividad'
 import { PersonalPorZona } from '@/features/admin/PersonalPorZona'
 import { CrearUsuario } from '@/features/admin/CrearUsuario'
 import { FirmasPersonal } from '@/features/admin/FirmasPersonal'
+import { TextosCartas360 } from '@/features/admin/TextosCartas360'
 import { contarPendientes } from '@/lib/atencionesApi'
 import { cn } from '@/lib/cn'
 
@@ -231,6 +232,10 @@ function AppLayout() {
               <PenLine className="size-4" />
               Firmas de personal
             </NavLink>
+            <NavLink to="/admin/textos-cartas-360" className={navClass} onClick={cerrarMenu}>
+              <FileText className="size-4" />
+              Textos de cartas 360
+            </NavLink>
           </GrupoNav>
         </>
       )}
@@ -411,6 +416,10 @@ function AppLayout() {
             <Route
               path="/admin/firmas-personal"
               element={profile.rol === 'ADMIN' ? <FirmasPersonal /> : <Navigate to="/" />}
+            />
+            <Route
+              path="/admin/textos-cartas-360"
+              element={profile.rol === 'ADMIN' ? <TextosCartas360 /> : <Navigate to="/" />}
             />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>

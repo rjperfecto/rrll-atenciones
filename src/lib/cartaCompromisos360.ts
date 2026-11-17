@@ -5,6 +5,7 @@ import { dibujarEncabezadoCarta } from './encabezadoCarta'
 import { embeberFuentesCarta } from './fuentesCarta'
 import { ANCHO_PAGINA, MARGEN, TAMANO_BASE, TAMANO_TITULO, ALTURA_LINEA, ALTURA_LINEA_TITULO, crearCursor, saltarPaginaSiNoEntra, espacio, linea, parrafo, listaNumerada } from './pdfComposer'
 import { SIN_COMPROMISO } from '@/data/formulario360'
+import { CAMPOS_CARTA_COMPROMISOS, aplicarPlaceholders } from '@/data/textosCartas360'
 import type { AlertaReportada360 } from '@/types'
 
 // Carta de compromisos de la caminata 360 Laboral (reemplaza, para 360
@@ -30,6 +31,10 @@ function lineaCompromiso(texto: string, fechaVerificacion: string): string {
   return fechaVerificacion ? `${texto} — Fecha de verificación: ${fechaCorta(fechaVerificacion)}` : texto
 }
 
+function resolverCampo(id: string, overrides: Record<string, string>): string {
+  return overrides[id] ?? CAMPOS_CARTA_COMPROMISOS.find((c) => c.id === id)?.defaultTexto ?? ''
+}
+
 export async function generarCartaCompromisos360(
   datos: DatosCartaCompromisos360,
   firmaLider: FirmaParaPdf,
@@ -37,7 +42,12 @@ export async function generarCartaCompromisos360(
   // RRLL de la zona — null si ese usuario todavía no tiene una guardada, en
   // cuyo caso se imprime solo el nombre.
   firmaSupervisor: FirmaParaPdf | null,
+  // Textos personalizados desde Administración > Textos de cartas 360 (ver
+  // textosCartasApi.ts) — un campo sin override acá usa el texto por
+  // defecto de CAMPOS_CARTA_COMPROMISOS.
+  textosPersonalizados: Record<string, string> = {},
 ): Promise<Uint8Array> {
+  const t = (id: string) => resolverCampo(id, textosPersonalizados)
   const pdfDoc = await PDFDocument.create()
   const { regular: fuente, negrita: fuenteNegrita } = await embeberFuentesCarta(pdfDoc)
   const imagenFirmaLider = await pdfDoc.embedPng(firmaLider.png)
@@ -49,16 +59,21 @@ export async function generarCartaCompromisos360(
   parrafo(
     pdfDoc,
     cursor,
-    `Por medio de la presente nos dirigimos a usted en el marco del programa Caminata Laboral 360° realizada el ${fechaCorta(datos.fecha)} al grupo ${datos.grupo}, del área ${datos.fundo}, a cargo del líder/supervisor ${datos.liderCosecha}, con el fin de dejar constancia de lo conversado y de los compromisos asumidos.`,
+    aplicarPlaceholders(t('intro'), {
+      fecha: fechaCorta(datos.fecha),
+      grupo: datos.grupo,
+      fundo: datos.fundo,
+      liderCosecha: datos.liderCosecha,
+    }),
     fuente,
     TAMANO_BASE,
     ALTURA_LINEA,
   )
   espacio(cursor, 14)
 
-  linea(pdfDoc, cursor, 'Alertas encontradas', fuenteNegrita, TAMANO_TITULO, ALTURA_LINEA_TITULO)
+  linea(pdfDoc, cursor, t('tituloAlertas'), fuenteNegrita, TAMANO_TITULO, ALTURA_LINEA_TITULO)
   espacio(cursor, 2)
-  parrafo(pdfDoc, cursor, 'Durante la visita se identificaron los siguientes aspectos:', fuente, TAMANO_BASE, ALTURA_LINEA)
+  parrafo(pdfDoc, cursor, t('introAlertas'), fuente, TAMANO_BASE, ALTURA_LINEA)
   espacio(cursor, 4)
   listaNumerada(
     pdfDoc,
@@ -69,9 +84,9 @@ export async function generarCartaCompromisos360(
   )
   espacio(cursor, 14)
 
-  linea(pdfDoc, cursor, 'Compromisos asumidos del líder', fuenteNegrita, TAMANO_TITULO, ALTURA_LINEA_TITULO)
+  linea(pdfDoc, cursor, t('tituloCompromisosLider'), fuenteNegrita, TAMANO_TITULO, ALTURA_LINEA_TITULO)
   espacio(cursor, 2)
-  parrafo(pdfDoc, cursor, 'A partir de lo anterior, usted se compromete de manera voluntaria a lo siguiente:', fuente, TAMANO_BASE, ALTURA_LINEA)
+  parrafo(pdfDoc, cursor, t('introCompromisosLider'), fuente, TAMANO_BASE, ALTURA_LINEA)
   espacio(cursor, 4)
   listaNumerada(
     pdfDoc,
@@ -82,7 +97,7 @@ export async function generarCartaCompromisos360(
   )
   espacio(cursor, 14)
 
-  linea(pdfDoc, cursor, 'Compromisos asumidos por RRL', fuenteNegrita, TAMANO_TITULO, ALTURA_LINEA_TITULO)
+  linea(pdfDoc, cursor, t('tituloCompromisosRrll'), fuenteNegrita, TAMANO_TITULO, ALTURA_LINEA_TITULO)
   espacio(cursor, 4)
   listaNumerada(
     pdfDoc,
@@ -93,23 +108,9 @@ export async function generarCartaCompromisos360(
   )
   espacio(cursor, 14)
 
-  parrafo(
-    pdfDoc,
-    cursor,
-    'Asimismo, le informamos que la Caminata Laboral 360° es un programa permanente de presencia preventiva de Relaciones Laborales en campo, orientado a fortalecer la cercanía con los trabajadores, atender sus consultas, identificar oportunamente alertas y promover un ambiente de trabajo basado en el respeto, la comunicación y la confianza.',
-    fuente,
-    TAMANO_BASE,
-    ALTURA_LINEA,
-  )
+  parrafo(pdfDoc, cursor, t('cierre1'), fuente, TAMANO_BASE, ALTURA_LINEA)
   espacio(cursor, 8)
-  parrafo(
-    pdfDoc,
-    cursor,
-    'La información recogida durante la visita se utiliza exclusivamente con fines preventivos y de mejora organizacional, se trata de forma confidencial y no genera ninguna forma de represalia o discriminación.',
-    fuente,
-    TAMANO_BASE,
-    ALTURA_LINEA,
-  )
+  parrafo(pdfDoc, cursor, t('cierre2'), fuente, TAMANO_BASE, ALTURA_LINEA)
   espacio(cursor, 20)
 
   // Firmas de cierre, una al lado de la otra y a la misma altura: el líder

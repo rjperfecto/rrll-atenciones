@@ -20,6 +20,7 @@ import {
   type Cursor,
 } from './pdfComposer'
 import { ETIQUETA_ESTADO_VERIFICACION, type EstadoVerificacionCompromiso, type ResultadoVerificacion } from '@/data/formulario360'
+import { CAMPOS_CARTA_VERIFICACION, aplicarPlaceholders } from '@/data/textosCartas360'
 import type { AlertaReportada360 } from '@/types'
 import type { PDFFont } from 'pdf-lib'
 
@@ -74,6 +75,10 @@ function listaVerificacion(
   })
 }
 
+function resolverCampo(id: string, overrides: Record<string, string>): string {
+  return overrides[id] ?? CAMPOS_CARTA_VERIFICACION.find((c) => c.id === id)?.defaultTexto ?? ''
+}
+
 export async function generarCartaVerificacion360(
   datos: DatosCartaVerificacion360,
   // Firma guardada (Administración > Firmas de personal) del supervisor
@@ -81,7 +86,12 @@ export async function generarCartaVerificacion360(
   // cuyo caso se imprime solo el nombre.
   firmaSupervisor: FirmaParaPdf | null,
   firmaTrabajador: FirmaParaPdf,
+  // Textos personalizados desde Administración > Textos de cartas 360 (ver
+  // textosCartasApi.ts) — un campo sin override acá usa el texto por
+  // defecto de CAMPOS_CARTA_VERIFICACION.
+  textosPersonalizados: Record<string, string> = {},
 ): Promise<Uint8Array> {
+  const t = (id: string) => resolverCampo(id, textosPersonalizados)
   const pdfDoc = await PDFDocument.create()
   const { regular: fuente, negrita: fuenteNegrita } = await embeberFuentesCarta(pdfDoc)
   const imagenFirmaSupervisor = firmaSupervisor ? await pdfDoc.embedPng(firmaSupervisor.png) : null
@@ -97,23 +107,29 @@ export async function generarCartaVerificacion360(
   parrafo(
     pdfDoc,
     cursor,
-    `Por medio de la presente, en el marco del programa Caminata Laboral 360°, Relaciones Laborales deja constancia de la verificación de los compromisos asumidos por usted en la carta de fecha ${fechaCorta(datos.fechaCartaAnterior)}, emitida tras la visita realizada el ${fechaCorta(datos.fechaVisita)} al grupo ${datos.grupo}, del área ${datos.fundo}, a cargo del líder/supervisor ${datos.liderCosecha}.`,
+    aplicarPlaceholders(t('intro'), {
+      fechaCartaAnterior: fechaCorta(datos.fechaCartaAnterior),
+      fechaVisita: fechaCorta(datos.fechaVisita),
+      grupo: datos.grupo,
+      fundo: datos.fundo,
+      liderCosecha: datos.liderCosecha,
+    }),
     fuente,
     TAMANO_BASE,
     ALTURA_LINEA,
   )
   espacio(cursor, 14)
 
-  linea(pdfDoc, cursor, 'Resultado de la verificación', fuenteNegrita, TAMANO_TITULO, ALTURA_LINEA_TITULO)
+  linea(pdfDoc, cursor, t('tituloResultado'), fuenteNegrita, TAMANO_TITULO, ALTURA_LINEA_TITULO)
   espacio(cursor, 2)
-  parrafo(pdfDoc, cursor, 'En la fecha indicada se verificó el estado de cada compromiso, con el siguiente resultado:', fuente, TAMANO_BASE, ALTURA_LINEA)
+  parrafo(pdfDoc, cursor, t('introResultado'), fuente, TAMANO_BASE, ALTURA_LINEA)
   espacio(cursor, 6)
 
   const compromisosLider = datos.alertas
     .filter((a) => a.verificacion_lider)
     .map((a) => ({ texto: a.accion, estado: a.verificacion_lider as EstadoVerificacionCompromiso, detalle: a.verificacion_lider_detalle ?? '' }))
   if (compromisosLider.length > 0) {
-    linea(pdfDoc, cursor, 'Compromisos del líder', fuenteNegrita, TAMANO_BASE, ALTURA_LINEA)
+    linea(pdfDoc, cursor, t('tituloCompromisosLider'), fuenteNegrita, TAMANO_BASE, ALTURA_LINEA)
     espacio(cursor, 2)
     listaVerificacion(pdfDoc, cursor, compromisosLider, fuente, fuenteNegrita)
     espacio(cursor, 10)
@@ -123,38 +139,31 @@ export async function generarCartaVerificacion360(
     .filter((a) => a.verificacion_rrll)
     .map((a) => ({ texto: a.accion_rrll, estado: a.verificacion_rrll as EstadoVerificacionCompromiso, detalle: a.verificacion_rrll_detalle ?? '' }))
   if (compromisosRrll.length > 0) {
-    linea(pdfDoc, cursor, 'Compromisos de RRLL', fuenteNegrita, TAMANO_BASE, ALTURA_LINEA)
+    linea(pdfDoc, cursor, t('tituloCompromisosRrll'), fuenteNegrita, TAMANO_BASE, ALTURA_LINEA)
     espacio(cursor, 2)
     listaVerificacion(pdfDoc, cursor, compromisosRrll, fuente, fuenteNegrita)
     espacio(cursor, 10)
   }
 
-  linea(pdfDoc, cursor, 'Observaciones', fuenteNegrita, TAMANO_BASE, ALTURA_LINEA)
+  linea(pdfDoc, cursor, t('tituloObservaciones'), fuenteNegrita, TAMANO_BASE, ALTURA_LINEA)
   parrafo(pdfDoc, cursor, datos.observaciones || 'Ninguna.', fuente, TAMANO_BASE, ALTURA_LINEA)
   espacio(cursor, 14)
 
-  linea(pdfDoc, cursor, 'Resultado general', fuenteNegrita, TAMANO_TITULO, ALTURA_LINEA_TITULO)
+  linea(pdfDoc, cursor, t('tituloResultadoGeneral'), fuenteNegrita, TAMANO_TITULO, ALTURA_LINEA_TITULO)
   espacio(cursor, 2)
   parrafo(
     pdfDoc,
     cursor,
     datos.resultado === 'CIERRE_EFECTIVO'
-      ? 'Cierre efectivo: los compromisos fueron cumplidos y se da por cerrado el seguimiento.'
-      : `Seguimiento adicional: se mantiene en seguimiento. Nueva fecha de verificación: ${fechaCorta(datos.nuevaFechaVerificacion ?? '')}.`,
+      ? t('resultadoCierreEfectivo')
+      : aplicarPlaceholders(t('resultadoSeguimientoAdicional'), { nuevaFechaVerificacion: fechaCorta(datos.nuevaFechaVerificacion ?? '') }),
     fuente,
     TAMANO_BASE,
     ALTURA_LINEA,
   )
   espacio(cursor, 14)
 
-  parrafo(
-    pdfDoc,
-    cursor,
-    'Le recordamos que, según el protocolo del programa, Relaciones Laborales da seguimiento a los compromisos hasta verificar su cierre efectivo con la evidencia correspondiente. Agradecemos su disposición y colaboración.',
-    fuente,
-    TAMANO_BASE,
-    ALTURA_LINEA,
-  )
+  parrafo(pdfDoc, cursor, t('cierre'), fuente, TAMANO_BASE, ALTURA_LINEA)
   espacio(cursor, 20)
 
   // Firmas de cierre, una al lado de la otra y a la misma altura: el
