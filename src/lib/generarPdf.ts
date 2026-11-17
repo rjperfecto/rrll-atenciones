@@ -134,6 +134,10 @@ export function descargarPdf(bytes: Uint8Array, nombreArchivo: string) {
   descargarArchivo(bytes, nombreArchivo, 'application/pdf')
 }
 
+export function descargarDocx(bytes: Uint8Array, nombreArchivo: string) {
+  descargarArchivo(bytes, nombreArchivo, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+}
+
 // Documento masivo: un PDF por trabajador, pero una sola descarga — se
 // empaquetan todos en un .zip en vez de disparar N descargas sueltas (varios
 // navegadores bloquean o advierten ante muchas descargas automáticas

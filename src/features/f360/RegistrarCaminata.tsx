@@ -32,7 +32,7 @@ import { zonaDesdeFundo } from '@/lib/zonaFundo'
 import { buscarTrabajadorPorGrupo } from '@/lib/trabajadoresApi'
 import { buscarGrupoCompleto, type LiderGrupo } from '@/lib/busquedaApi'
 import { crearAtencion, editarAtencion } from '@/lib/atencionesApi'
-import { subirDocumentoFirmado } from '@/lib/documentosFirmadosApi'
+import { subirDocumentoFirmado, subirDocumentoFirmadoDocx } from '@/lib/documentosFirmadosApi'
 import { compartirDocumentoFirmado } from '@/lib/compartirWhatsapp'
 import { dniDesdeLegajo } from '@/data/legajo'
 import { useAuth } from '@/features/auth/AuthContext'
@@ -245,43 +245,48 @@ export function RegistrarCaminata() {
     setFormKey((k) => k + 1)
   }
 
-  // Compartido entre el guardado del caso (sube el PDF a Storage) y
-  // "Compartir por WhatsApp" (lo manda directo al share nativo del
-  // celular, sin pasar por Storage): arma la carta de compromisos a partir
-  // de los datos de la caminata + datos del líder + firma ya capturada.
-  async function generarDocumentoFirmado(fechaDoc: string): Promise<Uint8Array | null> {
+  // Compartido entre el guardado del caso (sube PDF + Word a Storage) y
+  // "Compartir por WhatsApp" (manda el PDF directo al share nativo del
+  // celular, sin pasar por Storage): arma la carta de compromisos (PDF y
+  // Word) a partir de los datos de la caminata + datos del líder + firma ya
+  // capturada.
+  async function generarDocumentosFirmados(fechaDoc: string): Promise<{ pdf: Uint8Array; docx: Uint8Array } | null> {
     if (!firmaPng || !datosLider?.legajo) return null
-    // pdf-lib pesa ~2MB minificado: se importa dinámicamente para no
-    // meterlo en el chunk principal (RegistrarCaminata no es lazy, ver
-    // comentario de pdf-lib/pdfjs en App.tsx) solo por esta generación
+    // pdf-lib y docx pesan varios MB minificados: se importan dinámicamente
+    // para no meterlos en el chunk principal (RegistrarCaminata no es lazy,
+    // ver comentario de pdf-lib/pdfjs en App.tsx) solo por esta generación
     // puntual, que además la mayoría de caminatas no usa.
-    const { generarCartaCompromisos360 } = await import('@/lib/cartaCompromisos360')
+    const [{ generarCartaCompromisos360 }, { generarCartaCompromisos360Docx }] = await Promise.all([
+      import('@/lib/cartaCompromisos360'),
+      import('@/lib/cartaCompromisos360Docx'),
+    ])
     const dni = dniDesdeLegajo(datosLider.legajo)
     const zonaFinal = (profile?.zona_asignada as Zona | null) ?? zona ?? ''
     const { firma: firmaSupervisor, nombre: supervisorNombre } = await obtenerFirmaSupervisorRrll(zonaFinal)
     const textos = await obtenerTextosCarta('COMPROMISOS')
-    return generarCartaCompromisos360(
-      {
-        fecha: fechaDoc,
-        grupo: grupo || '',
-        fundo: fundo || '',
-        liderCosecha: datosLider.nombre_completo,
-        supervisorNombre,
-        alertas: alertasReportadas,
-      },
-      { png: firmaPng, nombre: datosLider.nombre_completo, dni },
-      firmaSupervisor,
-      textos,
-    )
+    const datosCarta = {
+      fecha: fechaDoc,
+      grupo: grupo || '',
+      fundo: fundo || '',
+      liderCosecha: datosLider.nombre_completo,
+      supervisorNombre,
+      alertas: alertasReportadas,
+    }
+    const firmaLider = { png: firmaPng, nombre: datosLider.nombre_completo, dni }
+    const [pdf, docx] = await Promise.all([
+      generarCartaCompromisos360(datosCarta, firmaLider, firmaSupervisor, textos),
+      generarCartaCompromisos360Docx(datosCarta, firmaLider, firmaSupervisor, textos),
+    ])
+    return { pdf, docx }
   }
 
   async function compartirPorWhatsapp() {
     setErrorCompartir(null)
     setCompartiendo(true)
     try {
-      const pdfBytes = await generarDocumentoFirmado(fecha || hoy())
-      if (!pdfBytes) throw new Error('No se pudo generar el documento. Revisa que haya alertas cargadas y que hayas firmado.')
-      await compartirDocumentoFirmado(pdfBytes, datosLider?.nombre_completo ?? null)
+      const documentos = await generarDocumentosFirmados(fecha || hoy())
+      if (!documentos) throw new Error('No se pudo generar el documento. Revisa que haya alertas cargadas y que hayas firmado.')
+      await compartirDocumentoFirmado(documentos.pdf, datosLider?.nombre_completo ?? null)
     } catch (err) {
       // AbortError: el usuario cerró el selector sin elegir nada, no es un error real.
       if (err instanceof Error && err.name === 'AbortError') return
@@ -364,6 +369,7 @@ export function RegistrarCaminata() {
       // sube y se completa con un update recién después de crear el caso
       // (necesita el id ya generado para nombrar el archivo).
       documento_firmado_path: null,
+      documento_firmado_docx_path: null,
       // Caminata original (no una ronda de verificación), ver migración 0043.
       caminata_origen_id: null,
       created_at: now,
@@ -383,10 +389,15 @@ export function RegistrarCaminata() {
     // guardada, solo no queda el PDF adjunto.
     if (firmaPng && datosLider) {
       try {
-        const pdfBytes = await generarDocumentoFirmado(values.fecha)
-        if (pdfBytes) {
-          const { path } = await subirDocumentoFirmado(atencion.id, pdfBytes)
-          if (path) await editarAtencion(atencion.id, { documento_firmado_path: path })
+        const documentos = await generarDocumentosFirmados(values.fecha)
+        if (documentos) {
+          const [{ path: pathPdf }, { path: pathDocx }] = await Promise.all([
+            subirDocumentoFirmado(atencion.id, documentos.pdf),
+            subirDocumentoFirmadoDocx(atencion.id, documentos.docx),
+          ])
+          if (pathPdf || pathDocx) {
+            await editarAtencion(atencion.id, { documento_firmado_path: pathPdf, documento_firmado_docx_path: pathDocx })
+          }
         }
       } catch {
         // Ver comentario arriba: falla en silencio, no afecta el registro.

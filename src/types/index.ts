@@ -169,6 +169,11 @@ export interface Atencion {
   // migración 0039 y RegistrarCaminata.tsx/VerificarCompromisosModal): ruta
   // dentro del bucket privado "documentos-firmados", null si no se firmó nada.
   documento_firmado_path: string | null
+  // Versión en Word del mismo documento (ver cartaCompromisos360Docx.ts /
+  // cartaVerificacion360Docx.ts y migración 0047), misma ruta/bucket que
+  // documento_firmado_path con extensión .docx — null tanto si no se firmó
+  // nada como si el registro es de antes de este campo.
+  documento_firmado_docx_path: string | null
   // Si no es null, este registro es una RONDA DE VERIFICACIÓN de
   // compromisos (no una caminata original): apunta siempre a la caminata
   // 360 LABORAL raíz de la cadena (nunca a otra ronda intermedia), para

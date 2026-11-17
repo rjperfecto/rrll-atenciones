@@ -13,7 +13,9 @@ import { MARGEN, ANCHO_PAGINA, TAMANO_BASE, ALTURA_LINEA, saltarPaginaSiNoEntra,
 // El logo no cambia entre cartas: se pide una sola vez por sesión, no en
 // cada PDF que se genera.
 let bytesLogoCache: Uint8Array | null = null
-async function obtenerBytesLogo(): Promise<Uint8Array> {
+// Exportado: también lo usan las versiones en Word de las cartas (ver
+// cartaDocxComun.ts), que no pasan por pdf-lib.
+export async function obtenerBytesLogo(): Promise<Uint8Array> {
   if (!bytesLogoCache) {
     const respuesta = await fetch(logoUrl)
     bytesLogoCache = new Uint8Array(await respuesta.arrayBuffer())

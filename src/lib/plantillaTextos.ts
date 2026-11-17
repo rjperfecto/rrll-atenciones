@@ -26,6 +26,6 @@ export const MENSAJE_WHATSAPP_DOCUMENTO_FIRMADO =
 
 // Nombre de archivo del documento firmado (descarga y compartir), mismo
 // formato en los dos lugares desde donde sale.
-export function nombreArchivoFirmado(nombreLider: string | null): string {
-  return `360LABORAL_${(nombreLider || 'SIN LIDER').toUpperCase()}.pdf`
+export function nombreArchivoFirmado(nombreLider: string | null, extension: 'pdf' | 'docx' = 'pdf'): string {
+  return `360LABORAL_${(nombreLider || 'SIN LIDER').toUpperCase()}.${extension}`
 }

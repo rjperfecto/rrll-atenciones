@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { AlertCircle, CheckCircle2, PenLine } from 'lucide-react'
 import { obtenerAtencion, crearAtencion, editarAtencion } from '@/lib/atencionesApi'
 import { buscarGrupoCompleto, type LiderGrupo } from '@/lib/busquedaApi'
-import { subirDocumentoFirmado } from '@/lib/documentosFirmadosApi'
+import { subirDocumentoFirmado, subirDocumentoFirmadoDocx } from '@/lib/documentosFirmadosApi'
 import { supRrllPorZona, obtenerFirmaSupervisorRrll } from '@/data/supervisoresRrll'
 import { obtenerTextosCarta } from '@/lib/textosCartasApi'
 import { dniDesdeLegajo } from '@/data/legajo'
@@ -141,27 +141,30 @@ export function VerificarCompromisosModal({ atencion, onClose }: { atencion: Ate
       const { firma: firmaSupervisor, nombre: supervisorNombre } = await obtenerFirmaSupervisorRrll(raiz.zona)
       const textos = await obtenerTextosCarta('VERIFICACION')
 
-      // pdf-lib se importa dinámicamente, ver mismo comentario en
+      // pdf-lib y docx se importan dinámicamente, ver mismo comentario en
       // RegistrarCaminata.tsx (CompromisosList tampoco es lazy).
-      const { generarCartaVerificacion360 } = await import('@/lib/cartaVerificacion360')
-      const pdfBytes = await generarCartaVerificacion360(
-        {
-          fechaCartaAnterior: atencion.fecha,
-          fechaVisita: raiz.fecha,
-          grupo: raiz.grupo ?? '',
-          fundo: raiz.fundo ?? '',
-          liderCosecha: raiz.lider_cosecha ?? '',
-          alertas: alertasConVerificacion,
-          observaciones,
-          resultado,
-          nuevaFechaVerificacion: resultado === 'SEGUIMIENTO_ADICIONAL' ? nuevaFecha : null,
-          supervisorNombre,
-          fechaRecepcion: fecha,
-        },
-        firmaSupervisor,
-        { png: firmaPng, nombre: lider.nombre_completo, dni },
-        textos,
-      )
+      const [{ generarCartaVerificacion360 }, { generarCartaVerificacion360Docx }] = await Promise.all([
+        import('@/lib/cartaVerificacion360'),
+        import('@/lib/cartaVerificacion360Docx'),
+      ])
+      const datosCarta = {
+        fechaCartaAnterior: atencion.fecha,
+        fechaVisita: raiz.fecha,
+        grupo: raiz.grupo ?? '',
+        fundo: raiz.fundo ?? '',
+        liderCosecha: raiz.lider_cosecha ?? '',
+        alertas: alertasConVerificacion,
+        observaciones,
+        resultado,
+        nuevaFechaVerificacion: resultado === 'SEGUIMIENTO_ADICIONAL' ? nuevaFecha : null,
+        supervisorNombre,
+        fechaRecepcion: fecha,
+      }
+      const firmaTrabajador = { png: firmaPng, nombre: lider.nombre_completo, dni }
+      const [pdfBytes, docxBytes] = await Promise.all([
+        generarCartaVerificacion360(datosCarta, firmaSupervisor, firmaTrabajador, textos),
+        generarCartaVerificacion360Docx(datosCarta, firmaSupervisor, firmaTrabajador, textos),
+      ])
 
       const now = new Date().toISOString()
       const nuevaRonda: Atencion = {
@@ -207,6 +210,7 @@ export function VerificarCompromisosModal({ atencion, onClose }: { atencion: Ate
         evidencia_360: null,
         resultado_compromiso: resultado === 'CIERRE_EFECTIVO' ? 'CIERRE EFECTIVO' : 'SEGUIMIENTO ADICIONAL',
         documento_firmado_path: null,
+        documento_firmado_docx_path: null,
         caminata_origen_id: raiz.id,
         created_at: now,
         updated_at: now,
@@ -215,8 +219,11 @@ export function VerificarCompromisosModal({ atencion, onClose }: { atencion: Ate
       const { error: errCrear } = await crearAtencion(nuevaRonda)
       if (errCrear) throw new Error(errCrear)
 
-      const { path } = await subirDocumentoFirmado(nuevaRonda.id, pdfBytes)
-      if (path) await editarAtencion(nuevaRonda.id, { documento_firmado_path: path })
+      const [{ path: pathPdf }, { path: pathDocx }] = await Promise.all([
+        subirDocumentoFirmado(nuevaRonda.id, pdfBytes),
+        subirDocumentoFirmadoDocx(nuevaRonda.id, docxBytes),
+      ])
+      if (pathPdf || pathDocx) await editarAtencion(nuevaRonda.id, { documento_firmado_path: pathPdf, documento_firmado_docx_path: pathDocx })
 
       // La ronda/caminata que se acaba de verificar queda cerrada: su
       // seguimiento ya se hizo, lo pendiente (si queda algo) vive ahora en

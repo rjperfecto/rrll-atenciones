@@ -3,7 +3,7 @@ import { AlertCircle, Download, Loader2, Share2 } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { GravedadBadge, EstadoBadge } from '@/components/ui/Badge'
-import { descargarDocumentoFirmado } from '@/lib/documentosFirmadosApi'
+import { descargarDocumentoFirmado, descargarDocumentoFirmadoDocx } from '@/lib/documentosFirmadosApi'
 import { compartirDocumentoFirmado } from '@/lib/compartirWhatsapp'
 import { nombreArchivoFirmado } from '@/lib/plantillaTextos'
 import { fechaCorta } from '@/lib/fechaLarga'
@@ -73,8 +73,9 @@ function Dato({ label, value }: { label: string; value?: string | number | null 
   )
 }
 
-function DescargarDocumentoFirmado({ path, nombreLider }: { path: string; nombreLider: string | null }) {
+function DescargarDocumentoFirmado({ path, pathDocx, nombreLider }: { path: string; pathDocx: string | null; nombreLider: string | null }) {
   const [descargando, setDescargando] = useState(false)
+  const [descargandoDocx, setDescargandoDocx] = useState(false)
   const [compartiendo, setCompartiendo] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -92,6 +93,20 @@ function DescargarDocumentoFirmado({ path, nombreLider }: { path: string; nombre
     // documento firmado, no vale la pena cargarlo siempre.
     const { descargarPdf } = await import('@/lib/generarPdf')
     descargarPdf(new Uint8Array(bytes), nombreArchivoFirmado(nombreLider))
+  }
+
+  async function descargarWord() {
+    if (!pathDocx) return
+    setError(null)
+    setDescargandoDocx(true)
+    const { bytes, error: err } = await descargarDocumentoFirmadoDocx(pathDocx)
+    setDescargandoDocx(false)
+    if (err || !bytes) {
+      setError(err ?? 'No se pudo descargar el documento.')
+      return
+    }
+    const { descargarDocx } = await import('@/lib/generarPdf')
+    descargarDocx(new Uint8Array(bytes), nombreArchivoFirmado(nombreLider, 'docx'))
   }
 
   async function compartir() {
@@ -113,8 +128,14 @@ function DescargarDocumentoFirmado({ path, nombreLider }: { path: string; nombre
     <div className="mt-4 pt-4 border-t border-neutral-200 flex flex-wrap gap-2">
       <Button type="button" variant="secondary" onClick={descargar} loading={descargando}>
         {descargando ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
-        Descargar documento firmado
+        Descargar PDF
       </Button>
+      {pathDocx && (
+        <Button type="button" variant="secondary" onClick={descargarWord} loading={descargandoDocx}>
+          {descargandoDocx ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
+          Descargar Word
+        </Button>
+      )}
       <Button type="button" variant="secondary" onClick={compartir} loading={compartiendo}>
         {compartiendo ? <Loader2 className="size-4 animate-spin" /> : <Share2 className="size-4" />}
         Compartir por WhatsApp
@@ -204,7 +225,11 @@ export function DetalleAtencionModal({ atencion, onClose }: { atencion: Atencion
       ) : null}
 
       {atencion.tipo_registro === '360 LABORAL' && atencion.documento_firmado_path && (
-        <DescargarDocumentoFirmado path={atencion.documento_firmado_path} nombreLider={atencion.lider_cosecha} />
+        <DescargarDocumentoFirmado
+          path={atencion.documento_firmado_path}
+          pathDocx={atencion.documento_firmado_docx_path}
+          nombreLider={atencion.lider_cosecha}
+        />
       )}
 
       {atencion.tipo_registro === '360 LABORAL' && (atencion.compromiso_generado || atencion.caminata_origen_id) && (
