@@ -9,10 +9,17 @@ export async function listarGrupoFundoActual(): Promise<Map<string, string | nul
   return mapa
 }
 
-export async function listarCaminatasPorGrupo(): Promise<Map<string, number>> {
+export interface CaminatasGrupo {
+  caminatas: number
+  ultimaFecha: string | null // YYYY-MM-DD, null si "caminatas" es 0
+}
+
+export async function listarCaminatasPorGrupo(): Promise<Map<string, CaminatasGrupo>> {
   const { data } = await supabase.from('v_caminatas_por_grupo').select('*')
-  const mapa = new Map<string, number>()
-  for (const r of (data as { grupo: string; caminatas: number }[]) ?? []) mapa.set(r.grupo, r.caminatas)
+  const mapa = new Map<string, CaminatasGrupo>()
+  for (const r of (data as { grupo: string; caminatas: number; ultima_fecha: string | null }[]) ?? []) {
+    mapa.set(r.grupo, { caminatas: r.caminatas, ultimaFecha: r.ultima_fecha })
+  }
   return mapa
 }
 

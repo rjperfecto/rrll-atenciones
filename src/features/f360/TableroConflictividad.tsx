@@ -3,12 +3,13 @@ import { AlertCircle, Loader2 } from 'lucide-react'
 import { listarConflictividad, type ConflictividadGrupo } from '@/lib/conflictividadApi'
 import { listarGrupoFundoActual, listarCaminatasPorGrupo, listarCantidadPersonasPorGrupo } from '@/lib/tableroConflictividadApi'
 import { zonaDesdeFundo } from '@/lib/zonaFundo'
+import { fechaCorta } from '@/lib/fechaLarga'
 import { CardSection, Card } from '@/components/ui/Card'
 import { GRAVEDAD_COLORES } from '@/components/ui/Badge'
 
 const ZONAS_TABLERO = ['ZONA 1', 'ZONA 2', 'ZONA 3'] as const
 
-type FilaTablero = ConflictividadGrupo & { fundo: string | null; caminatas: number; personas: number }
+type FilaTablero = ConflictividadGrupo & { fundo: string | null; caminatas: number; ultimaFecha: string | null; personas: number }
 
 // Solo informativo (no se programa nada acá, ver ProximasCaminatas arriba):
 // un grupo por fila. La zona de cada grupo se deriva de su fundo más
@@ -39,7 +40,8 @@ export function TableroConflictividad() {
         conflictividad.map((c) => ({
           ...c,
           fundo: fundoPorGrupo.get(c.grupo) ?? null,
-          caminatas: caminatasPorGrupo.get(c.grupo) ?? 0,
+          caminatas: caminatasPorGrupo.get(c.grupo)?.caminatas ?? 0,
+          ultimaFecha: caminatasPorGrupo.get(c.grupo)?.ultimaFecha ?? null,
           personas: personasPorGrupo.get(c.grupo) ?? 0,
         })),
       )
@@ -108,6 +110,7 @@ export function TableroConflictividad() {
                   <div className="text-xs text-neutral-500 shrink-0 text-right">
                     <p>
                       {f.caminatas} caminata{f.caminatas === 1 ? '' : 's'}
+                      {f.ultimaFecha && ` · última: ${fechaCorta(f.ultimaFecha)}`}
                     </p>
                     <p className="text-neutral-400">{f.fundo ?? '—'}</p>
                   </div>
