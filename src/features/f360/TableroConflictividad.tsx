@@ -15,9 +15,10 @@ type FilaTablero = ConflictividadGrupo & { fundo: string | null; caminatas: numb
 // un grupo por fila. La zona de cada grupo se deriva de su fundo más
 // reciente en TAREO (v_grupo_fundo_actual) — un grupo sin fila de TAREO
 // todavía, o en Packing/CAE/Oficina, no entra en ninguna de las 3 columnas.
-// Orden: primero los grupos sin ninguna caminata hecha (0), y entre esos (y
-// el resto) por conflictividad de mayor a menor — así se ve primero a quién
-// no se le ha hecho nada, priorizado por qué tan crítico es.
+// Orden: 1) número de caminatas (menos primero: a quién no se le ha hecho
+// nada, o casi nada, se prioriza), 2) conflictividad (mayor primero), 3)
+// fecha de la última caminata (más antigua/nunca primero, el más atrasado
+// entre los que empatan en los dos criterios anteriores).
 export function TableroConflictividad() {
   const [filas, setFilas] = useState<FilaTablero[] | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -62,10 +63,10 @@ export function TableroConflictividad() {
     }
     for (const lista of mapa.values()) {
       lista.sort((a, b) => {
-        const aSinCaminatas = a.caminatas === 0 ? 0 : 1
-        const bSinCaminatas = b.caminatas === 0 ? 0 : 1
-        if (aSinCaminatas !== bSinCaminatas) return aSinCaminatas - bSinCaminatas
-        return b.valor - a.valor
+        if (a.caminatas !== b.caminatas) return a.caminatas - b.caminatas
+        if (b.valor !== a.valor) return b.valor - a.valor
+        // Nunca (null) antes que cualquier fecha real.
+        return (a.ultimaFecha ?? '').localeCompare(b.ultimaFecha ?? '')
       })
     }
     return mapa
@@ -107,13 +108,9 @@ export function TableroConflictividad() {
                   <p className="text-sm font-medium text-neutral-800 truncate flex-1">
                     {f.grupo} ({f.personas} persona{f.personas === 1 ? '' : 's'})
                   </p>
-                  <div className="text-xs text-neutral-500 shrink-0 text-right">
-                    <p>
-                      {f.caminatas} caminata{f.caminatas === 1 ? '' : 's'}
-                      {f.ultimaFecha && ` · última: ${fechaCorta(f.ultimaFecha)}`}
-                    </p>
-                    <p className="text-neutral-400">{f.fundo ?? '—'}</p>
-                  </div>
+                  <p className="text-xs text-neutral-500 shrink-0 whitespace-nowrap">
+                    {String(f.caminatas).padStart(2, '0')} caminatas{f.ultimaFecha && ` - ${fechaCorta(f.ultimaFecha)}`}
+                  </p>
                 </li>
               ))}
             </ul>
