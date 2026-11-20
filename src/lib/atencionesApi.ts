@@ -157,6 +157,23 @@ export async function listarCadenaCompromiso(raizId: string): Promise<Atencion[]
   return (data as Atencion[]) ?? []
 }
 
+// Última vez que se le hizo una caminata 360 Laboral a un grupo (la
+// caminata original o cualquiera de sus rondas de verificación — las dos
+// son una visita real al grupo, ver migración 0043) — usado en "Próximas
+// caminatas" para mostrar al lado de cada grupo programado cuándo fue la
+// última vez que se lo visitó. null si nunca se le hizo una.
+export async function obtenerUltimaCaminataPorGrupo(grupo: string): Promise<string | null> {
+  const { data } = await supabase
+    .from('atenciones')
+    .select('fecha')
+    .eq('tipo_registro', '360 LABORAL')
+    .eq('grupo', grupo)
+    .order('fecha', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  return (data as { fecha: string } | null)?.fecha ?? null
+}
+
 // Alcance automático de "Registrar caminata": cuenta legajos distintos
 // cuyo registro de TAREO más reciente (<= la fecha del caso) tiene ese
 // grupo (ver función SQL contar_trabajadores_grupo, migración 0015).

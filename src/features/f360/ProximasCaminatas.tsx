@@ -4,8 +4,10 @@ import { AlertCircle, CalendarPlus, CheckCircle2, Plus, Trash2 } from 'lucide-re
 import { listarCaminatasProgramadas, programarCaminata, eliminarCaminataProgramada } from '@/lib/caminatasProgramadasApi'
 import { buscarGrupoCompleto, type ResultadoGrupo } from '@/lib/busquedaApi'
 import { listarConflictividad, type ConflictividadGrupo } from '@/lib/conflictividadApi'
+import { obtenerUltimaCaminataPorGrupo } from '@/lib/atencionesApi'
 import { zonaDesdeFundo } from '@/lib/zonaFundo'
 import { supRrllPorZona } from '@/data/supervisoresRrll'
+import { fechaCorta } from '@/lib/fechaLarga'
 import { useAuth } from '@/features/auth/AuthContext'
 import { CardSection } from '@/components/ui/Card'
 import { Field } from '@/components/ui/Field'
@@ -35,6 +37,10 @@ export function ProximasCaminatas() {
   const [procesandoId, setProcesandoId] = useState<string | null>(null)
   const [info, setInfo] = useState<Record<string, ResultadoGrupo | null>>({})
   const [conflictividad, setConflictividad] = useState<Map<string, ConflictividadGrupo>>(new Map())
+  // Última vez que se visitó cada grupo (null si nunca se le hizo una
+  // caminata): a diferencia de `info`, se busca una sola vez por grupo, no
+  // por grupo+fecha — no depende de la fecha programada.
+  const [ultimaCaminata, setUltimaCaminata] = useState<Record<string, string | null>>({})
 
   const cargar = useCallback(async () => {
     const { data, error: err } = await listarCaminatasProgramadas()
@@ -59,6 +65,22 @@ export function ProximasCaminatas() {
         if (clave in info) continue
         const r = await buscarGrupoCompleto(p.grupo, p.fecha)
         if (!cancelado) setInfo((prev) => ({ ...prev, [clave]: r }))
+      }
+    })()
+    return () => {
+      cancelado = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [programadas])
+
+  useEffect(() => {
+    if (!programadas) return
+    let cancelado = false
+    void (async () => {
+      for (const grupo of new Set(programadas.map((p) => p.grupo))) {
+        if (grupo in ultimaCaminata) continue
+        const fecha = await obtenerUltimaCaminataPorGrupo(grupo)
+        if (!cancelado) setUltimaCaminata((prev) => ({ ...prev, [grupo]: fecha }))
       }
     })()
     return () => {
@@ -156,6 +178,7 @@ export function ProximasCaminatas() {
                 <th className="px-3 py-2 font-semibold whitespace-nowrap">RESPONSABLE</th>
                 <th className="px-3 py-2 font-semibold whitespace-nowrap">FUNDO</th>
                 <th className="px-3 py-2 font-semibold whitespace-nowrap">GRUPO</th>
+                <th className="px-3 py-2 font-semibold whitespace-nowrap">ÚLTIMA CAMINATA</th>
                 <th className="px-3 py-2 font-semibold whitespace-nowrap">LÍDER</th>
                 <th className="px-3 py-2 font-semibold whitespace-nowrap">CONFLICTIVIDAD</th>
                 <th className="px-3 py-2 font-semibold whitespace-nowrap"></th>
@@ -179,6 +202,9 @@ export function ProximasCaminatas() {
                     <td className="px-3 py-2 whitespace-nowrap">{cargandoFila ? '…' : (responsable ?? '—')}</td>
                     <td className="px-3 py-2 whitespace-nowrap">{cargandoFila ? '…' : (fundo ?? '—')}</td>
                     <td className="px-3 py-2 whitespace-nowrap font-medium">{p.grupo}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">
+                      {p.grupo in ultimaCaminata ? (ultimaCaminata[p.grupo] ? fechaCorta(ultimaCaminata[p.grupo]!) : 'Nunca') : '…'}
+                    </td>
                     <td className="px-3 py-2">{cargandoFila ? '…' : (r?.lider?.nombre_completo ?? '—')}</td>
                     <td className="px-3 py-2 whitespace-nowrap">
                       {nivelConflictividad ? <GravedadBadge gravedad={nivelConflictividad} /> : '—'}
